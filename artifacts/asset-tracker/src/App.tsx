@@ -1,0 +1,50 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/toaster';
+import { Route, Switch, Router as WouterRouter } from 'wouter';
+import NotFound from '@/pages/not-found';
+
+import Dashboard from './pages/dashboard';
+import SbuList from './pages/sbus/list';
+import AssetList from './pages/assets/list';
+import NewAsset from './pages/assets/new';
+import AssetDetail from './pages/assets/detail';
+import LocationList from './pages/locations/list';
+import MovementList from './pages/movements/list';
+import GatePassList from './pages/gate-passes/list';
+import RfidSimulator from './pages/rfid-simulator';
+import Insights from './pages/insights';
+import BcSync from './pages/bc-sync';
+
+const queryClient = new QueryClient();
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Dashboard} />
+      <Route path="/sbus" component={SbuList} />
+      <Route path="/assets" component={AssetList} />
+      <Route path="/assets/new" component={NewAsset} />
+      <Route path="/assets/:id" component={AssetDetail} />
+      <Route path="/locations" component={LocationList} />
+      <Route path="/movements" component={MovementList} />
+      <Route path="/gate-passes" component={GatePassList} />
+      <Route path="/rfid-simulator" component={RfidSimulator} />
+      <Route path="/insights" component={Insights} />
+      <Route path="/bc-sync" component={BcSync} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+        <Router />
+      </WouterRouter>
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+
+export default App;

@@ -1,0 +1,71 @@
+import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
+import { Activity, Box, Building2, Database, HardDrive, LayoutDashboard, MapPin, Radio, ShieldAlert } from "lucide-react";
+import { ReactNode } from "react";
+
+interface LayoutProps {
+  children: ReactNode;
+}
+
+export function Layout({ children }: LayoutProps) {
+  const [location] = useLocation();
+
+  const navigation = [
+    { name: "Dashboard",       href: "/",              icon: LayoutDashboard },
+    { name: "SBUs",            href: "/sbus",          icon: Building2 },
+    { name: "Assets",          href: "/assets",        icon: Box },
+    { name: "Locations",       href: "/locations",     icon: MapPin },
+    { name: "Movements",       href: "/movements",     icon: Activity },
+    { name: "Gate Passes",     href: "/gate-passes",   icon: ShieldAlert },
+    { name: "RFID Simulator",  href: "/rfid-simulator",icon: Radio },
+    { name: "AI Insights",     href: "/insights",      icon: Database },
+    { name: "BC Sync",         href: "/bc-sync",       icon: HardDrive },
+  ];
+
+  return (
+    <div className="flex min-h-[100dvh] w-full bg-background text-foreground flex-col md:flex-row">
+      {/* Sidebar */}
+      <aside className="w-full md:w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col flex-shrink-0">
+        <div className="p-4 md:p-6 border-b border-sidebar-border">
+          <Link href="/" className="flex items-center gap-3 cursor-pointer">
+            <div className="w-9 h-9 rounded bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground flex-shrink-0">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div className="leading-tight">
+              <div className="font-bold text-base tracking-tight">TSL AssetIQ</div>
+              <div className="text-[10px] text-sidebar-foreground/50 font-medium tracking-widest uppercase">TSL Limited</div>
+            </div>
+          </Link>
+        </div>
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+          {navigation.map((item) => {
+            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            return (
+              <Link key={item.name} href={item.href} className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
+                isActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}>
+                <item.icon className="w-4 h-4 flex-shrink-0" />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-4 border-t border-sidebar-border text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
+          TSL GROUP — ASSET MGMT v2
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="max-w-7xl mx-auto w-full">
+            {children}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

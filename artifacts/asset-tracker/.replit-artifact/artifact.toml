@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "AssetIQ — Intelligent Asset Tracker"
+version = "1.0.0"
+id = "artifacts/asset-tracker"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22952
+
+[services.development]
+run = "pnpm --filter @workspace/asset-tracker run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/asset-tracker", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/asset-tracker/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22952"
+BASE_PATH = "/"
