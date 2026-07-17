@@ -61,7 +61,6 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold tracking-tight">Operations Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-0.5">TSL Limited Group — Real-time asset intelligence</p>
           </div>
-          <Badge variant="outline" className="font-mono bg-green-500/10 text-green-600 border-green-500/20">LIVE DATA</Badge>
         </div>
 
         {/* Critical insights banner */}

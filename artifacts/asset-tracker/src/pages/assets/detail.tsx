@@ -1,12 +1,29 @@
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useGetAsset, useGetAssetHistory, getGetAssetQueryKey, getGetAssetHistoryQueryKey } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  useGetAsset, useGetAssetHistory, useUpdateAsset, useCreateAssetLifecycleEvent,
+  getGetAssetQueryKey, getGetAssetHistoryQueryKey,
+} from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Activity, MapPin, HardDrive, History, User, Radio, ArrowRight,
-  UserCheck, CornerDownLeft, Wrench, CheckCircle, ArrowRightLeft, MessageSquare, Building2,
+  UserCheck, CornerDownLeft, Wrench, CheckCircle, ArrowRightLeft, MessageSquare,
+  Building2, Trash2, UserPlus,
 } from "lucide-react";
 
 function SbuBadge({ code, name, color }: { code: string; name?: string | null; color?: string }) {
@@ -25,8 +42,8 @@ function SbuBadge({ code, name, color }: { code: string; name?: string | null; c
 function HistoryDot({ color }: { color: string }) {
   return (
     <span
-      className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 flex-shrink-0"
-      style={{ backgroundColor: "white", borderColor: color }}
+      className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 bg-background flex-shrink-0"
+      style={{ borderColor: color }}
     />
   );
 }
@@ -60,7 +77,6 @@ function HistoryEvent({ event }: { event: any }) {
     );
   }
 
-  // Lifecycle events
   const et = event.eventType;
 
   if (et === "deployment") {
@@ -197,12 +213,103 @@ function HistoryEvent({ event }: { event: any }) {
 export default function AssetDetail() {
   const { id } = useParams();
   const assetId = Number(id);
-  const { data: asset, isLoading: loadingAsset } = useGetAsset(assetId, { query: { enabled: !!assetId, queryKey: getGetAssetQueryKey(assetId) } });
-  const { data: history, isLoading: loadingHistory } = useGetAssetHistory(assetId, { query: { enabled: !!assetId, queryKey: getGetAssetHistoryQueryKey(assetId) } });
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: asset, isLoading: loadingAsset } = useGetAsset(assetId, {
+    query: { enabled: !!assetId, queryKey: getGetAssetQueryKey(assetId) },
+  });
+  const { data: history, isLoading: loadingHistory } = useGetAssetHistory(assetId, {
+    query: { enabled: !!assetId, queryKey: getGetAssetHistoryQueryKey(assetId) },
+  });
+
+  const updateAsset = useUpdateAsset();
+  const createLifecycle = useCreateAssetLifecycleEvent();
+
+  // Assign dialog state
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [employeeName, setEmployeeName] = useState("");
+  const [performedBy, setPerformedBy] = useState("");
+  const [assignNotes, setAssignNotes] = useState("");
+
+  // Dispose dialog state
+  const [disposeOpen, setDisposeOpen] = useState(false);
+  const [disposeBy, setDisposeBy] = useState("");
+  const [disposeReason, setDisposeReason] = useState("");
+
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: getGetAssetQueryKey(assetId) });
+    qc.invalidateQueries({ queryKey: getGetAssetHistoryQueryKey(assetId) });
+  }
+
+  function handleAssign() {
+    if (!employeeName.trim() || !performedBy.trim()) return;
+    updateAsset.mutate(
+      { id: assetId, data: { assignedTo: employeeName.trim(), status: "active" } },
+      {
+        onSuccess: () => {
+          createLifecycle.mutate(
+            {
+              id: assetId,
+              data: {
+                eventType: "deployment",
+                performedBy: performedBy.trim(),
+                assignedTo: employeeName.trim(),
+                notes: assignNotes.trim() || undefined,
+              },
+            },
+            {
+              onSuccess: () => {
+                toast({ title: "Asset assigned", description: `Assigned to ${employeeName.trim()}.` });
+                setAssignOpen(false);
+                setEmployeeName("");
+                setPerformedBy("");
+                setAssignNotes("");
+                invalidate();
+              },
+            }
+          );
+        },
+        onError: () => toast({ title: "Assignment failed", variant: "destructive" }),
+      }
+    );
+  }
+
+  function handleDispose() {
+    if (!disposeBy.trim()) return;
+    updateAsset.mutate(
+      { id: assetId, data: { status: "retired", assignedTo: null } },
+      {
+        onSuccess: () => {
+          createLifecycle.mutate(
+            {
+              id: assetId,
+              data: {
+                eventType: "note",
+                performedBy: disposeBy.trim(),
+                notes: `Asset disposed.${disposeReason.trim() ? ` Reason: ${disposeReason.trim()}` : ""}`,
+              },
+            },
+            {
+              onSuccess: () => {
+                toast({ title: "Asset disposed", description: "Status set to Retired." });
+                setDisposeOpen(false);
+                setDisposeBy("");
+                setDisposeReason("");
+                invalidate();
+              },
+            }
+          );
+        },
+        onError: () => toast({ title: "Disposal failed", variant: "destructive" }),
+      }
+    );
+  }
 
   if (loadingAsset) return <Layout><div className="animate-pulse h-64 bg-muted rounded-lg" /></Layout>;
   if (!asset) return <Layout><p className="text-muted-foreground">Asset not found.</p></Layout>;
 
+  const isRetired = asset.status === "retired";
   const statusColor = { active: "default", missing: "destructive", maintenance: "secondary", retired: "outline" }[asset.status] as any;
 
   return (
@@ -216,14 +323,36 @@ export default function AssetDetail() {
               <span className="text-muted-foreground text-sm flex items-center gap-1">
                 <HardDrive className="w-4 h-4" />{asset.category}
               </span>
-              {asset.sbuCode && (
-                <SbuBadge code={asset.sbuCode} name={asset.sbuName} />
+              {(asset as any).sbuCode && (
+                <SbuBadge code={(asset as any).sbuCode} name={(asset as any).sbuName} />
               )}
             </div>
           </div>
-          <Badge variant={statusColor} className="text-sm flex-shrink-0">
-            {asset.status.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Badge variant={statusColor} className="text-sm">{asset.status.toUpperCase()}</Badge>
+            {!isRetired && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setAssignOpen(true)}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Assign
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => setDisposeOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Dispose
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -254,16 +383,16 @@ export default function AssetDetail() {
                       {asset.assignedTo || <span className="italic text-muted-foreground">Unassigned</span>}
                     </dd>
                   </div>
-                  {asset.purchaseDate && (
+                  {(asset as any).purchaseDate && (
                     <div>
                       <dt className="text-muted-foreground font-medium">Purchase Date</dt>
-                      <dd className="font-mono mt-1">{asset.purchaseDate as string}</dd>
+                      <dd className="font-mono mt-1">{(asset as any).purchaseDate as string}</dd>
                     </div>
                   )}
-                  {asset.notes && (
+                  {(asset as any).notes && (
                     <div className="sm:col-span-2">
                       <dt className="text-muted-foreground font-medium">Notes</dt>
-                      <dd className="mt-1 text-sm">{asset.notes}</dd>
+                      <dd className="mt-1 text-sm">{(asset as any).notes}</dd>
                     </div>
                   )}
                 </dl>
@@ -284,7 +413,7 @@ export default function AssetDetail() {
               <CardContent>
                 {loadingHistory ? (
                   <div className="animate-pulse space-y-4">
-                    {[1,2,3].map(i => <div key={i} className="h-12 bg-muted rounded" />)}
+                    {[1, 2, 3].map(i => <div key={i} className="h-12 bg-muted rounded" />)}
                   </div>
                 ) : !history || history.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No history recorded yet.</p>
@@ -310,7 +439,9 @@ export default function AssetDetail() {
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-semibold">
-                  {asset.currentLocationName || <span className="italic text-muted-foreground text-base">Unknown Location</span>}
+                  {asset.currentLocationName || (
+                    <span className="italic text-muted-foreground text-base">Unknown Location</span>
+                  )}
                 </div>
                 {asset.currentLocationId && (
                   <div className="mt-2 text-xs text-muted-foreground font-mono">LOC_ID: {asset.currentLocationId}</div>
@@ -329,7 +460,7 @@ export default function AssetDetail() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground font-medium">SBU</div>
-                  <div className="mt-0.5">{asset.sbuCode ?? "—"} {asset.sbuName ? `(${asset.sbuName})` : ""}</div>
+                  <div className="mt-0.5">{(asset as any).sbuCode ?? "—"} {(asset as any).sbuName ? `(${(asset as any).sbuName})` : ""}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground font-medium">Registered</div>
@@ -346,6 +477,106 @@ export default function AssetDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Assign to Employee Dialog ── */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-green-600" />
+              Assign Asset to Employee
+            </DialogTitle>
+            <DialogDescription>
+              This will update the asset's assigned employee and record a deployment event in the history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="employeeName">Employee Name <span className="text-destructive">*</span></Label>
+              <Input
+                id="employeeName"
+                placeholder="e.g. Tendai Moyo"
+                value={employeeName}
+                onChange={e => setEmployeeName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="performedBy">Authorised By <span className="text-destructive">*</span></Label>
+              <Input
+                id="performedBy"
+                placeholder="e.g. IT Manager name"
+                value={performedBy}
+                onChange={e => setPerformedBy(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="assignNotes">Notes (optional)</Label>
+              <Input
+                id="assignNotes"
+                placeholder="e.g. Issued for remote work"
+                value={assignNotes}
+                onChange={e => setAssignNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleAssign}
+              disabled={!employeeName.trim() || !performedBy.trim() || updateAsset.isPending || createLifecycle.isPending}
+              className="gap-2"
+            >
+              <UserCheck className="w-4 h-4" />
+              {updateAsset.isPending || createLifecycle.isPending ? "Assigning…" : "Assign Asset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dispose Asset Alert Dialog ── */}
+      <AlertDialog open={disposeOpen} onOpenChange={setDisposeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Dispose Asset
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently mark <strong>{asset.name}</strong> as <strong>Retired</strong> and remove it from active inventory. A disposal record will be added to the asset history. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="disposeBy">Authorised By <span className="text-destructive">*</span></Label>
+              <Input
+                id="disposeBy"
+                placeholder="e.g. IT Manager name"
+                value={disposeBy}
+                onChange={e => setDisposeBy(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="disposeReason">Reason (optional)</Label>
+              <Input
+                id="disposeReason"
+                placeholder="e.g. End of life, damaged beyond repair"
+                value={disposeReason}
+                onChange={e => setDisposeReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDispose}
+              disabled={!disposeBy.trim() || updateAsset.isPending || createLifecycle.isPending}
+            >
+              {updateAsset.isPending || createLifecycle.isPending ? "Disposing…" : "Confirm Disposal"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
