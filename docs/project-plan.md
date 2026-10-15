@@ -5,7 +5,7 @@
 
 ## 1. Executive Summary
 
-AssetIQ is an intelligent, IoT-ready asset management and tracking system designed for enterprise environments. Unlike traditional transactional systems that rely on manual data entry via web forms, AssetIQ is built around the concept of **proactive, sensor-driven asset awareness** — where the system automatically knows where assets are, flags anomalies, and triggers approval workflows without human initiation.
+AssetIQ is an intelligent, IoT-ready asset management and tracking system designed for enterprise environments (Tailored for TSL group specifically). Unlike traditional transactional systems that rely on manual data entry via web forms, AssetIQ is built around the concept of **proactive, sensor-driven asset awareness** — where the system automatically knows where assets are, flags anomalies, and triggers approval workflows without human initiation.
 
 The system is architected for Microsoft Azure in production (C# / .NET backend, SQL Server) and integrates with Microsoft Business Central (BC) for enterprise asset accounting. The proof-of-concept MVP is delivered as a full-stack web application that simulates RFID behaviour, demonstrating the complete architecture end-to-end.
 
@@ -260,4 +260,4 @@ This project addresses the following academic areas:
 
 ---
 
-*Document version: 1.0 | Project: AssetIQ | Author: [Student Name] | Supervisor: [ICT Executive Name]*
+
