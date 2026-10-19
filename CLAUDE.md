@@ -34,9 +34,15 @@ test the project locally and records everything changed in the October 2026 pass
 - **`.env`** (git-ignored) was created from `.env.example`. It holds `DATABASE_URL`, `PORT` and the optional
   AI / working-hours settings. Any PostgreSQL works: point `DATABASE_URL` at it instead of using `pnpm db:local`.
 
-### OneDrive warning — do this before `pnpm install`
-The repo sits in a OneDrive-synced folder. `pnpm install` writes tens of thousands of files into `node_modules`,
-which OneDrive would upload to the TSL tenant and can lock mid-install. Work from a copy outside OneDrive:
+### Where the working copy lives — keep it out of OneDrive
+Work from `C:\dev\Asset-Tracking-AI`. That is the active copy and the one these instructions assume.
+
+The original clone is still in OneDrive at the `robocopy` source path below, but do not run `pnpm install` or the
+dev servers there: the install writes tens of thousands of files into `node_modules`, which OneDrive uploads to the
+TSL tenant and can lock mid-install. The two copies drift, so treat `C:\dev` as authoritative and sync through git
+rather than copying files back.
+
+To recreate the `C:\dev` copy on another machine (or after deleting it):
 
 ```powershell
 robocopy "$env:USERPROFILE\OneDrive - TSL Ltd\Documents\Attachments\Desktop\Donn's Coding Projects\Asset-Tracking-AI\Asset-Tracking-AI" C:\dev\Asset-Tracking-AI /E /XD node_modules .venv dist
