@@ -12,9 +12,6 @@ export default function SbuList() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Strategic Business Units</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              TSL Group manages assets across {sbus?.length ?? 5} SBUs — tracking ownership, deployments, and cross-unit sharing.
-            </p>
           </div>
         </div>
 

@@ -38,7 +38,7 @@ export function Layout({ children }: LayoutProps) {
             />
             <div className="leading-tight">
               <div className="font-bold text-base tracking-tight">TSL AssetIQ</div>
-              <div className="text-[10px] text-sidebar-foreground/50 font-medium tracking-widest uppercase">TSL Limited</div>
+              <div className="text-[10px] text-sidebar-foreground/50 font-medium tracking-wide whitespace-nowrap">Real-time Asset Intelligence</div>
             </div>
           </Link>
         </div>

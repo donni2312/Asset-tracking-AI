@@ -60,7 +60,6 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Operations Dashboard</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">TSL Limited Group — Real-time asset intelligence</p>
           </div>
         </div>
 

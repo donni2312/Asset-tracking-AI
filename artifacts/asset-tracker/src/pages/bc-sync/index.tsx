@@ -40,7 +40,6 @@ export default function BcSync() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">ERP Integration</h1>
-          <p className="text-muted-foreground text-sm">Microsoft Dynamics 365 Business Central synchronization.</p>
         </div>
 
         <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

@@ -105,9 +105,6 @@ export default function Insights() {
       <div className="space-y-6 h-full flex flex-col max-w-5xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">AI Insights & Analytics</h1>
-          <p className="text-muted-foreground text-sm">
-            Rule-based anomaly detection (unauthorised gate exits, SBU location mismatches, out-of-hours scans, idle and missing assets) and natural-language querying.
-          </p>
         </div>
 
         {/* Active Insights */}

@@ -100,10 +100,6 @@ export default function RfidSimulator() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">IoT RFID Simulator</h1>
-          <p className="text-muted-foreground text-sm">
-            Demonstrate hardware sensor integration across TSL Group gates and offices. Each scan runs the same pipeline a real
-            reader would trigger: movement, gate-pass check and anomaly rules.
-          </p>
         </div>
 
         {/* SBU Filter */}

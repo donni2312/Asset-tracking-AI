@@ -80,9 +80,6 @@ export default function GatePassList() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Gate Passes</h1>
-            <p className="text-muted-foreground text-sm">
-              Authorisation for assets leaving the premises. Gate readers raise a pass automatically when an asset tries to leave without one.
-            </p>
           </div>
           <Button onClick={() => setRequestOpen(true)} className="gap-2 flex-shrink-0">
             <ShieldPlus className="w-4 h-4" /> Request Gate Pass

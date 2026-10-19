@@ -60,9 +60,9 @@ export default function LocationList() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Facilities & Locations</h1>
-            <p className="text-muted-foreground text-sm">
-              {activeSbu ? `${activeSbu.name} locations` : "All TSL Group facilities — offices, gates, warehouses, and labs"}
-            </p>
+            {activeSbu && (
+              <p className="text-muted-foreground text-sm">{activeSbu.name} locations</p>
+            )}
           </div>
           <Link href="/locations/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
             <Plus className="w-4 h-4 mr-2" />Add Location
