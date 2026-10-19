@@ -3,8 +3,9 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
+import type { GatePassSource } from './gatePassSource';
 import type { GatePassStatus } from './gatePassStatus';
 
 export interface GatePass {
@@ -27,6 +28,19 @@ export interface GatePass {
   returnDate?: Date | null;
   /** @nullable */
   decisionNote?: string | null;
+  /** manual = requested in advance; rfid_gate = raised automatically by a gate reader */
+  source?: GatePassSource;
+  /** @nullable */
+  gateLocationId?: number | null;
+  /** @nullable */
+  gateLocationName?: string | null;
+  /** @nullable */
+  decidedAt?: Date | null;
+  /**
+     * When the asset left the premises under this pass (latest gate_pass movement); null = not used yet
+     * @nullable
+     */
+  exitedAt?: Date | null;
   createdAt: Date;
   updatedAt?: Date;
 }

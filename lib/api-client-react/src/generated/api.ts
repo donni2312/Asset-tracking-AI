@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import {
   useMutation,
@@ -39,6 +39,7 @@ import type {
   GetDashboardActivityParams,
   GetGateActivityParams,
   GetLocationBreakdownParams,
+  GetMovementTrendParams,
   HealthStatus,
   ListAssetsParams,
   ListGatePassesParams,
@@ -52,7 +53,9 @@ import type {
   LocationUpdate,
   MovementEvent,
   MovementInput,
+  MovementTrendPoint,
   RFIDReader,
+  RFIDScanResult,
   RFIDSimulateInput,
   SBUInput,
   Sbu
@@ -1712,7 +1715,7 @@ export const createMovement = async (movementInput: MovementInput, options?: Req
 
 
 
-export const getCreateMovementMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateMovementMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovement>>, TError,{data: BodyType<MovementInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createMovement>>, TError,{data: BodyType<MovementInput>}, TContext> => {
 
@@ -1741,12 +1744,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateMovementMutationResult = NonNullable<Awaited<ReturnType<typeof createMovement>>>
     export type CreateMovementMutationBody = BodyType<MovementInput>
-    export type CreateMovementMutationError = ErrorType<unknown>
+    export type CreateMovementMutationError = ErrorType<void>
 
     /**
  * @summary Record a manual movement event
  */
-export const useCreateMovement = <TError = ErrorType<unknown>,
+export const useCreateMovement = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMovement>>, TError,{data: BodyType<MovementInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createMovement>>,
@@ -1944,7 +1947,7 @@ export const createGatePass = async (gatePassInput: GatePassInput, options?: Req
 
 
 
-export const getCreateGatePassMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateGatePassMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGatePass>>, TError,{data: BodyType<GatePassInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createGatePass>>, TError,{data: BodyType<GatePassInput>}, TContext> => {
 
@@ -1973,12 +1976,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateGatePassMutationResult = NonNullable<Awaited<ReturnType<typeof createGatePass>>>
     export type CreateGatePassMutationBody = BodyType<GatePassInput>
-    export type CreateGatePassMutationError = ErrorType<unknown>
+    export type CreateGatePassMutationError = ErrorType<void>
 
     /**
  * @summary Submit a gate pass request
  */
-export const useCreateGatePass = <TError = ErrorType<unknown>,
+export const useCreateGatePass = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGatePass>>, TError,{data: BodyType<GatePassInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createGatePass>>,
@@ -2075,6 +2078,7 @@ export const getApproveGatePassUrl = (id: number,) => {
 }
 
 /**
+ * Approving records a `gate_pass` movement (the asset leaves the premises) and resolves the related unauthorised-movement alert.
  * @summary Approve a gate pass
  */
 export const approveGatePass = async (id: number,
@@ -2093,7 +2097,7 @@ export const approveGatePass = async (id: number,
 
 
 
-export const getApproveGatePassMutationOptions = <TError = ErrorType<unknown>,
+export const getApproveGatePassMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof approveGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext> => {
 
@@ -2122,12 +2126,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ApproveGatePassMutationResult = NonNullable<Awaited<ReturnType<typeof approveGatePass>>>
     export type ApproveGatePassMutationBody = BodyType<GatePassDecision>
-    export type ApproveGatePassMutationError = ErrorType<unknown>
+    export type ApproveGatePassMutationError = ErrorType<void>
 
     /**
  * @summary Approve a gate pass
  */
-export const useApproveGatePass = <TError = ErrorType<unknown>,
+export const useApproveGatePass = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof approveGatePass>>,
@@ -2147,6 +2151,7 @@ export const getRejectGatePassUrl = (id: number,) => {
 }
 
 /**
+ * Rejecting flags the asset (unauthorised-movement alert plus an audit note in the asset history).
  * @summary Reject a gate pass
  */
 export const rejectGatePass = async (id: number,
@@ -2165,7 +2170,7 @@ export const rejectGatePass = async (id: number,
 
 
 
-export const getRejectGatePassMutationOptions = <TError = ErrorType<unknown>,
+export const getRejectGatePassMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof rejectGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext> => {
 
@@ -2194,12 +2199,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RejectGatePassMutationResult = NonNullable<Awaited<ReturnType<typeof rejectGatePass>>>
     export type RejectGatePassMutationBody = BodyType<GatePassDecision>
-    export type RejectGatePassMutationError = ErrorType<unknown>
+    export type RejectGatePassMutationError = ErrorType<void>
 
     /**
  * @summary Reject a gate pass
  */
-export const useRejectGatePass = <TError = ErrorType<unknown>,
+export const useRejectGatePass = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectGatePass>>, TError,{id: number;data: BodyType<GatePassDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rejectGatePass>>,
@@ -2219,11 +2224,16 @@ export const getSimulateRfidReadUrl = () => {
 }
 
 /**
+ * Processes a tag read exactly like a hardware event would be processed:
+ * records an `rfid` movement, runs the gate-pass check for gate readers
+ * (an exit without an approved pass auto-creates a pending gate pass) and
+ * evaluates the anomaly rules (unauthorised exit, SBU location mismatch,
+ * out-of-hours scan).
  * @summary Simulate an RFID tag read event at a gate or office reader
  */
-export const simulateRfidRead = async (rFIDSimulateInput: RFIDSimulateInput, options?: RequestInit): Promise<MovementEvent> => {
+export const simulateRfidRead = async (rFIDSimulateInput: RFIDSimulateInput, options?: RequestInit): Promise<RFIDScanResult> => {
 
-  return customFetch<MovementEvent>(getSimulateRfidReadUrl(),
+  return customFetch<RFIDScanResult>(getSimulateRfidReadUrl(),
   {
     ...options,
     method: 'POST',
@@ -2236,7 +2246,7 @@ export const simulateRfidRead = async (rFIDSimulateInput: RFIDSimulateInput, opt
 
 
 
-export const getSimulateRfidReadMutationOptions = <TError = ErrorType<unknown>,
+export const getSimulateRfidReadMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateRfidRead>>, TError,{data: BodyType<RFIDSimulateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof simulateRfidRead>>, TError,{data: BodyType<RFIDSimulateInput>}, TContext> => {
 
@@ -2265,12 +2275,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SimulateRfidReadMutationResult = NonNullable<Awaited<ReturnType<typeof simulateRfidRead>>>
     export type SimulateRfidReadMutationBody = BodyType<RFIDSimulateInput>
-    export type SimulateRfidReadMutationError = ErrorType<unknown>
+    export type SimulateRfidReadMutationError = ErrorType<void>
 
     /**
  * @summary Simulate an RFID tag read event at a gate or office reader
  */
-export const useSimulateRfidRead = <TError = ErrorType<unknown>,
+export const useSimulateRfidRead = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateRfidRead>>, TError,{data: BodyType<RFIDSimulateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof simulateRfidRead>>,
@@ -2598,6 +2608,90 @@ export function useGetLocationBreakdown<TData = Awaited<ReturnType<typeof getLoc
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetLocationBreakdownQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMovementTrendUrl = (params?: GetMovementTrendParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dashboard/movement-trend?${stringifiedParams}` : `/api/dashboard/movement-trend`
+}
+
+/**
+ * @summary Daily movement counts by trigger type for the last N days (organisation timezone)
+ */
+export const getMovementTrend = async (params?: GetMovementTrendParams, options?: RequestInit): Promise<MovementTrendPoint[]> => {
+
+  return customFetch<MovementTrendPoint[]>(getGetMovementTrendUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMovementTrendQueryKey = (params?: GetMovementTrendParams,) => {
+    return [
+    `/api/dashboard/movement-trend`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMovementTrendQueryOptions = <TData = Awaited<ReturnType<typeof getMovementTrend>>, TError = ErrorType<unknown>>(params?: GetMovementTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMovementTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMovementTrendQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMovementTrend>>> = ({ signal }) => getMovementTrend(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMovementTrend>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMovementTrendQueryResult = NonNullable<Awaited<ReturnType<typeof getMovementTrend>>>
+export type GetMovementTrendQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Daily movement counts by trigger type for the last N days (organisation timezone)
+ */
+
+export function useGetMovementTrend<TData = Awaited<ReturnType<typeof getMovementTrend>>, TError = ErrorType<unknown>>(
+ params?: GetMovementTrendParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMovementTrend>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMovementTrendQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

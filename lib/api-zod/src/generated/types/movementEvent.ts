@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import type { MovementEventTriggeredBy } from './movementEventTriggeredBy';
 
@@ -27,6 +27,11 @@ export interface MovementEvent {
   triggeredBy: MovementEventTriggeredBy;
   /** @nullable */
   rfidReaderId?: number | null;
+  /**
+     * Gate pass that authorised (or was raised by) this movement
+     * @nullable
+     */
+  gatePassId?: number | null;
   /** @nullable */
   movedBy?: string | null;
   /** @nullable */

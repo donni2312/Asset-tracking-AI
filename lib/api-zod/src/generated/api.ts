@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import * as zod from 'zod';
 
@@ -298,6 +298,7 @@ export const GetAssetHistoryResponseItem = zod.object({
   "toLocationName": zod.string().nullish(),
   "triggeredBy": zod.union([zod.literal('rfid'),zod.literal('manual'),zod.literal('gate_pass'),zod.literal(null)]).nullish(),
   "movedBy": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
   "eventType": zod.union([zod.literal('deployment'),zod.literal('return_to_it'),zod.literal('repair_sent'),zod.literal('repair_returned'),zod.literal('sbu_transfer'),zod.literal('note'),zod.literal(null)]).nullish(),
   "performedBy": zod.string().nullish(),
   "fromSbuName": zod.string().nullish(),
@@ -572,6 +573,7 @@ export const ListMovementsResponseItem = zod.object({
   "sbuName": zod.string().nullish(),
   "triggeredBy": zod.enum(['rfid', 'manual', 'gate_pass']),
   "rfidReaderId": zod.number().nullish(),
+  "gatePassId": zod.number().nullish().describe('Gate pass that authorised (or was raised by) this movement'),
   "movedBy": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "timestamp": zod.coerce.date()
@@ -602,6 +604,7 @@ export const CreateMovementResponse = zod.object({
   "sbuName": zod.string().nullish(),
   "triggeredBy": zod.enum(['rfid', 'manual', 'gate_pass']),
   "rfidReaderId": zod.number().nullish(),
+  "gatePassId": zod.number().nullish().describe('Gate pass that authorised (or was raised by) this movement'),
   "movedBy": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "timestamp": zod.coerce.date()
@@ -628,6 +631,7 @@ export const GetMovementResponse = zod.object({
   "sbuName": zod.string().nullish(),
   "triggeredBy": zod.enum(['rfid', 'manual', 'gate_pass']),
   "rfidReaderId": zod.number().nullish(),
+  "gatePassId": zod.number().nullish().describe('Gate pass that authorised (or was raised by) this movement'),
   "movedBy": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "timestamp": zod.coerce.date()
@@ -656,6 +660,11 @@ export const ListGatePassesResponseItem = zod.object({
   "destination": zod.string().nullish(),
   "returnDate": zod.coerce.date().nullish(),
   "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -665,10 +674,14 @@ export const ListGatePassesResponse = zod.array(ListGatePassesResponseItem)
 /**
  * @summary Submit a gate pass request
  */
+
+
+
+
 export const CreateGatePassBody = zod.object({
   "assetId": zod.number(),
-  "requestedBy": zod.string(),
-  "reason": zod.string(),
+  "requestedBy": zod.string().min(1),
+  "reason": zod.string().min(1),
   "destination": zod.string().optional(),
   "returnDate": zod.coerce.date().optional()
 })
@@ -687,6 +700,11 @@ export const CreateGatePassResponse = zod.object({
   "destination": zod.string().nullish(),
   "returnDate": zod.coerce.date().nullish(),
   "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -713,20 +731,29 @@ export const GetGatePassResponse = zod.object({
   "destination": zod.string().nullish(),
   "returnDate": zod.coerce.date().nullish(),
   "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
 
 
 /**
+ * Approving records a `gate_pass` movement (the asset leaves the premises) and resolves the related unauthorised-movement alert.
  * @summary Approve a gate pass
  */
 export const ApproveGatePassParams = zod.object({
   "id": zod.coerce.number()
 })
 
+
+
+
 export const ApproveGatePassBody = zod.object({
-  "decidedBy": zod.string(),
+  "decidedBy": zod.string().min(1).describe('Name of the approver taking the decision'),
   "note": zod.string().optional()
 })
 
@@ -744,20 +771,29 @@ export const ApproveGatePassResponse = zod.object({
   "destination": zod.string().nullish(),
   "returnDate": zod.coerce.date().nullish(),
   "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
 
 
 /**
+ * Rejecting flags the asset (unauthorised-movement alert plus an audit note in the asset history).
  * @summary Reject a gate pass
  */
 export const RejectGatePassParams = zod.object({
   "id": zod.coerce.number()
 })
 
+
+
+
 export const RejectGatePassBody = zod.object({
-  "decidedBy": zod.string(),
+  "decidedBy": zod.string().min(1).describe('Name of the approver taking the decision'),
   "note": zod.string().optional()
 })
 
@@ -775,20 +811,32 @@ export const RejectGatePassResponse = zod.object({
   "destination": zod.string().nullish(),
   "returnDate": zod.coerce.date().nullish(),
   "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })
 
 
 /**
+ * Processes a tag read exactly like a hardware event would be processed:
+ * records an `rfid` movement, runs the gate-pass check for gate readers
+ * (an exit without an approved pass auto-creates a pending gate pass) and
+ * evaluates the anomaly rules (unauthorised exit, SBU location mismatch,
+ * out-of-hours scan).
  * @summary Simulate an RFID tag read event at a gate or office reader
  */
 export const SimulateRfidReadBody = zod.object({
   "rfidTag": zod.string(),
-  "readerId": zod.number()
+  "readerId": zod.number(),
+  "scannedAt": zod.coerce.date().optional().describe('Time the reader saw the tag (defaults to now). Lets the simulator replay out-of-hours scans.')
 })
 
 export const SimulateRfidReadResponse = zod.object({
+  "movement": zod.object({
   "id": zod.number(),
   "assetId": zod.number(),
   "assetName": zod.string(),
@@ -801,9 +849,51 @@ export const SimulateRfidReadResponse = zod.object({
   "sbuName": zod.string().nullish(),
   "triggeredBy": zod.enum(['rfid', 'manual', 'gate_pass']),
   "rfidReaderId": zod.number().nullish(),
+  "gatePassId": zod.number().nullish().describe('Gate pass that authorised (or was raised by) this movement'),
   "movedBy": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "timestamp": zod.coerce.date()
+}),
+  "gateCheck": zod.object({
+  "isGate": zod.boolean(),
+  "direction": zod.enum(['entry', 'exit', 'internal']).describe('exit = asset was on the premises; entry = asset was off-premises (returning)'),
+  "outcome": zod.enum(['not_gate', 'entry', 'authorized', 'pending_created', 'pending_existing']),
+  "authorized": zod.boolean(),
+  "gatePass": zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().optional(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "requestedBy": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+}).optional()
+}),
+  "insights": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['anomaly', 'idle_asset', 'unauthorized_movement', 'missing_asset', 'maintenance_due', 'unusual_pattern']),
+  "message": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "dismissed": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})).describe('Insights raised by this scan')
 })
 
 
@@ -894,6 +984,28 @@ export const GetLocationBreakdownResponse = zod.array(GetLocationBreakdownRespon
 
 
 /**
+ * @summary Daily movement counts by trigger type for the last N days (organisation timezone)
+ */
+export const getMovementTrendQueryDaysDefault = 14;
+export const getMovementTrendQueryDaysMax = 90;
+
+
+
+export const GetMovementTrendQueryParams = zod.object({
+  "days": zod.coerce.number().min(1).max(getMovementTrendQueryDaysMax).default(getMovementTrendQueryDaysDefault)
+})
+
+export const GetMovementTrendResponseItem = zod.object({
+  "date": zod.string().describe('Calendar day (YYYY-MM-DD) in the organisation timezone'),
+  "rfid": zod.number(),
+  "manual": zod.number(),
+  "gatePass": zod.number(),
+  "total": zod.number()
+})
+export const GetMovementTrendResponse = zod.array(GetMovementTrendResponseItem)
+
+
+/**
  * @summary Recent gate scan events grouped by SBU gate
  */
 export const getGateActivityQueryLimitDefault = 30;
@@ -927,6 +1039,7 @@ export const ListInsightsResponseItem = zod.object({
   "assetId": zod.number().nullish(),
   "assetName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
   "severity": zod.enum(['info', 'warning', 'critical']),
   "dismissed": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -948,6 +1061,7 @@ export const DismissInsightResponse = zod.object({
   "assetId": zod.number().nullish(),
   "assetName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
   "severity": zod.enum(['info', 'warning', 'critical']),
   "dismissed": zod.boolean(),
   "createdAt": zod.coerce.date()
@@ -983,6 +1097,30 @@ export const AiQueryResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
 })).optional(),
+  "relatedGatePasses": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().optional(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "requestedBy": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})).optional(),
+  "intent": zod.string().optional().describe('Intent the question was mapped to (e.g. locate_asset, not_moved, gate_passes)'),
+  "source": zod.enum(['rules', 'openai']).optional().describe('Which parser understood the question (OpenAI when configured, rules as the fallback)'),
   "timestamp": zod.coerce.date()
 })
 
@@ -996,7 +1134,9 @@ export const GetBcSyncStatusResponse = zod.object({
   "status": zod.enum(['idle', 'syncing', 'success', 'error', 'not_configured']),
   "syncedAssets": zod.number(),
   "errorMessage": zod.string().nullish(),
-  "nextSyncAt": zod.coerce.date().nullish()
+  "nextSyncAt": zod.coerce.date().nullish().describe('Always null in the MVP (manual sync only)'),
+  "mode": zod.enum(['manual', 'automatic']).optional().describe('MVP decision - manual sync only'),
+  "pendingChanges": zod.number().optional().describe('Movements and gate-pass decisions recorded since the last successful sync')
 })
 
 
@@ -1009,7 +1149,9 @@ export const TriggerBcSyncResponse = zod.object({
   "status": zod.enum(['idle', 'syncing', 'success', 'error', 'not_configured']),
   "syncedAssets": zod.number(),
   "errorMessage": zod.string().nullish(),
-  "nextSyncAt": zod.coerce.date().nullish()
+  "nextSyncAt": zod.coerce.date().nullish().describe('Always null in the MVP (manual sync only)'),
+  "mode": zod.enum(['manual', 'automatic']).optional().describe('MVP decision - manual sync only'),
+  "pendingChanges": zod.number().optional().describe('Movements and gate-pass decisions recorded since the last successful sync')
 })
 
 

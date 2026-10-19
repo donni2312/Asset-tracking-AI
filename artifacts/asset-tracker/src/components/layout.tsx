@@ -2,6 +2,8 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Activity, Box, Building2, Database, HardDrive, LayoutDashboard, MapPin, Radio, ShieldAlert } from "lucide-react";
 import { ReactNode } from "react";
+import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
+import { OperatorBadge } from "@/components/operator-badge";
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +11,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
+  const pendingGatePasses = usePendingGatePassNotifications();
 
   const navigation = [
     { name: "Dashboard",       href: "/",              icon: LayoutDashboard },
@@ -48,13 +51,25 @@ export function Layout({ children }: LayoutProps) {
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}>
                 <item.icon className="w-4 h-4 flex-shrink-0" />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {item.href === "/gate-passes" && pendingGatePasses > 0 && (
+                  <span
+                    className="min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-[10px] font-bold text-slate-900 flex items-center justify-center"
+                    aria-label={`${pendingGatePasses} gate passes awaiting approval`}
+                    title={`${pendingGatePasses} awaiting approval`}
+                  >
+                    {pendingGatePasses}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-sidebar-border text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
-          TSL GROUP — ASSET MGMT v2
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          <OperatorBadge />
+          <div className="px-2 text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
+            TSL GROUP — ASSET MGMT v2
+          </div>
         </div>
       </aside>
 

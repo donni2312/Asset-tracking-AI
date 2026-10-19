@@ -8,6 +8,7 @@ import { Activity, AlertCircle, Box, MapPin, Radio, ShieldAlert, Wrench, UserChe
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { Link } from "wouter";
+import { MovementTrendChart, SbuStatusChart } from "@/components/dashboard-charts";
 
 function SbuBadge({ code, color, size = "sm" }: { code: string; color: string; size?: "xs" | "sm" }) {
   const px = size === "xs" ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]";
@@ -149,11 +150,11 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold font-mono mt-1" style={{ color: sbu.sbuColor }}>
                       {sbu.totalAssets}
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{sbu.sbuName.split(" ")[0]}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 truncate" title={sbu.sbuName}>{sbu.sbuName}</div>
                     <div className="mt-2 flex gap-2 text-[10px] text-muted-foreground">
                       <span className="text-green-600 font-medium">{sbu.activeAssets} active</span>
                       {sbu.missingAssets > 0 && <span className="text-red-500 font-medium">{sbu.missingAssets} missing</span>}
-                      {sbu.maintenanceAssets > 0 && <span className="text-amber-500 font-medium">{sbu.maintenanceAssets} repair</span>}
+                      {(sbu.maintenanceAssets ?? 0) > 0 && <span className="text-amber-500 font-medium">{sbu.maintenanceAssets} repair</span>}
                     </div>
                   </div>
                 </Link>
@@ -161,6 +162,16 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2">
+            <MovementTrendChart days={14} />
+          </div>
+          {summary?.sbuBreakdown && summary.sbuBreakdown.length > 0 && (
+            <SbuStatusChart breakdown={summary.sbuBreakdown} />
+          )}
+        </div>
 
         {/* Main grid: activity + gate activity + distribution */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -218,7 +229,14 @@ export default function Dashboard() {
                         <SbuBadge code={ev.sbuCode} color="#6B7280" size="xs" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{ev.assetName}</p>
-                          <p className="text-muted-foreground font-mono truncate">{ev.locationName}</p>
+                          <p className="text-muted-foreground font-mono truncate">
+                            {ev.direction !== "internal" && (
+                              <span className={ev.direction === "exit" ? "text-purple-600 font-sans font-semibold" : "text-emerald-600 font-sans font-semibold"}>
+                                {ev.direction === "exit" ? "EXIT · " : "ENTRY · "}
+                              </span>
+                            )}
+                            {ev.locationName}
+                          </p>
                         </div>
                         <span className="text-muted-foreground font-mono flex-shrink-0">
                           {new Date(ev.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}

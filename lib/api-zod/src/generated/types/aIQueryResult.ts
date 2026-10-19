@@ -3,13 +3,20 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
+import type { AIQueryResultSource } from './aIQueryResultSource';
 import type { Asset } from './asset';
+import type { GatePass } from './gatePass';
 
 export interface AIQueryResult {
   question: string;
   answer: string;
   relatedAssets?: Asset[];
+  relatedGatePasses?: GatePass[];
+  /** Intent the question was mapped to (e.g. locate_asset, not_moved, gate_passes) */
+  intent?: string;
+  /** Which parser understood the question (OpenAI when configured, rules as the fallback) */
+  source?: AIQueryResultSource;
   timestamp: Date;
 }

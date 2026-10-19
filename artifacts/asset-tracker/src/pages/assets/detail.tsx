@@ -13,17 +13,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   useGetAsset, useGetAssetHistory, useUpdateAsset, useCreateAssetLifecycleEvent,
-  getGetAssetQueryKey, getGetAssetHistoryQueryKey,
+  getGetAssetQueryKey, getGetAssetHistoryQueryKey, useListInsights, useDismissInsight,
 } from "@workspace/api-client-react";
-import { useParams } from "wouter";
+import { Link, useParams } from "wouter";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { GatePassRequestDialog } from "@/components/gate-pass-request-dialog";
 import {
   Activity, MapPin, HardDrive, History, User, Radio, ArrowRight,
   UserCheck, CornerDownLeft, Wrench, CheckCircle, ArrowRightLeft, MessageSquare,
-  Building2, Trash2, UserPlus,
+  Building2, Trash2, UserPlus, LogOut, ShieldPlus, AlertTriangle, Info, Check, Move,
 } from "lucide-react";
 
 function SbuBadge({ code, name, color }: { code: string; name?: string | null; color?: string }) {
@@ -49,6 +50,27 @@ function HistoryDot({ color }: { color: string }) {
 }
 
 function HistoryEvent({ event }: { event: any }) {
+  if (event.kind === "movement" && event.triggeredBy === "gate_pass") {
+    return (
+      <div className="relative pl-6">
+        <HistoryDot color="#9333ea" />
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+          <div>
+            <div className="flex items-center gap-2">
+              <LogOut className="w-3.5 h-3.5 text-purple-600" />
+              <p className="text-sm font-medium">Left the premises{event.gatePassId ? ` under gate pass #${event.gatePassId}` : ""}</p>
+              <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200 border">GATE PASS</Badge>
+            </div>
+            {event.fromLocationName && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Via: {event.fromLocationName}</p>}
+            {event.movedBy && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Carried by {event.movedBy}</p>}
+            {event.notes && <p className="text-xs text-muted-foreground italic mt-0.5 ml-5">{event.notes}</p>}
+          </div>
+          <span className="text-xs font-mono text-muted-foreground sm:ml-4 flex-shrink-0">{formatDate(event.timestamp)}</span>
+        </div>
+      </div>
+    );
+  }
+
   if (event.kind === "movement") {
     const isRfid = event.triggeredBy === "rfid";
     return (
@@ -225,6 +247,10 @@ export default function AssetDetail() {
 
   const updateAsset = useUpdateAsset();
   const createLifecycle = useCreateAssetLifecycleEvent();
+  const { data: insights } = useListInsights();
+  const dismissInsight = useDismissInsight();
+  const [gatePassOpen, setGatePassOpen] = useState(false);
+  const activeAlerts = (insights ?? []).filter((i) => i.assetId === assetId && !i.dismissed);
 
   // Assign dialog state
   const [assignOpen, setAssignOpen] = useState(false);
@@ -311,6 +337,8 @@ export default function AssetDetail() {
 
   const isRetired = asset.status === "retired";
   const statusColor = { active: "default", missing: "destructive", maintenance: "secondary", retired: "outline" }[asset.status] as any;
+  const latestMovement = history?.find((e: any) => e.kind === "movement") as any;
+  const offPremises = !asset.currentLocationId && latestMovement?.triggeredBy === "gate_pass";
 
   return (
     <Layout>
@@ -332,6 +360,17 @@ export default function AssetDetail() {
             <Badge variant={statusColor} className="text-sm">{asset.status.toUpperCase()}</Badge>
             {!isRetired && (
               <>
+                <Link
+                  href={`/movements/new?assetId=${asset.id}`}
+                  className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
+                >
+                  <Move className="w-4 h-4" />
+                  Move
+                </Link>
+                <Button size="sm" variant="outline" className="gap-2" onClick={() => setGatePassOpen(true)}>
+                  <ShieldPlus className="w-4 h-4" />
+                  Request Gate Pass
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -439,15 +478,66 @@ export default function AssetDetail() {
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-semibold">
-                  {asset.currentLocationName || (
+                  {asset.currentLocationName ? (
+                    asset.currentLocationName
+                  ) : offPremises ? (
+                    <span className="flex items-center gap-2 text-purple-700"><LogOut className="w-5 h-5" /> Off-premises</span>
+                  ) : (
                     <span className="italic text-muted-foreground text-base">Unknown Location</span>
                   )}
                 </div>
+                {offPremises && latestMovement && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Left {formatDate(latestMovement.timestamp)}{latestMovement.gatePassId ? ` under gate pass #${latestMovement.gatePassId}` : ""}
+                  </div>
+                )}
                 {asset.currentLocationId && (
                   <div className="mt-2 text-xs text-muted-foreground font-mono">LOC_ID: {asset.currentLocationId}</div>
                 )}
               </CardContent>
             </Card>
+
+            {activeAlerts.length > 0 && (
+              <Card className="border-destructive/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
+                    Active Alerts
+                    <Badge variant="secondary" className="ml-auto">{activeAlerts.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {activeAlerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`rounded-md border p-2.5 text-xs flex items-start gap-2 ${
+                        alert.severity === "critical" ? "border-destructive/40 bg-destructive/5" :
+                        alert.severity === "warning" ? "border-amber-400/50 bg-amber-50" : "border-blue-300/50 bg-blue-50"
+                      }`}
+                    >
+                      {alert.severity === "info"
+                        ? <Info className="w-3.5 h-3.5 mt-0.5 text-blue-600 flex-shrink-0" />
+                        : <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${alert.severity === "critical" ? "text-destructive" : "text-amber-600"}`} />}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold uppercase tracking-wide text-[10px] mb-0.5">{alert.severity} · {alert.type.replace(/_/g, " ")}</div>
+                        <div>{alert.message}</div>
+                        <div className="text-muted-foreground mt-0.5">{formatDate(alert.createdAt)}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="p-1 rounded hover:bg-background/80 text-muted-foreground"
+                        title="Dismiss alert"
+                        aria-label="Dismiss alert"
+                        onClick={() => dismissInsight.mutate({ id: alert.id }, { onSuccess: () => qc.invalidateQueries() })}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <Link href="/insights" className="text-xs text-primary hover:underline">All AI insights →</Link>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -477,6 +567,8 @@ export default function AssetDetail() {
           </div>
         </div>
       </div>
+
+      <GatePassRequestDialog open={gatePassOpen} onOpenChange={setGatePassOpen} assetId={asset.id} />
 
       {/* ── Assign to Employee Dialog ── */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>

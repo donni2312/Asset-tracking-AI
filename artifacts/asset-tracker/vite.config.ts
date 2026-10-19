@@ -5,7 +5,11 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
+// On Replit, PORT and BASE_PATH are provided by the platform and are required.
+// Locally (VS Code), sensible defaults apply so `pnpm dev:web` just works.
+const isReplit = process.env.REPL_ID !== undefined;
+
+const rawPort = process.env.PORT ?? (isReplit ? undefined : '5173');
 
 if (!rawPort) {
   throw new Error(
@@ -19,7 +23,10 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? (isReplit ? undefined : '/');
+
+// Replit routes /api to the API service itself; locally, Vite proxies it.
+const apiTarget = process.env.API_URL ?? 'http://localhost:8080';
 
 if (!basePath) {
   throw new Error(
@@ -72,6 +79,11 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: isReplit
+      ? undefined
+      : {
+          '/api': { target: apiTarget, changeOrigin: true },
+        },
   },
   preview: {
     port,

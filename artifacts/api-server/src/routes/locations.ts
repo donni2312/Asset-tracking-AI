@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { locationsTable, assetsTable, sbusTable } from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
 import { CreateLocationBody, UpdateLocationBody } from "@workspace/api-zod";
+import { HttpError, parseIdParam, sendError } from "../lib/http-error";
 
 const router = Router();
 
@@ -74,40 +75,40 @@ router.post("/locations", async (req, res): Promise<void> => {
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
     const [loc] = await db.insert(locationsTable).values({
       ...parsed.data,
-      sbuId: (parsed.data as any).sbuId ?? null,
+      sbuId: parsed.data.sbuId ?? null,
     }).returning();
-    res.status(201).json({ ...loc, sbuName: null, sbuCode: null, assetCount: 0 });
+    // Return the same enriched shape as GET (SBU name/code, asset count).
+    res.status(201).json(await locationWithSbu(loc.id));
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to create location" });
+    sendError(req, res, err, "Failed to create location");
   }
 });
 
 // GET /locations/:id
 router.get("/locations/:id", async (req, res): Promise<void> => {
   try {
-    const loc = await locationWithSbu(parseInt(req.params.id));
-    if (!loc) { res.status(404).json({ error: "Location not found" }); return; }
+    const loc = await locationWithSbu(parseIdParam(req.params.id));
+    if (!loc) throw new HttpError(404, "Location not found");
     res.json(loc);
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to get location" });
+    sendError(req, res, err, "Failed to get location");
   }
 });
 
 // PATCH /locations/:id
 router.patch("/locations/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseIdParam(req.params.id);
     const parsed = UpdateLocationBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-    await db.update(locationsTable).set({ ...(parsed.data as any) }).where(eq(locationsTable.id, id));
-    const loc = await locationWithSbu(id);
-    if (!loc) { res.status(404).json({ error: "Location not found" }); return; }
-    res.json(loc);
+    const [updated] = await db.update(locationsTable)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(locationsTable.id, id))
+      .returning({ id: locationsTable.id });
+    if (!updated) throw new HttpError(404, "Location not found");
+    res.json(await locationWithSbu(id));
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to update location" });
+    sendError(req, res, err, "Failed to update location");
   }
 });
 
@@ -116,11 +117,10 @@ router.get("/locations/:id/assets", async (req, res) => {
   try {
     const assets = await db
       .select().from(assetsTable)
-      .where(eq(assetsTable.currentLocationId, parseInt(req.params.id)));
+      .where(eq(assetsTable.currentLocationId, parseIdParam(req.params.id)));
     res.json(assets);
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to get location assets" });
+    sendError(req, res, err, "Failed to get location assets");
   }
 });
 

@@ -1,148 +1,77 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { gatePassesTable, assetsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
 import {
   CreateGatePassBody,
   ListGatePassesQueryParams,
   ApproveGatePassBody,
   RejectGatePassBody,
 } from "@workspace/api-zod";
+import { parseIdParam, sendError } from "../lib/http-error";
+import {
+  approveGatePass,
+  createGatePassRequest,
+  getGatePass,
+  listGatePasses,
+  rejectGatePass,
+} from "../services/gate-pass-workflow";
 
 const router = Router();
 
-async function enrichGatePasses(passes: Array<typeof gatePassesTable.$inferSelect>) {
-  if (!passes.length) return [];
-  const allAssets = await db.select({ id: assetsTable.id, name: assetsTable.name, rfidTag: assetsTable.rfidTag }).from(assetsTable);
-  const assetMap: Record<number, { name: string; rfidTag: string }> = Object.fromEntries(
-    allAssets.map(a => [a.id, { name: a.name, rfidTag: a.rfidTag }])
-  );
-
-  return passes.map(p => ({
-    ...p,
-    assetName: assetMap[p.assetId]?.name ?? "Unknown",
-    rfidTag: assetMap[p.assetId]?.rfidTag ?? "",
-  }));
-}
-
-// GET /gate-passes
+// GET /gate-passes?status=&sbuId=
 router.get("/gate-passes", async (req, res) => {
   try {
     const parsed = ListGatePassesQueryParams.safeParse(req.query);
     const filters = parsed.success ? parsed.data : {};
-
-    const passes = await db.select().from(gatePassesTable)
-      .where(filters.status ? eq(gatePassesTable.status, filters.status) : undefined)
-      .orderBy(desc(gatePassesTable.createdAt));
-
-    res.json(await enrichGatePasses(passes));
+    res.json(await listGatePasses({ status: filters.status, sbuId: filters.sbuId ?? null }));
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to list gate passes" });
+    sendError(req, res, err, "Failed to list gate passes");
   }
 });
 
-// POST /gate-passes
+// POST /gate-passes - manual "Request gate pass"
 router.post("/gate-passes", async (req, res): Promise<void> => {
   try {
     const parsed = CreateGatePassBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-
-    const { returnDate, ...rest } = parsed.data;
-    const [gatePass] = await db.insert(gatePassesTable).values({
-      assetId: rest.assetId,
-      requestedBy: rest.requestedBy,
-      reason: rest.reason,
-      destination: rest.destination,
-      status: "pending",
-      returnDate: returnDate instanceof Date ? returnDate.toISOString().split("T")[0] : returnDate,
-    }).returning();
-
-    const enriched = await enrichGatePasses([gatePass]);
-    res.status(201).json(enriched[0]);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    res.status(201).json(await createGatePassRequest(parsed.data));
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to create gate pass" });
+    sendError(req, res, err, "Failed to create gate pass");
   }
 });
 
 // GET /gate-passes/:id
 router.get("/gate-passes/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const [gatePass] = await db.select().from(gatePassesTable).where(eq(gatePassesTable.id, id));
-    if (!gatePass) {
-      res.status(404).json({ error: "Gate pass not found" });
-      return;
-    }
-    const enriched = await enrichGatePasses([gatePass]);
-    res.json(enriched[0]);
+    res.json(await getGatePass(parseIdParam(req.params.id)));
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to get gate pass" });
+    sendError(req, res, err, "Failed to get gate pass");
   }
 });
 
-// POST /gate-passes/:id/approve
+// POST /gate-passes/:id/approve - records the gate_pass exit when the asset is waiting at a gate
 router.post("/gate-passes/:id/approve", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseIdParam(req.params.id);
     const parsed = ApproveGatePassBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-
-    await db.update(gatePassesTable).set({
-      status: "approved",
-      approvedBy: parsed.data.decidedBy,
-      decisionNote: parsed.data.note,
-      updatedAt: new Date(),
-    }).where(eq(gatePassesTable.id, id));
-
-    const [gatePass] = await db.select().from(gatePassesTable).where(eq(gatePassesTable.id, id));
-    if (!gatePass) {
-      res.status(404).json({ error: "Gate pass not found" });
-      return;
-    }
-    const enriched = await enrichGatePasses([gatePass]);
-    res.json(enriched[0]);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    const { gatePass, exitMovement } = await approveGatePass(id, parsed.data);
+    req.log.info({ gatePassId: id, decidedBy: gatePass.approvedBy, exitMovementId: exitMovement?.id ?? null }, "Gate pass approved");
+    res.json(gatePass);
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to approve gate pass" });
+    sendError(req, res, err, "Failed to approve gate pass");
   }
 });
 
-// POST /gate-passes/:id/reject
+// POST /gate-passes/:id/reject - flags the asset
 router.post("/gate-passes/:id/reject", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseIdParam(req.params.id);
     const parsed = RejectGatePassBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
-      return;
-    }
-
-    await db.update(gatePassesTable).set({
-      status: "rejected",
-      approvedBy: parsed.data.decidedBy,
-      decisionNote: parsed.data.note,
-      updatedAt: new Date(),
-    }).where(eq(gatePassesTable.id, id));
-
-    const [gatePass] = await db.select().from(gatePassesTable).where(eq(gatePassesTable.id, id));
-    if (!gatePass) {
-      res.status(404).json({ error: "Gate pass not found" });
-      return;
-    }
-    const enriched = await enrichGatePasses([gatePass]);
-    res.json(enriched[0]);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+    const { gatePass, flag } = await rejectGatePass(id, parsed.data);
+    req.log.info({ gatePassId: id, decidedBy: gatePass.approvedBy, flagInsightId: flag?.id ?? null }, "Gate pass rejected");
+    res.json(gatePass);
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to reject gate pass" });
+    sendError(req, res, err, "Failed to reject gate pass");
   }
 });
 

@@ -9,7 +9,10 @@ import AssetList from './pages/assets/list';
 import NewAsset from './pages/assets/new';
 import AssetDetail from './pages/assets/detail';
 import LocationList from './pages/locations/list';
+import NewLocation from './pages/locations/new';
+import EditLocation from './pages/locations/edit';
 import MovementList from './pages/movements/list';
+import NewMovement from './pages/movements/new';
 import GatePassList from './pages/gate-passes/list';
 import RfidSimulator from './pages/rfid-simulator';
 import Insights from './pages/insights';
@@ -26,7 +29,10 @@ function Router() {
       <Route path="/assets/new" component={NewAsset} />
       <Route path="/assets/:id" component={AssetDetail} />
       <Route path="/locations" component={LocationList} />
+      <Route path="/locations/new" component={NewLocation} />
+      <Route path="/locations/:id/edit" component={EditLocation} />
       <Route path="/movements" component={MovementList} />
+      <Route path="/movements/new" component={NewMovement} />
       <Route path="/gate-passes" component={GatePassList} />
       <Route path="/rfid-simulator" component={RfidSimulator} />
       <Route path="/insights" component={Insights} />

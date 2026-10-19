@@ -5,7 +5,10 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { mockupPreviewPlugin } from "./mockupPreviewPlugin";
 
-const rawPort = process.env.PORT;
+// Replit provides PORT and BASE_PATH; off Replit (local builds) use defaults instead of failing.
+const isReplit = process.env.REPL_ID !== undefined;
+
+const rawPort = process.env.PORT ?? (isReplit ? undefined : "5174");
 
 if (!rawPort) {
   throw new Error(
@@ -19,7 +22,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? (isReplit ? undefined : "/");
 
 if (!basePath) {
   throw new Error(

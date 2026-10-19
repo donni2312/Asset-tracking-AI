@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 export interface HealthStatus {
   status: string;
@@ -238,6 +238,8 @@ export interface AssetHistoryEvent {
   /** @nullable */
   movedBy?: string | null;
   /** @nullable */
+  gatePassId?: number | null;
+  /** @nullable */
   eventType?: AssetHistoryEventEventType;
   /** @nullable */
   performedBy?: string | null;
@@ -367,6 +369,11 @@ export interface MovementEvent {
   triggeredBy: MovementEventTriggeredBy;
   /** @nullable */
   rfidReaderId?: number | null;
+  /**
+     * Gate pass that authorised (or was raised by) this movement
+     * @nullable
+     */
+  gatePassId?: number | null;
   /** @nullable */
   movedBy?: string | null;
   /** @nullable */
@@ -390,6 +397,17 @@ export const GatePassStatus = {
   rejected: 'rejected',
 } as const;
 
+/**
+ * manual = requested in advance; rfid_gate = raised automatically by a gate reader
+ */
+export type GatePassSource = typeof GatePassSource[keyof typeof GatePassSource];
+
+
+export const GatePassSource = {
+  manual: 'manual',
+  rfid_gate: 'rfid_gate',
+} as const;
+
 export interface GatePass {
   id: number;
   assetId: number;
@@ -410,19 +428,38 @@ export interface GatePass {
   returnDate?: string | null;
   /** @nullable */
   decisionNote?: string | null;
+  /** manual = requested in advance; rfid_gate = raised automatically by a gate reader */
+  source?: GatePassSource;
+  /** @nullable */
+  gateLocationId?: number | null;
+  /** @nullable */
+  gateLocationName?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /**
+     * When the asset left the premises under this pass (latest gate_pass movement); null = not used yet
+     * @nullable
+     */
+  exitedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
 
 export interface GatePassInput {
   assetId: number;
+  /** @minLength 1 */
   requestedBy: string;
+  /** @minLength 1 */
   reason: string;
   destination?: string;
   returnDate?: string;
 }
 
 export interface GatePassDecision {
+  /**
+     * Name of the approver taking the decision
+     * @minLength 1
+     */
   decidedBy: string;
   note?: string;
 }
@@ -430,6 +467,85 @@ export interface GatePassDecision {
 export interface RFIDSimulateInput {
   rfidTag: string;
   readerId: number;
+  /** Time the reader saw the tag (defaults to now). Lets the simulator replay out-of-hours scans. */
+  scannedAt?: string;
+}
+
+/**
+ * exit = asset was on the premises; entry = asset was off-premises (returning)
+ */
+export type GateCheckDirection = typeof GateCheckDirection[keyof typeof GateCheckDirection];
+
+
+export const GateCheckDirection = {
+  entry: 'entry',
+  exit: 'exit',
+  internal: 'internal',
+} as const;
+
+export type GateCheckOutcome = typeof GateCheckOutcome[keyof typeof GateCheckOutcome];
+
+
+export const GateCheckOutcome = {
+  not_gate: 'not_gate',
+  entry: 'entry',
+  authorized: 'authorized',
+  pending_created: 'pending_created',
+  pending_existing: 'pending_existing',
+} as const;
+
+export interface GateCheck {
+  isGate: boolean;
+  /** exit = asset was on the premises; entry = asset was off-premises (returning) */
+  direction: GateCheckDirection;
+  outcome: GateCheckOutcome;
+  authorized: boolean;
+  gatePass?: GatePass;
+}
+
+export type AIInsightType = typeof AIInsightType[keyof typeof AIInsightType];
+
+
+export const AIInsightType = {
+  anomaly: 'anomaly',
+  idle_asset: 'idle_asset',
+  unauthorized_movement: 'unauthorized_movement',
+  missing_asset: 'missing_asset',
+  maintenance_due: 'maintenance_due',
+  unusual_pattern: 'unusual_pattern',
+} as const;
+
+export type AIInsightSeverity = typeof AIInsightSeverity[keyof typeof AIInsightSeverity];
+
+
+export const AIInsightSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export interface AIInsight {
+  id: number;
+  type: AIInsightType;
+  message: string;
+  /** @nullable */
+  assetId?: number | null;
+  /** @nullable */
+  assetName?: string | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  gatePassId?: number | null;
+  severity: AIInsightSeverity;
+  dismissed: boolean;
+  createdAt: string;
+}
+
+export interface RFIDScanResult {
+  movement: MovementEvent;
+  gateCheck: GateCheck;
+  /** Insights raised by this scan */
+  insights: AIInsight[];
 }
 
 export type RFIDReaderStatus = typeof RFIDReaderStatus[keyof typeof RFIDReaderStatus];
@@ -529,6 +645,15 @@ export interface LocationBreakdown {
   assetCount: number;
 }
 
+export interface MovementTrendPoint {
+  /** Calendar day (YYYY-MM-DD) in the organisation timezone */
+  date: string;
+  rfid: number;
+  manual: number;
+  gatePass: number;
+  total: number;
+}
+
 export type GateActivityItemDirection = typeof GateActivityItemDirection[keyof typeof GateActivityItemDirection];
 
 
@@ -551,50 +676,30 @@ export interface GateActivityItem {
   timestamp: string;
 }
 
-export type AIInsightType = typeof AIInsightType[keyof typeof AIInsightType];
-
-
-export const AIInsightType = {
-  anomaly: 'anomaly',
-  idle_asset: 'idle_asset',
-  unauthorized_movement: 'unauthorized_movement',
-  missing_asset: 'missing_asset',
-  maintenance_due: 'maintenance_due',
-  unusual_pattern: 'unusual_pattern',
-} as const;
-
-export type AIInsightSeverity = typeof AIInsightSeverity[keyof typeof AIInsightSeverity];
-
-
-export const AIInsightSeverity = {
-  info: 'info',
-  warning: 'warning',
-  critical: 'critical',
-} as const;
-
-export interface AIInsight {
-  id: number;
-  type: AIInsightType;
-  message: string;
-  /** @nullable */
-  assetId?: number | null;
-  /** @nullable */
-  assetName?: string | null;
-  /** @nullable */
-  sbuCode?: string | null;
-  severity: AIInsightSeverity;
-  dismissed: boolean;
-  createdAt: string;
-}
-
 export interface AIQueryInput {
   question: string;
 }
+
+/**
+ * Which parser understood the question (OpenAI when configured, rules as the fallback)
+ */
+export type AIQueryResultSource = typeof AIQueryResultSource[keyof typeof AIQueryResultSource];
+
+
+export const AIQueryResultSource = {
+  rules: 'rules',
+  openai: 'openai',
+} as const;
 
 export interface AIQueryResult {
   question: string;
   answer: string;
   relatedAssets?: Asset[];
+  relatedGatePasses?: GatePass[];
+  /** Intent the question was mapped to (e.g. locate_asset, not_moved, gate_passes) */
+  intent?: string;
+  /** Which parser understood the question (OpenAI when configured, rules as the fallback) */
+  source?: AIQueryResultSource;
   timestamp: string;
 }
 
@@ -609,6 +714,17 @@ export const BCSyncStatusStatus = {
   not_configured: 'not_configured',
 } as const;
 
+/**
+ * MVP decision - manual sync only
+ */
+export type BCSyncStatusMode = typeof BCSyncStatusMode[keyof typeof BCSyncStatusMode];
+
+
+export const BCSyncStatusMode = {
+  manual: 'manual',
+  automatic: 'automatic',
+} as const;
+
 export interface BCSyncStatus {
   connected: boolean;
   /** @nullable */
@@ -617,8 +733,15 @@ export interface BCSyncStatus {
   syncedAssets: number;
   /** @nullable */
   errorMessage?: string | null;
-  /** @nullable */
+  /**
+     * Always null in the MVP (manual sync only)
+     * @nullable
+     */
   nextSyncAt?: string | null;
+  /** MVP decision - manual sync only */
+  mode?: BCSyncStatusMode;
+  /** Movements and gate-pass decisions recorded since the last successful sync */
+  pendingChanges?: number;
 }
 
 export type ListAssetsParams = {
@@ -739,6 +862,14 @@ export type GetLocationBreakdownParams = {
  * @nullable
  */
 sbuId?: number | null;
+};
+
+export type GetMovementTrendParams = {
+/**
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
 };
 
 export type GetGateActivityParams = {

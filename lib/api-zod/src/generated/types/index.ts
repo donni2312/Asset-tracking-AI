@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 
 export * from './activityItem';
@@ -14,6 +14,7 @@ export * from './aIInsightSeverity';
 export * from './aIInsightType';
 export * from './aIQueryInput';
 export * from './aIQueryResult';
+export * from './aIQueryResultSource';
 export * from './asset';
 export * from './assetHistoryEvent';
 export * from './assetHistoryEventEventType';
@@ -29,17 +30,23 @@ export * from './assetStatus';
 export * from './assetUpdate';
 export * from './assetUpdateStatus';
 export * from './bCSyncStatus';
+export * from './bCSyncStatusMode';
 export * from './bCSyncStatusStatus';
 export * from './dashboardSummary';
 export * from './gateActivityItem';
 export * from './gateActivityItemDirection';
+export * from './gateCheck';
+export * from './gateCheckDirection';
+export * from './gateCheckOutcome';
 export * from './gatePass';
 export * from './gatePassDecision';
 export * from './gatePassInput';
+export * from './gatePassSource';
 export * from './gatePassStatus';
 export * from './getDashboardActivityParams';
 export * from './getGateActivityParams';
 export * from './getLocationBreakdownParams';
+export * from './getMovementTrendParams';
 export * from './healthStatus';
 export * from './listAssetsParams';
 export * from './listAssetsStatus';
@@ -61,8 +68,10 @@ export * from './locationUpdateType';
 export * from './movementEvent';
 export * from './movementEventTriggeredBy';
 export * from './movementInput';
+export * from './movementTrendPoint';
 export * from './rFIDReader';
 export * from './rFIDReaderStatus';
+export * from './rFIDScanResult';
 export * from './rFIDSimulateInput';
 export * from './sbu';
 export * from './sBUBreakdown';

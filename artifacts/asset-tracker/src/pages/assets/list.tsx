@@ -148,7 +148,7 @@ export default function AssetList() {
                       <TableCell>
                         {asset.currentLocationName
                           ? <span className="text-sm">{asset.currentLocationName}</span>
-                          : <span className="text-sm text-muted-foreground italic">Untracked</span>}
+                          : <span className="text-sm text-muted-foreground italic">Off-premises / untracked</span>}
                       </TableCell>
                       <TableCell><StatusBadge status={asset.status} /></TableCell>
                       <TableCell className="text-right font-mono text-sm">

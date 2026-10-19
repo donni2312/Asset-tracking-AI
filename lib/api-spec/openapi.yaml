@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.2.0
+  version: 0.3.0
   description: TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
 servers:
   - url: /api
@@ -504,6 +504,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MovementEvent"
+        "400":
+          description: Invalid input (e.g. asset is already at that location)
+        "404":
+          description: Asset or destination location not found
 
   /movements/{id}:
     get:
@@ -566,6 +570,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatePass"
+        "400":
+          description: Invalid input (e.g. return date in the past)
+        "404":
+          description: Asset not found
+        "409":
+          description: The asset already has a pending gate pass
 
   /gate-passes/{id}:
     get:
@@ -591,6 +601,7 @@ paths:
       operationId: approveGatePass
       tags: [gate-passes]
       summary: Approve a gate pass
+      description: Approving records a `gate_pass` movement (the asset leaves the premises) and resolves the related unauthorised-movement alert.
       parameters:
         - name: id
           in: path
@@ -610,12 +621,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatePass"
+        "404":
+          description: Gate pass not found
+        "409":
+          description: Gate pass has already been decided
 
   /gate-passes/{id}/reject:
     post:
       operationId: rejectGatePass
       tags: [gate-passes]
       summary: Reject a gate pass
+      description: Rejecting flags the asset (unauthorised-movement alert plus an audit note in the asset history).
       parameters:
         - name: id
           in: path
@@ -635,6 +651,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatePass"
+        "404":
+          description: Gate pass not found
+        "409":
+          description: Gate pass has already been decided
 
   # ── RFID Simulation ──────────────────────────────────────────────────────────
   /rfid/simulate:
@@ -642,6 +662,12 @@ paths:
       operationId: simulateRfidRead
       tags: [rfid]
       summary: Simulate an RFID tag read event at a gate or office reader
+      description: |
+        Processes a tag read exactly like a hardware event would be processed:
+        records an `rfid` movement, runs the gate-pass check for gate readers
+        (an exit without an approved pass auto-creates a pending gate pass) and
+        evaluates the anomaly rules (unauthorised exit, SBU location mismatch,
+        out-of-hours scan).
       requestBody:
         required: true
         content:
@@ -650,11 +676,15 @@ paths:
               $ref: "#/components/schemas/RFIDSimulateInput"
       responses:
         "200":
-          description: Simulation result
+          description: Scan result (movement, gate check outcome and any insights raised)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MovementEvent"
+                $ref: "#/components/schemas/RFIDScanResult"
+        "404":
+          description: Unknown RFID tag or reader
+        "409":
+          description: Reader is inactive
 
   /rfid/readers:
     get:
@@ -734,6 +764,29 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LocationBreakdown"
+
+  /dashboard/movement-trend:
+    get:
+      operationId: getMovementTrend
+      tags: [dashboard]
+      summary: Daily movement counts by trigger type for the last N days (organisation timezone)
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 14
+      responses:
+        "200":
+          description: One point per day, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MovementTrendPoint"
 
   /dashboard/gate-activity:
     get:
@@ -1076,6 +1129,8 @@ components:
           enum: [rfid, manual, gate_pass, null]
         movedBy:
           type: ["string", "null"]
+        gatePassId:
+          type: ["integer", "null"]
         # lifecycle fields
         eventType:
           type: ["string", "null"]
@@ -1194,6 +1249,9 @@ components:
           enum: [rfid, manual, gate_pass]
         rfidReaderId:
           type: ["integer", "null"]
+        gatePassId:
+          type: ["integer", "null"]
+          description: Gate pass that authorised (or was raised by) this movement
         movedBy:
           type: ["string", "null"]
         notes:
@@ -1248,6 +1306,21 @@ components:
           format: date
         decisionNote:
           type: ["string", "null"]
+        source:
+          type: string
+          enum: [manual, rfid_gate]
+          description: manual = requested in advance; rfid_gate = raised automatically by a gate reader
+        gateLocationId:
+          type: ["integer", "null"]
+        gateLocationName:
+          type: ["string", "null"]
+        decidedAt:
+          type: ["string", "null"]
+          format: date-time
+        exitedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When the asset left the premises under this pass (latest gate_pass movement); null = not used yet
         createdAt:
           type: string
           format: date-time
@@ -1263,8 +1336,10 @@ components:
           type: integer
         requestedBy:
           type: string
+          minLength: 1
         reason:
           type: string
+          minLength: 1
         destination:
           type: string
         returnDate:
@@ -1277,6 +1352,8 @@ components:
       properties:
         decidedBy:
           type: string
+          minLength: 1
+          description: Name of the approver taking the decision
         note:
           type: string
 
@@ -1289,6 +1366,42 @@ components:
           type: string
         readerId:
           type: integer
+        scannedAt:
+          type: string
+          format: date-time
+          description: Time the reader saw the tag (defaults to now). Lets the simulator replay out-of-hours scans.
+
+    GateCheck:
+      type: object
+      required: [isGate, direction, outcome, authorized]
+      properties:
+        isGate:
+          type: boolean
+        direction:
+          type: string
+          enum: [entry, exit, internal]
+          description: exit = asset was on the premises; entry = asset was off-premises (returning)
+        outcome:
+          type: string
+          enum: [not_gate, entry, authorized, pending_created, pending_existing]
+        authorized:
+          type: boolean
+        gatePass:
+          $ref: "#/components/schemas/GatePass"
+
+    RFIDScanResult:
+      type: object
+      required: [movement, gateCheck, insights]
+      properties:
+        movement:
+          $ref: "#/components/schemas/MovementEvent"
+        gateCheck:
+          $ref: "#/components/schemas/GateCheck"
+        insights:
+          type: array
+          description: Insights raised by this scan
+          items:
+            $ref: "#/components/schemas/AIInsight"
 
     RFIDReader:
       type: object
@@ -1401,6 +1514,22 @@ components:
         assetCount:
           type: integer
 
+    MovementTrendPoint:
+      type: object
+      required: [date, rfid, manual, gatePass, total]
+      properties:
+        date:
+          type: string
+          description: Calendar day (YYYY-MM-DD) in the organisation timezone
+        rfid:
+          type: integer
+        manual:
+          type: integer
+        gatePass:
+          type: integer
+        total:
+          type: integer
+
     GateActivityItem:
       type: object
       required: [readerId, readerName, locationName, sbuCode, sbuName, timestamp, assetName, rfidTag, direction]
@@ -1446,6 +1575,8 @@ components:
           type: ["string", "null"]
         sbuCode:
           type: ["string", "null"]
+        gatePassId:
+          type: ["integer", "null"]
         severity:
           type: string
           enum: [info, warning, critical]
@@ -1474,6 +1605,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Asset"
+        relatedGatePasses:
+          type: array
+          items:
+            $ref: "#/components/schemas/GatePass"
+        intent:
+          type: string
+          description: Intent the question was mapped to (e.g. locate_asset, not_moved, gate_passes)
+        source:
+          type: string
+          enum: [rules, openai]
+          description: Which parser understood the question (OpenAI when configured, rules as the fallback)
         timestamp:
           type: string
           format: date-time
@@ -1498,3 +1640,11 @@ components:
         nextSyncAt:
           type: ["string", "null"]
           format: date-time
+          description: Always null in the MVP (manual sync only)
+        mode:
+          type: string
+          enum: [manual, automatic]
+          description: MVP decision - manual sync only
+        pendingChanges:
+          type: integer
+          description: Movements and gate-pass decisions recorded since the last successful sync

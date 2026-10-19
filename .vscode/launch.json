@@ -1,0 +1,51 @@
+{
+  // Debugging. Stop the "API: dev server (watch)" task first — both use port 8080.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API: debug",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/artifacts/api-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "tsx", "--env-file-if-exists=../../.env", "src/index.ts"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Web: debug in Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/artifacts/asset-tracker"
+    },
+    {
+      "name": "Tests: debug current API test file",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/artifacts/api-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "vitest", "run", "${file}"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Seed: debug",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/scripts",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "tsx", "--env-file-if-exists=../.env", "src/seed.ts", "--reset"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack (debug API + Edge)",
+      "preLaunchTask": "Dev: database + web (for API debugging)",
+      "configurations": ["API: debug", "Web: debug in Edge"],
+      "stopAll": true
+    }
+  ]
+}

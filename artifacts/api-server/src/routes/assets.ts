@@ -168,6 +168,7 @@ router.get("/assets/:id/history", async (req, res) => {
         fromLocationId: movementsTable.fromLocationId,
         toLocationId: movementsTable.toLocationId,
         triggeredBy: movementsTable.triggeredBy,
+        gatePassId: movementsTable.gatePassId,
         movedBy: movementsTable.movedBy,
         notes: movementsTable.notes,
         timestamp: movementsTable.timestamp,
@@ -195,6 +196,7 @@ router.get("/assets/:id/history", async (req, res) => {
       fromLocationName: m.fromLocationId != null ? (locMap[m.fromLocationId] ?? null) : null,
       toLocationName: m.toLocationId != null ? (locMap[m.toLocationId] ?? null) : null,
       triggeredBy: m.triggeredBy,
+      gatePassId: m.gatePassId,
       movedBy: m.movedBy,
       notes: m.notes,
       // lifecycle fields
@@ -229,6 +231,7 @@ router.get("/assets/:id/history", async (req, res) => {
       fromLocationName: null,
       toLocationName: null,
       triggeredBy: null,
+      gatePassId: null,
       movedBy: null,
       // lifecycle fields
       eventType: e.eventType,

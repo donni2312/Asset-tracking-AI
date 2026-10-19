@@ -3,8 +3,9 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
+import type { BCSyncStatusMode } from './bCSyncStatusMode';
 import type { BCSyncStatusStatus } from './bCSyncStatusStatus';
 
 export interface BCSyncStatus {
@@ -15,6 +16,13 @@ export interface BCSyncStatus {
   syncedAssets: number;
   /** @nullable */
   errorMessage?: string | null;
-  /** @nullable */
+  /**
+     * Always null in the MVP (manual sync only)
+     * @nullable
+     */
   nextSyncAt?: Date | null;
+  /** MVP decision - manual sync only */
+  mode?: BCSyncStatusMode;
+  /** Movements and gate-pass decisions recorded since the last successful sync */
+  pendingChanges?: number;
 }

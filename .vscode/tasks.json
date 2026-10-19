@@ -1,0 +1,114 @@
+{
+  // Run with Ctrl+Shift+P → "Tasks: Run Task". "Dev: full stack" starts everything.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup: install dependencies",
+      "type": "shell",
+      "command": "pnpm install",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: local PostgreSQL",
+      "detail": "PostgreSQL 16 on localhost:5433 (Ctrl+C or Terminate Task to stop)",
+      "type": "shell",
+      "command": "pnpm db:local",
+      "isBackground": true,
+      "presentation": { "group": "servers", "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": {
+        "owner": "assetiq-db",
+        "pattern": { "regexp": "^__assetiq_never_matches__$" },
+        "background": { "activeBegins": true, "beginsPattern": "db:local", "endsPattern": "Local PostgreSQL is ready" }
+      }
+    },
+    {
+      "label": "DB: stop local PostgreSQL",
+      "detail": "Stops a server left running after its terminal was closed",
+      "type": "shell",
+      "command": "pnpm db:local stop",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: push schema",
+      "detail": "Create / update tables from lib/db/src/schema (drizzle-kit push)",
+      "type": "shell",
+      "command": "pnpm db:push",
+      "problemMatcher": []
+    },
+    {
+      "label": "DB: seed demo data (reset)",
+      "detail": "Wipes every AssetIQ table and loads the demo data",
+      "type": "shell",
+      "command": "pnpm seed --reset",
+      "problemMatcher": []
+    },
+    {
+      "label": "API: dev server (watch)",
+      "detail": "Express API on http://localhost:8080/api, restarts on save",
+      "type": "shell",
+      "command": "pnpm dev:api",
+      "isBackground": true,
+      "presentation": { "group": "servers", "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": {
+        "owner": "assetiq-api",
+        "pattern": { "regexp": "^__assetiq_never_matches__$" },
+        "background": { "activeBegins": true, "beginsPattern": "tsx watch", "endsPattern": "Server listening" }
+      }
+    },
+    {
+      "label": "Web: dev server (Vite)",
+      "detail": "React dashboard on http://localhost:5173 (hot reload, proxies /api)",
+      "type": "shell",
+      "command": "pnpm dev:web",
+      "isBackground": true,
+      "presentation": { "group": "servers", "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": {
+        "owner": "assetiq-web",
+        "pattern": { "regexp": "^__assetiq_never_matches__$" },
+        "background": { "activeBegins": true, "beginsPattern": "vite", "endsPattern": "ready in" }
+      }
+    },
+    {
+      "label": "Dev: full stack",
+      "detail": "Database → API (watch) → Vite, then open http://localhost:5173",
+      "dependsOn": ["DB: local PostgreSQL", "API: dev server (watch)", "Web: dev server (Vite)"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: database + web (for API debugging)",
+      "detail": "Used by the 'Full stack (debug API)' launch configuration",
+      "dependsOn": ["DB: local PostgreSQL", "Web: dev server (Vite)"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: API (Vitest)",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/api-server run test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: API (watch mode)",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/api-server run test:watch",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Typecheck: workspace",
+      "type": "shell",
+      "command": "pnpm run typecheck",
+      "group": "build",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "Codegen: OpenAPI → React hooks + Zod",
+      "detail": "Run after editing lib/api-spec/openapi.yaml",
+      "type": "shell",
+      "command": "pnpm codegen",
+      "problemMatcher": []
+    }
+  ]
+}

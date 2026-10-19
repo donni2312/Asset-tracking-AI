@@ -1,0 +1,33 @@
+{
+  // Use the workspace TypeScript (5.9) so the editor matches `pnpm run typecheck`.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // The repository uses LF line endings.
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/*.tsbuildinfo": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "pnpm-lock.yaml": true
+  },
+
+  // Tailwind v4 IntelliSense: the theme lives in the CSS entry file.
+  "tailwindCSS.experimental.configFile": "artifacts/asset-tracker/src/index.css",
+
+  // REST Client (requests in artifacts/api-server/requests.http).
+  "rest-client.environmentVariables": {
+    "$shared": {},
+    "local": { "baseUrl": "http://localhost:8080/api" },
+    "via-vite-proxy": { "baseUrl": "http://localhost:5173/api" }
+  },
+
+  // Node.js was installed per-user (no admin) in %LOCALAPPDATA%\Programs\nodejs.
+  // Prepending it here lets VS Code terminals find node/pnpm even before VS Code
+  // picks up the updated user PATH. Harmless on machines without that folder.
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:LOCALAPPDATA}\\Programs\\nodejs;${env:PATH}"
+  }
+}

@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.2.0
+ * OpenAPI spec version: 0.3.0
  */
 import type { AIInsightSeverity } from './aIInsightSeverity';
 import type { AIInsightType } from './aIInsightType';
@@ -18,6 +18,8 @@ export interface AIInsight {
   assetName?: string | null;
   /** @nullable */
   sbuCode?: string | null;
+  /** @nullable */
+  gatePassId?: number | null;
   severity: AIInsightSeverity;
   dismissed: boolean;
   createdAt: Date;

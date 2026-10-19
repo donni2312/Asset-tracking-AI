@@ -1,0 +1,11 @@
+{
+  // Recommended extensions for working on AssetIQ locally.
+  "recommendations": [
+    "vitest.explorer",
+    "humao.rest-client",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "42crunch.vscode-openapi",
+    "ms-ossdata.vscode-pgsql"
+  ]
+}

@@ -2,15 +2,20 @@ import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useListLocations, useListSbus } from "@workspace/api-client-react";
-import { Building2, MapPin, Layers, Info, Radio } from "lucide-react";
+import { Building2, MapPin, Layers, Info, Radio, Plus, Pencil, Server, FlaskConical, Users, DoorOpen } from "lucide-react";
 import { useState } from "react";
-import { useSearch } from "wouter";
+import { Link, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
+import { LOCATION_TYPES, locationTypeLabel } from "@/lib/constants";
 
 const typeIcons: Record<string, typeof Building2> = {
   gate: Radio,
   office: Building2,
   warehouse: Layers,
+  meeting_room: Users,
+  lab: FlaskConical,
+  reception: DoorOpen,
+  server_room: Server,
 };
 
 const typeColors: Record<string, string> = {
@@ -52,11 +57,16 @@ export default function LocationList() {
   return (
     <Layout>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Facilities & Locations</h1>
-          <p className="text-muted-foreground text-sm">
-            {activeSbu ? `${activeSbu.name} locations` : "All TSL Group facilities — offices, gates, warehouses, and labs"}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Facilities & Locations</h1>
+            <p className="text-muted-foreground text-sm">
+              {activeSbu ? `${activeSbu.name} locations` : "All TSL Group facilities — offices, gates, warehouses, and labs"}
+            </p>
+          </div>
+          <Link href="/locations/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
+            <Plus className="w-4 h-4 mr-2" />Add Location
+          </Link>
         </div>
 
         {/* SBU filter */}
@@ -74,12 +84,12 @@ export default function LocationList() {
             >{sbu.code}</button>
           ))}
           <div className="w-px bg-border mx-1" />
-          {["gate", "office", "warehouse", "lab", "meeting_room"].map(t => (
+          {LOCATION_TYPES.map(t => (
             <button
-              key={t}
-              onClick={() => setTypeFilter(typeFilter === t ? null : t)}
-              className={cn("px-3 py-1.5 rounded-md text-xs font-medium border capitalize transition-all", typeFilter === t ? "bg-muted border-foreground" : "hover:bg-muted")}
-            >{t.replace("_", " ")}</button>
+              key={t.value}
+              onClick={() => setTypeFilter(typeFilter === t.value ? null : t.value)}
+              className={cn("px-3 py-1.5 rounded-md text-xs font-medium border transition-all", typeFilter === t.value ? "bg-muted border-foreground" : "hover:bg-muted")}
+            >{t.label}</button>
           ))}
         </div>
 
@@ -131,9 +141,19 @@ function LocationCard({ loc }: { loc: any }) {
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start gap-2">
           <CardTitle className="text-base leading-snug">{loc.name}</CardTitle>
-          <Badge className={cn("text-[10px] uppercase tracking-wide border flex-shrink-0", colorClass)}>
-            <Icon className="w-3 h-3 mr-1" />{loc.type.replace("_", " ")}
-          </Badge>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Badge className={cn("text-[10px] uppercase tracking-wide border", colorClass)}>
+              <Icon className="w-3 h-3 mr-1" />{locationTypeLabel(loc.type)}
+            </Badge>
+            <Link
+              href={`/locations/${loc.id}/edit`}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+              aria-label={`Edit ${loc.name}`}
+              title="Edit location"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
         {loc.sbuCode && (
           <div className="mt-1">

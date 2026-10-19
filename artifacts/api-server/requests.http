@@ -1,0 +1,104 @@
+# AssetIQ API — live requests for the VS Code "REST Client" extension (humao.rest-client).
+# Click "Send Request" above a request. IDs below match a fresh `pnpm seed --reset`.
+# Reader ids: 3 = TSAS Main Gate Reader, 1 = TSAS IT Dept Reader, 7 = BAK Depot Gate Reader, 12 = offline reader.
+
+@baseUrl = http://localhost:8080/api
+
+### Health check
+GET {{baseUrl}}/healthz
+
+### RFID readers (ids, locations, SBUs)
+GET {{baseUrl}}/rfid/readers
+
+### 1. Gate scan WITHOUT a pass — raises a pending gate pass + unauthorized_movement alert
+POST {{baseUrl}}/rfid/simulate
+Content-Type: application/json
+
+{ "rfidTag": "RFID-TSAS-0001", "readerId": 3 }
+
+### 2. Pending gate passes (note the new pass id)
+GET {{baseUrl}}/gate-passes?status=pending
+
+### 3. Approve it (replace 7 with the id) — records the gate_pass exit, asset goes off-premises
+POST {{baseUrl}}/gate-passes/7/approve
+Content-Type: application/json
+
+{ "decidedBy": "Rudo Chikwanha", "note": "Client demo" }
+
+### 3b. Approving without a name is rejected (400)
+POST {{baseUrl}}/gate-passes/7/approve
+Content-Type: application/json
+
+{ "decidedBy": "  " }
+
+### 4. Scan again at the gate — the asset is off-premises, so this is an ENTRY (no alert)
+POST {{baseUrl}}/rfid/simulate
+Content-Type: application/json
+
+{ "rfidTag": "RFID-TSAS-0001", "readerId": 3 }
+
+### 5. Reject a pass instead — flags the asset (critical alert + note in its history)
+POST {{baseUrl}}/gate-passes/5/reject
+Content-Type: application/json
+
+{ "decidedBy": "Rudo Chikwanha", "note": "Projector needed on site" }
+
+### 6. Out-of-hours replay: Saturday 02:14 Harare time (00:14 UTC)
+POST {{baseUrl}}/rfid/simulate
+Content-Type: application/json
+
+{ "rfidTag": "RFID-TSAS-0005", "readerId": 1, "scannedAt": "2026-10-10T00:14:00Z" }
+
+### 7. Location mismatch: Agricura phone read at the TSAS gate
+POST {{baseUrl}}/rfid/simulate
+Content-Type: application/json
+
+{ "rfidTag": "RFID-AGRI-0025", "readerId": 3 }
+
+### 8. Request a gate pass in advance (manual)
+POST {{baseUrl}}/gate-passes
+Content-Type: application/json
+
+{ "assetId": 2, "requestedBy": "Tendai Moyo", "reason": "Client audit", "destination": "Borrowdale", "returnDate": "2030-01-31" }
+
+### 9. Manual movement
+POST {{baseUrl}}/movements
+Content-Type: application/json
+
+{ "assetId": 5, "toLocationId": 1, "movedBy": "Farai Ncube", "notes": "Moved for training" }
+
+### 10. Natural-language questions (plan section 6.5)
+POST {{baseUrl}}/ai/query
+Content-Type: application/json
+
+{ "question": "Where is the Dell laptop assigned to John Doe?" }
+
+###
+POST {{baseUrl}}/ai/query
+Content-Type: application/json
+
+{ "question": "Which assets have not moved in 30 days?" }
+
+###
+POST {{baseUrl}}/ai/query
+Content-Type: application/json
+
+{ "question": "Show me all gate passes approved this week" }
+
+### 11. Insights (also runs the idle / missing rules)
+GET {{baseUrl}}/insights
+
+### 12. Dashboard data
+GET {{baseUrl}}/dashboard/summary
+
+###
+GET {{baseUrl}}/dashboard/movement-trend?days=14
+
+###
+GET {{baseUrl}}/dashboard/gate-activity?limit=10
+
+### 13. Business Central (manual sync only)
+GET {{baseUrl}}/bc/sync-status
+
+###
+POST {{baseUrl}}/bc/sync
