@@ -37,19 +37,23 @@ test the project locally and records everything changed in the October 2026 pass
 ### Where the working copy lives — keep it out of OneDrive
 Work from `C:\dev\Asset-Tracking-AI`. That is the active copy and the one these instructions assume.
 
-The original clone is still in OneDrive at the `robocopy` source path below, but do not run `pnpm install` or the
-dev servers there: the install writes tens of thousands of files into `node_modules`, which OneDrive uploads to the
-TSL tenant and can lock mid-install. The two copies drift, so treat `C:\dev` as authoritative and sync through git
-rather than copying files back.
+GitHub (`origin`) is the only thing that should ever carry the project between machines. Never keep a second
+working copy inside OneDrive: `pnpm install` writes tens of thousands of files into `node_modules`, which OneDrive
+uploads to the TSL tenant and can lock mid-install, and two copies silently drift apart.
 
-To recreate the `C:\dev` copy on another machine (or after deleting it):
+To set the project up on this or any other machine:
 
 ```powershell
-robocopy "$env:USERPROFILE\OneDrive - TSL Ltd\Documents\Attachments\Desktop\Donn's Coding Projects\Asset-Tracking-AI\Asset-Tracking-AI" C:\dev\Asset-Tracking-AI /E /XD node_modules .venv dist
+git clone https://github.com/donni2312/Asset-tracking-AI.git C:\dev\Asset-Tracking-AI
 code C:\dev\Asset-Tracking-AI
 ```
 
-(`robocopy` copies `.git` and the uncommitted changes too. Alternatively commit, push and `git clone` to `C:\dev`.)
+Then copy `.env.example` to `.env` and fill it in — `.env` is git-ignored, so a clone never brings it along.
+
+If a stray copy ever turns up under `OneDrive - TSL Ltd\...\Donn's Coding Projects\`, delete it from
+**onedrive.com**, not from Explorer. Deleting a synced folder locally does not stick: the sync client holds
+handles on the directories and restores the whole tree from the cloud a minute later. Deleting it online syncs
+the removal down instead, and keeps it in the online Recycle Bin for 30 days.
 
 ### First run
 1. Open the folder in VS Code and accept the recommended extensions (Vitest, REST Client, Tailwind, OpenAPI, PostgreSQL).
