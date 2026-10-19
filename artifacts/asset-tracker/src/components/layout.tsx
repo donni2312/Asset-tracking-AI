@@ -31,9 +31,11 @@ export function Layout({ children }: LayoutProps) {
       <aside className="w-full md:w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col flex-shrink-0">
         <div className="p-4 md:p-6 border-b border-sidebar-border">
           <Link href="/" className="flex items-center gap-3 cursor-pointer">
-            <div className="w-9 h-9 rounded bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground flex-shrink-0">
-              <Activity className="w-5 h-5" />
-            </div>
+            <img
+              src="/tsl-logo.png"
+              alt="TSL Limited"
+              className="w-9 h-9 object-contain flex-shrink-0"
+            />
             <div className="leading-tight">
               <div className="font-bold text-base tracking-tight">TSL AssetIQ</div>
               <div className="text-[10px] text-sidebar-foreground/50 font-medium tracking-widest uppercase">TSL Limited</div>
