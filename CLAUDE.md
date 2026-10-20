@@ -267,6 +267,38 @@ Manually: Settings → Date format → each option, then check the Movement Log,
 **Known limit:** native `<input type="date">` / `datetime-local` pickers (gate-pass return date, the simulator's replay
 time) render in the **operating system's** locale — no web app can restyle them. Only displayed dates follow the setting.
 
+### 13. Pickers: find an asset by typing, choose a person from the people on record
+- **`components/searchable-select.tsx`** replaces the long native `<select>` of every asset (32 in the demo, far more
+  in production). The query is matched token by token against the asset's **name, RFID tag, serial number, category,
+  SBU and current location**, so "latitude dell", "tsas-0001" or a serial all find the same row; each row shows the
+  tag / serial / location and the SBU badge. Used by **Request gate pass** and **Record Movement**.
+- **`hooks/use-people.ts`** builds the people list. There is no users table and no authentication in the MVP, so
+  people exist only as names on records: `assets.assignedTo`, `gate_passes.requestedBy / approvedBy` and
+  `movements.movedBy`. The hook gathers those from the already-cached list queries, de-duplicates
+  **case-insensitively** (keeping the most common spelling, so a stray "tendai moyo" doesn't replace "Tendai Moyo")
+  and annotates each name with how many assets they hold and where they appear.
+- The same picker in `allowCustom` mode backs **Requested by** (gate pass), **Your name (approver)** (approve/reject)
+  and **Moved by** (manual movement): it offers everyone on record with the same type-to-filter, and still accepts a
+  name that is not in the database yet — a new employee must not be blocked from requesting a pass. The list says so
+  when the typed name is new.
+- It is **not** a Radix Popover: the list renders inline, so it cannot fight the surrounding Dialog over focus.
+  Keyboard: ↑/↓ move, Enter selects (without submitting the form), Esc closes the list only, Tab closes.
+- **`components/date-field.tsx`** replaces `<input type="date">` on the gate-pass return date. The native control
+  renders in the **operating system's** locale, which was the one place a date ignored the Settings format (§12).
+  The field now reads and writes in the chosen order (`dd/mm/yyyy` placeholder), accepts `/`, `-` or `.` as
+  separators, rejects impossible days (31/02, 29/02 in a non-leap year) with an inline message, and keeps a calendar
+  button — the shadcn `Calendar`, rendered inline for the same focus reason. The API still receives `YYYY-MM-DD`.
+
+Test: no new automated tests (UI only); `pnpm run typecheck` clean, `pnpm run build` succeeds, `pnpm test` still
+9 files / 111 tests. `parseDateInput` and the search filter were exercised directly over all three date formats:
+`1/1/2027`, `31-12-2026`, leap days (29/02/2028 valid, 29/02/2027 not), `31/02`, month/day swapped for the format,
+and free text → invalid; and the filter over name / tag / serial / assignee / out-of-order tokens / non-matches.
+Manually: Gate Passes → *Request gate pass* → type "dell", a serial, or an RFID tag; pick a person from the list and
+then type a name that is not on it; type `31/12/2026` and check the pass shows *Due back 31/12/2026*.
+
+**Still typed free-hand:** the RFID simulator's replay time is a `datetime-local` input (it needs a time as well as a
+date) and keeps the OS format. The asset registry's own search box is unchanged — it queries the API.
+
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
 - `GET /gate-passes?sbuId=` and `GET /movements?sbuId=` now filter (the parameters were ignored).

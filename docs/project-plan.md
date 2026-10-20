@@ -168,6 +168,11 @@ Passes reach the approval queue in two ways: an employee **requests one in advan
 
 Rules: one pending pass per asset; return dates cannot be in the past; a pass can only be decided once.
 
+The request form picks the asset by **typing part of its name, RFID tag or serial number** rather than scrolling a
+list of every asset, and picks the requester (and, on the decision dialog, the approver) from the **people already on
+record** — the same picker, filtered the same way — while still accepting a name the system has not seen before. The
+return date is entered in the format chosen in Settings (§6.8).
+
 ### 6.4 AI Anomaly Detection
 The anomaly engine (`services/anomaly-rules.ts`, pure and unit-tested) flags:
 
@@ -363,3 +368,15 @@ rather than through `Date`, which would shift the day in a negative-offset timez
 *Consequences:* one place to change date presentation, and the setting is consistent across every screen and chart;
 new code must use that module, since a stray `toLocaleDateString` would ignore the preference. Native date-picker
 inputs still follow the operating system's locale — unavoidable in a browser.
+
+**D7 — People come from the records, not a user table.**
+*Context:* requesters, approvers and the person who moved an asset were typed by hand every time, so the same person
+could be entered three ways and no screen could offer a list. The MVP has no authentication and no staff directory
+(§7), and adding one would duplicate the HR data that Business Central already owns.
+*Decision:* derive the list of people from the names already stored — `assets.assignedTo`, `gate_passes.requestedBy`
+and `approvedBy`, `movements.movedBy` — de-duplicated case-insensitively, and offer it as a type-to-filter dropdown
+that still accepts a new name. No schema or contract change.
+*Consequences:* names converge on one spelling and are picked rather than retyped, and the list grows as the system is
+used; it is only as good as the data entered, and someone who has never appeared must be typed once. A real directory
+(Business Central staff, or Azure AD once authentication exists) replaces this source in Phase 2 without changing the
+pickers.

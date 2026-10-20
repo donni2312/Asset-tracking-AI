@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useOperatorName } from "@/hooks/use-operator";
 import { apiErrorMessage } from "@/lib/api-error";
 import { SELECT_CLASS, locationTypeLabel } from "@/lib/constants";
+import { SearchableSelect, type SearchableOption } from "@/components/searchable-select";
+import { personHint, usePeople } from "@/hooks/use-people";
 
 /** Manual movement — for moves that did not pass an RFID reader. */
 export default function NewMovement() {
@@ -23,6 +25,7 @@ export default function NewMovement() {
   const [operator, setOperator] = useOperatorName();
   const { data: assets } = useListAssets();
   const { data: locations } = useListLocations();
+  const { people } = usePeople();
   const createMovement = useCreateMovement();
 
   const [assetId, setAssetId] = useState(() => new URLSearchParams(search).get("assetId") ?? "");
@@ -38,6 +41,24 @@ export default function NewMovement() {
 
   const movable = (assets ?? []).filter((a) => a.status !== "retired");
   const asset = movable.find((a) => String(a.id) === assetId);
+
+  // Same picker as the gate-pass form: find an asset by name, tag or serial.
+  const assetOptions: SearchableOption[] = useMemo(
+    () =>
+      movable.map((a) => ({
+        value: String(a.id),
+        label: a.name,
+        hint: [a.rfidTag, a.serialNumber, a.currentLocationName].filter(Boolean).join(" · "),
+        badge: a.sbuCode ?? undefined,
+        keywords: [a.category, a.assignedTo, a.sbuName, a.status].filter(Boolean) as string[],
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assets],
+  );
+  const peopleOptions: SearchableOption[] = useMemo(
+    () => people.map((p) => ({ value: p.name, label: p.name, hint: personHint(p) || undefined })),
+    [people],
+  );
   const destination = locations?.find((l) => String(l.id) === toLocationId);
 
   // Destinations grouped by SBU, excluding where the asset already is.
@@ -91,23 +112,18 @@ export default function NewMovement() {
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="mv-asset">Asset <span className="text-destructive">*</span></Label>
-                <select
+                <SearchableSelect
                   id="mv-asset"
-                  className={SELECT_CLASS}
                   value={assetId}
-                  onChange={(e) => {
-                    setAssetId(e.target.value);
+                  onChange={(next) => {
+                    setAssetId(next);
                     setToLocationId("");
                   }}
+                  options={assetOptions}
+                  placeholder="Search by name, RFID tag or serial number…"
+                  emptyMessage="No asset matches that name, tag or serial."
                   required
-                >
-                  <option value="">Select an asset…</option>
-                  {movable.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} — {a.rfidTag}{a.sbuCode ? ` [${a.sbuCode}]` : ""}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {asset && (
@@ -164,7 +180,15 @@ export default function NewMovement() {
 
               <div className="space-y-2">
                 <Label htmlFor="mv-moved-by">Moved by <span className="text-destructive">*</span></Label>
-                <Input id="mv-moved-by" value={movedBy} onChange={(e) => setMovedBy(e.target.value)} placeholder="e.g. Tendai Moyo" required />
+                <SearchableSelect
+                  id="mv-moved-by"
+                  value={movedBy}
+                  onChange={setMovedBy}
+                  options={peopleOptions}
+                  placeholder="Search people, or type a new name…"
+                  allowCustom
+                  required
+                />
               </div>
 
               <div className="space-y-2">

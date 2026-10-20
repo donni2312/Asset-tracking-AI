@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreateGatePass, useListAssets } from "@workspace/api-client-react";
 import { ShieldPlus } from "lucide-react";
@@ -12,7 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useOperatorName } from "@/hooks/use-operator";
 import { apiErrorMessage } from "@/lib/api-error";
-import { SELECT_CLASS, todayInputValue } from "@/lib/constants";
+import { todayInputValue } from "@/lib/constants";
+import { SearchableSelect, type SearchableOption } from "@/components/searchable-select";
+import { DateField } from "@/components/date-field";
+import { personHint, usePeople } from "@/hooks/use-people";
 import { acknowledgeGatePass } from "@/components/gate-pass-notifications";
 
 interface GatePassRequestDialogProps {
@@ -28,6 +31,7 @@ export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassR
   const { toast } = useToast();
   const [operator, setOperator] = useOperatorName();
   const { data: assets } = useListAssets();
+  const { people } = usePeople();
   const createGatePass = useCreateGatePass();
 
   const [selectedAsset, setSelectedAsset] = useState<string>("");
@@ -50,6 +54,26 @@ export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassR
   }, [open, assetId]);
 
   const requestable = (assets ?? []).filter((a) => a.status !== "retired");
+
+  // An asset is found by name, RFID tag, serial number, category, SBU or the
+  // location it is sitting in - whichever the requester happens to know.
+  const assetOptions: SearchableOption[] = useMemo(
+    () =>
+      requestable.map((a) => ({
+        value: String(a.id),
+        label: a.name,
+        hint: [a.rfidTag, a.serialNumber, a.currentLocationName].filter(Boolean).join(" · "),
+        badge: a.sbuCode ?? undefined,
+        keywords: [a.category, a.assignedTo, a.sbuName, a.status].filter(Boolean) as string[],
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assets],
+  );
+
+  const peopleOptions: SearchableOption[] = useMemo(
+    () => people.map((p) => ({ value: p.name, label: p.name, hint: personHint(p) || undefined })),
+    [people],
+  );
   const canSubmit = !!selectedAsset && requestedBy.trim() !== "" && reason.trim() !== "" && !createGatePass.isPending;
 
   function submit(e: React.FormEvent) {
@@ -97,30 +121,36 @@ export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassR
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
               <Label htmlFor="gp-asset">Asset <span className="text-destructive">*</span></Label>
-              <select
+              <SearchableSelect
                 id="gp-asset"
-                className={SELECT_CLASS}
                 value={selectedAsset}
-                onChange={(e) => setSelectedAsset(e.target.value)}
+                onChange={setSelectedAsset}
+                options={assetOptions}
+                placeholder="Search by name, RFID tag or serial number…"
+                emptyMessage="No asset matches that name, tag or serial."
                 required
-              >
-                <option value="">Select an asset…</option>
-                {requestable.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} — {a.rfidTag}{a.sbuCode ? ` [${a.sbuCode}]` : ""}
-                  </option>
-                ))}
-              </select>
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {assetOptions.length} assets available. Retired assets cannot leave the premises.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="gp-requested-by">Requested by <span className="text-destructive">*</span></Label>
-                <Input id="gp-requested-by" value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} placeholder="e.g. Tendai Moyo" required />
+                <SearchableSelect
+                  id="gp-requested-by"
+                  value={requestedBy}
+                  onChange={setRequestedBy}
+                  options={peopleOptions}
+                  placeholder="Search people, or type a new name…"
+                  allowCustom
+                  required
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="gp-return">Return date</Label>
-                <Input id="gp-return" type="date" min={todayInputValue()} value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+                <DateField id="gp-return" value={returnDate} min={todayInputValue()} onChange={setReturnDate} />
                 <p className="text-[11px] text-muted-foreground">Leave empty for an open-ended pass.</p>
               </div>
             </div>

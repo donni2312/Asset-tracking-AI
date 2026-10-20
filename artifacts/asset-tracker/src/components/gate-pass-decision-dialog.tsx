@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApproveGatePass, useRejectGatePass, type GatePass } from "@workspace/api-client-react";
 import { CheckCircle, Radio, ShieldAlert, XCircle } from "lucide-react";
@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useOperatorName } from "@/hooks/use-operator";
 import { apiErrorMessage } from "@/lib/api-error";
 import { formatDate, formatDateOnly } from "@/lib/utils";
+import { SearchableSelect } from "@/components/searchable-select";
+import { personHint, usePeople } from "@/hooks/use-people";
 
 export type GatePassAction = "approve" | "reject";
 
@@ -30,9 +32,15 @@ export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassD
   const qc = useQueryClient();
   const { toast } = useToast();
   const [operator, setOperator] = useOperatorName();
+  const { people } = usePeople();
   const approve = useApproveGatePass();
   const reject = useRejectGatePass();
   const mutation = action === "approve" ? approve : reject;
+
+  const peopleOptions = useMemo(
+    () => people.map((p) => ({ value: p.name, label: p.name, hint: personHint(p) || undefined })),
+    [people],
+  );
 
   const [decidedBy, setDecidedBy] = useState("");
   const [note, setNote] = useState("");
@@ -122,7 +130,15 @@ export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassD
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="gp-decided-by">Your name (approver) <span className="text-destructive">*</span></Label>
-              <Input id="gp-decided-by" value={decidedBy} onChange={(e) => setDecidedBy(e.target.value)} placeholder="e.g. Rudo Chikwanha" autoFocus required />
+              <SearchableSelect
+                id="gp-decided-by"
+                value={decidedBy}
+                onChange={setDecidedBy}
+                options={peopleOptions}
+                placeholder="Search people, or type your name…"
+                allowCustom
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="gp-note">{action === "reject" ? "Reason for rejecting" : "Note (optional)"}</Label>
