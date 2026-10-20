@@ -195,6 +195,18 @@ MVP: the BC connection is **mocked and syncs are manual** (*Sync Now* on the BC 
 - Location changes reflected in BC fixed asset module
 - Gate pass completions trigger BC asset transfer entries
 
+### 6.7 Operations Dashboard
+The dashboard is the entry screen: summary counters (total / missing assets, pending gate passes, today's movements),
+a per-SBU asset breakdown, the movements-per-day and asset-status-by-SBU charts (§12 colour-blind-safe palette, each
+with a Chart/Table toggle), a recent-activity feed, gate activity with entry/exit direction, and asset distribution by
+location. Critical insights surface as a banner linking to AI Insights.
+
+**Every card is a drill-down link** to the screen behind its number — a counter is never a dead end. Total Assets →
+the registry; Missing Assets → the registry filtered to `status=missing`; Pending Gate Passes → the approval queue
+(which opens on the *pending* tab); Today's Movements and Recent Activity → the movement log; an SBU tile → the
+registry filtered to that SBU; Gate Activity → gate passes; Asset Distribution → locations. The stat and list cards
+are clickable in full; the chart cards use a header link so their Chart/Table toggle keeps working.
+
 ---
 
 ## 7. MVP Scope (by 30 November 2025)
@@ -208,7 +220,7 @@ MVP: the BC connection is **mocked and syncs are manual** (*Sync Now* on the BC 
 | Movement event log + manual movement form | ✅ Included |
 | Gate pass workflow (request / auto-raise at gate / approve / reject, in-app notifications) | ✅ Included |
 | RFID simulation screen (incl. replaying a scan at a chosen time) | ✅ Included |
-| Dashboard (summary stats, activity feed, movement-trend and SBU-status charts) | ✅ Included |
+| Dashboard (summary stats, activity feed, movement-trend and SBU-status charts, every card a drill-down link) | ✅ Included |
 | AI anomaly detection (rules) + natural-language query (rules, optional OpenAI) | ✅ Included |
 | BC sync status page (mock connection, manual sync) | ✅ Included |
 | Demo seed data (`pnpm seed`) | ✅ Included |
@@ -302,3 +314,14 @@ Run everything with `pnpm test`. Tests pin the clock (Wednesday 10:00 Harare) so
 *Decision:* in-app notifications — a pending-count badge on *Gate Passes* and a toast with a *Review* action when a new pass appears (polling every 10 s).
 *Consequences:* approvers must have the dashboard open; email/Teams notifications are Phase 2.
 
+**D4 — Dashboard cards drill down into the filtered screen.**
+*Context:* the dashboard counters were static text. A user who saw "3 pending gate passes" or "2 missing assets" had to
+work out which sidebar page carried that list and re-apply the filter by hand, which is the slowest step in the
+approval flow the MVP is meant to speed up.
+*Decision:* make every card a link to the screen behind its number, filtered where the listing supports it
+(`/assets?status=missing`, `/assets?sbuId=<id>`). Stat and list cards are clickable in full; the chart cards use a
+header link so their Chart/Table toggle still works. The asset registry gained `?status=` URL filtering (with a
+visible chip to clear it) so the Missing Assets card lands on the right rows.
+*Consequences:* one click from a number to the records behind it, and the filter state lives in the URL, so a filtered
+view can be bookmarked or pasted to a colleague. Filtered deep links are limited to what the list endpoints already
+accept — no new query parameters were added to the contract.

@@ -3,9 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useListAssets, useListSbus } from "@workspace/api-client-react";
+import { useListAssets, useListSbus, ListAssetsStatus, type ListAssetsStatus as AssetStatus } from "@workspace/api-client-react";
 import { Link, useSearch } from "wouter";
-import { Box, Plus, Search } from "lucide-react";
+import { Box, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -43,14 +43,18 @@ export default function AssetList() {
   const searchStr = useSearch();
   const params = new URLSearchParams(searchStr);
   const initialSbuId = params.get("sbuId") ? parseInt(params.get("sbuId")!) : null;
+  const statusParam = params.get("status");
+  const initialStatus = statusParam && statusParam in ListAssetsStatus ? (statusParam as AssetStatus) : null;
 
   const [search, setSearch] = useState("");
   const [sbuFilter, setSbuFilter] = useState<number | null>(initialSbuId);
+  const [statusFilter, setStatusFilter] = useState<AssetStatus | null>(initialStatus);
 
   const { data: sbus } = useListSbus();
   const { data: assets, isLoading } = useListAssets({
     q: search || undefined,
     sbuId: sbuFilter ?? undefined,
+    status: statusFilter ?? undefined,
   } as any);
 
   const activeSbu = sbus?.find(s => s.id === sbuFilter);
@@ -63,6 +67,15 @@ export default function AssetList() {
             <h1 className="text-2xl font-bold tracking-tight">Asset Registry</h1>
             {sbuFilter && activeSbu && (
               <p className="text-muted-foreground text-sm">Showing {activeSbu.name} assets</p>
+            )}
+            {statusFilter && (
+              <button
+                onClick={() => setStatusFilter(null)}
+                className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Filtered to <span className="font-medium capitalize text-foreground">{statusFilter}</span> assets
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
           <Link href="/assets/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">

@@ -4,11 +4,12 @@ import {
   useGetDashboardSummary, useGetDashboardActivity, useGetLocationBreakdown,
   useListInsights, useGetGateActivity,
 } from "@workspace/api-client-react";
-import { Activity, AlertCircle, Box, MapPin, Radio, ShieldAlert, Wrench, UserCheck, ArrowRightLeft, MessageSquare } from "lucide-react";
+import { Activity, AlertCircle, ArrowRight, Box, MapPin, Radio, ShieldAlert, Wrench, UserCheck, ArrowRightLeft, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { Link } from "wouter";
 import { MovementTrendChart, SbuStatusChart } from "@/components/dashboard-charts";
+import type { ReactNode } from "react";
 
 function SbuBadge({ code, color, size = "sm" }: { code: string; color: string; size?: "xs" | "sm" }) {
   const px = size === "xs" ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]";
@@ -19,6 +20,48 @@ function SbuBadge({ code, color, size = "sm" }: { code: string; color: string; s
     >
       {code}
     </span>
+  );
+}
+
+/** Whole-card link: the entire card is the click target. */
+function CardLink({ href, className = "", children }: { href: string; className?: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** Non-interactive "view all" affordance, for use inside a CardLink. */
+function ViewAllHint({ label = "View all" }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      {label} <ArrowRight className="w-3 h-3" />
+    </span>
+  );
+}
+
+function StatCard({
+  href, title, icon, value, caption, valueClassName = "",
+}: {
+  href: string; title: string; icon: ReactNode; value: ReactNode; caption: string; valueClassName?: string;
+}) {
+  return (
+    <CardLink href={href}>
+      <Card className="h-full">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          {icon}
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold font-mono ${valueClassName}`}>{value}</div>
+          <p className="text-xs text-muted-foreground mt-1">{caption}</p>
+        </CardContent>
+      </Card>
+    </CardLink>
   );
 }
 
@@ -90,46 +133,35 @@ export default function Dashboard() {
 
         {/* Summary stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Assets</CardTitle>
-              <Box className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono">{summary?.totalAssets}</div>
-              <p className="text-xs text-muted-foreground mt-1">{summary?.activeAssets} active</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Missing Assets</CardTitle>
-              <AlertCircle className="w-4 h-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono text-destructive">{summary?.missingAssets}</div>
-              <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Gate Passes</CardTitle>
-              <ShieldAlert className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono">{summary?.pendingGatePasses}</div>
-              <p className="text-xs text-muted-foreground mt-1">Awaiting approval</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Today's Movements</CardTitle>
-              <Activity className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono">{summary?.todayMovements}</div>
-              <p className="text-xs text-muted-foreground mt-1">Tracked events</p>
-            </CardContent>
-          </Card>
+          <StatCard
+            href="/assets"
+            title="Total Assets"
+            icon={<Box className="w-4 h-4 text-muted-foreground" />}
+            value={summary?.totalAssets}
+            caption={`${summary?.activeAssets ?? 0} active`}
+          />
+          <StatCard
+            href="/assets?status=missing"
+            title="Missing Assets"
+            icon={<AlertCircle className="w-4 h-4 text-destructive" />}
+            value={summary?.missingAssets}
+            valueClassName="text-destructive"
+            caption="Requires attention"
+          />
+          <StatCard
+            href="/gate-passes"
+            title="Pending Gate Passes"
+            icon={<ShieldAlert className="w-4 h-4 text-muted-foreground" />}
+            value={summary?.pendingGatePasses}
+            caption="Awaiting approval"
+          />
+          <StatCard
+            href="/movements"
+            title="Today's Movements"
+            icon={<Activity className="w-4 h-4 text-muted-foreground" />}
+            value={summary?.todayMovements}
+            caption="Tracked events"
+          />
         </div>
 
         {/* SBU Breakdown */}
@@ -138,8 +170,8 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">SBU Asset Breakdown</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {summary.sbuBreakdown.map((sbu) => (
-                <Link key={sbu.sbuId} href={`/sbus`}>
-                  <div className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow cursor-pointer">
+                <Link key={sbu.sbuId} href={`/assets?sbuId=${sbu.sbuId}`} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <div className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow cursor-pointer h-full">
                     <div className="flex items-center justify-between mb-2">
                       <SbuBadge code={sbu.sbuCode} color={sbu.sbuColor} />
                       {sbu.missingAssets > 0 && (
@@ -165,19 +197,21 @@ export default function Dashboard() {
         {/* Charts */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2">
-            <MovementTrendChart days={14} />
+            <MovementTrendChart days={14} viewAllHref="/movements" />
           </div>
           {summary?.sbuBreakdown && summary.sbuBreakdown.length > 0 && (
-            <SbuStatusChart breakdown={summary.sbuBreakdown} />
+            <SbuStatusChart breakdown={summary.sbuBreakdown} viewAllHref="/sbus" />
           )}
         </div>
 
         {/* Main grid: activity + gate activity + distribution */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Recent Activity */}
-          <Card className="xl:col-span-2">
-            <CardHeader>
+          <CardLink href="/movements" className="xl:col-span-2">
+            <Card className="h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg">Recent Activity</CardTitle>
+              <ViewAllHint label="All movements" />
             </CardHeader>
             <CardContent>
               {loadingActivity ? (
@@ -206,17 +240,20 @@ export default function Dashboard() {
                 </div>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </CardLink>
 
           {/* Right column: Gate Activity + Asset Distribution */}
           <div className="space-y-6">
             {/* Gate Activity */}
-            <Card>
-              <CardHeader>
+            <CardLink href="/gate-passes">
+              <Card className="h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Radio className="w-4 h-4 text-blue-500" />
                   Gate Activity
                 </CardTitle>
+                <ViewAllHint label="Gate passes" />
               </CardHeader>
               <CardContent>
                 {!gateActivity || gateActivity.length === 0 ? (
@@ -245,15 +282,18 @@ export default function Dashboard() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+              </Card>
+            </CardLink>
 
             {/* Asset Distribution */}
-            <Card>
-              <CardHeader>
+            <CardLink href="/locations">
+              <Card className="h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
                   Asset Distribution
                 </CardTitle>
+                <ViewAllHint label="Locations" />
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -271,7 +311,8 @@ export default function Dashboard() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </CardLink>
           </div>
         </div>
       </div>

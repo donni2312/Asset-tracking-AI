@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { AlertTriangle, Archive, CheckCircle2, Wrench } from "lucide-react";
+import { AlertTriangle, Archive, ArrowRight, CheckCircle2, Wrench } from "lucide-react";
+import { Link } from "wouter";
 import {
   getGetMovementTrendQueryKey,
   useGetMovementTrend,
@@ -66,6 +67,18 @@ function rowSegment(series: readonly string[], key: string) {
   };
 }
 
+/** Header link to the full listing behind a chart. */
+function ViewAllLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+    >
+      {label} <ArrowRight className="w-3 h-3" />
+    </Link>
+  );
+}
+
 function ViewToggle({ view, onChange }: { view: "chart" | "table"; onChange: (v: "chart" | "table") => void }) {
   return (
     <div className="flex rounded-md bg-muted p-0.5 text-xs" role="group" aria-label="Chart or table view">
@@ -102,7 +115,7 @@ const dayLabel = (key: string, withWeekday = false) => {
   return date.toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", ...(withWeekday ? { weekday: "short" } : {}) });
 };
 
-export function MovementTrendChart({ days = 14 }: { days?: number }) {
+export function MovementTrendChart({ days = 14, viewAllHref }: { days?: number; viewAllHref?: string }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const params = { days };
   const { data, isLoading, isFetching } = useGetMovementTrend(params, {
@@ -121,7 +134,10 @@ export function MovementTrendChart({ days = 14 }: { days?: number }) {
             Last {days} days by trigger · {total} movements · {today} today
           </CardDescription>
         </div>
-        <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-3">
+          {viewAllHref && <ViewAllLink href={viewAllHref} label="All movements" />}
+          <ViewToggle view={view} onChange={setView} />
+        </div>
       </CardHeader>
       <CardContent className={cn("transition-opacity", isFetching && !isLoading && "opacity-70")}>
         {isLoading ? (
@@ -184,7 +200,7 @@ const statusConfig = Object.fromEntries(
   STATUS_SERIES.map((k) => [k, { label: STATUS[k].label, color: STATUS[k].color, icon: STATUS[k].icon }]),
 ) satisfies ChartConfig;
 
-export function SbuStatusChart({ breakdown }: { breakdown: SBUBreakdown[] }) {
+export function SbuStatusChart({ breakdown, viewAllHref }: { breakdown: SBUBreakdown[]; viewAllHref?: string }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const rows = breakdown.map((s) => {
     const maintenance = s.maintenanceAssets ?? 0;
@@ -210,7 +226,10 @@ export function SbuStatusChart({ breakdown }: { breakdown: SBUBreakdown[] }) {
           <CardTitle className="text-lg">Asset status by SBU</CardTitle>
           <CardDescription>Share of each unit's assets by status</CardDescription>
         </div>
-        <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-3">
+          {viewAllHref && <ViewAllLink href={viewAllHref} label="All SBUs" />}
+          <ViewToggle view={view} onChange={setView} />
+        </div>
       </CardHeader>
       <CardContent>
         {view === "table" ? (

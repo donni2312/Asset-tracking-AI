@@ -171,6 +171,38 @@ Manually: AI Insights → click the three example chips.
 - `.env.example`, `.vscode/` (tasks, launch, settings, extensions), `artifacts/api-server/requests.http`,
   root scripts (`pnpm test`, `pnpm seed`, `pnpm db:local`, `pnpm dev:api`, …).
 
+### 10. Dashboard cards are drill-down links
+Every card on the Operations Dashboard (`pages/dashboard.tsx`) now navigates to the screen behind its number, so a
+figure is never a dead end:
+
+| Card | Goes to |
+|---|---|
+| Total Assets | `/assets` |
+| Missing Assets | `/assets?status=missing` |
+| Pending Gate Passes | `/gate-passes` (the page already opens on the *pending* tab) |
+| Today's Movements | `/movements` |
+| SBU breakdown tile | `/assets?sbuId=<id>` — was `/sbus`, which ignored which SBU had been clicked |
+| Recent Activity | `/movements` |
+| Gate Activity | `/gate-passes` |
+| Asset Distribution | `/locations` |
+| *Movements per day* / *Asset status by SBU* charts | `/movements` / `/sbus` |
+
+- The stat, SBU and list cards are **whole-card** `wouter` links (`CardLink` / `StatCard` helpers at the top of
+  `dashboard.tsx`) with a hover shadow and a focus ring; the list cards carry a muted "View all →" hint
+  (`ViewAllHint`) so the target is visible. That hint is a `<span>`, not a link — an `<a>` inside an `<a>` is invalid
+  HTML and breaks keyboard navigation.
+- The two chart cards get a **header link only** (`ViewAllLink`, optional `viewAllHref` prop in
+  `components/dashboard-charts.tsx`). They contain the Chart/Table toggle and chart tooltips, so a whole-card link
+  would swallow those clicks.
+- `pages/assets/list.tsx` now reads **`?status=`** (validated against the generated `ListAssetsStatus` enum) and passes
+  it to `useListAssets`, with a "Filtered to *Missing* assets ✕" chip to clear it. Without this the Missing Assets card
+  would have landed on the unfiltered registry. `?sbuId=` already worked.
+
+Test: no new automated tests — this is navigation only; `pnpm run typecheck` and `pnpm run build` are clean.
+Manually: from the dashboard click each card and each "View all" hint; confirm Missing Assets arrives filtered and the
+chip clears it, an SBU tile arrives filtered to that SBU, and the chart cards' toggles still switch Chart/Table
+without navigating.
+
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
 - `GET /gate-passes?sbuId=` and `GET /movements?sbuId=` now filter (the parameters were ignored).
