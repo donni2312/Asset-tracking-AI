@@ -25,7 +25,9 @@ import {
   Activity, MapPin, HardDrive, History, User, Radio, ArrowRight,
   UserCheck, CornerDownLeft, Wrench, CheckCircle, ArrowRightLeft, MessageSquare,
   Building2, Trash2, UserPlus, LogOut, ShieldPlus, AlertTriangle, Info, Check, Move,
+  Pencil, Lock,
 } from "lucide-react";
+import { useCurrentUser, useHasRole } from "@/hooks/use-auth";
 
 function SbuBadge({ code, name, color }: { code: string; name?: string | null; color?: string }) {
   const c = color ?? "#6B7280";
@@ -237,6 +239,10 @@ export default function AssetDetail() {
   const assetId = Number(id);
   const qc = useQueryClient();
   const { toast } = useToast();
+  // The API enforces this too (PATCH /assets/:id); here it only decides whether
+  // the button is offered.
+  const currentUser = useCurrentUser();
+  const canEdit = useHasRole("operator");
 
   const { data: asset, isLoading: loadingAsset } = useGetAsset(assetId, {
     query: { enabled: !!assetId, queryKey: getGetAssetQueryKey(assetId) },
@@ -358,6 +364,27 @@ export default function AssetDetail() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusColor} className="text-sm">{asset.status.toUpperCase()}</Badge>
+            {canEdit ? (
+              <Link
+                href={`/assets/${asset.id}/edit`}
+                className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </Link>
+            ) : (
+              <span
+                className="inline-flex items-center gap-2 h-8 rounded-md border border-input px-3 text-xs font-medium text-muted-foreground opacity-60 cursor-not-allowed"
+                title={
+                  currentUser
+                    ? `Editing needs the operator or admin role; you are signed in as ${currentUser.role}.`
+                    : "Sign in to edit this asset."
+                }
+              >
+                <Lock className="w-4 h-4" />
+                Edit
+              </span>
+            )}
             {!isRetired && (
               <>
                 <Link

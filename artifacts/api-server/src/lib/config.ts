@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { WorkingHours } from "./time";
 
 /**
@@ -16,12 +17,22 @@ export interface OpenAIConfig {
   timeoutMs: number;
 }
 
+export interface AuthConfig {
+  /** HMAC key for bearer tokens. Random per process when AUTH_SECRET is unset. */
+  secret: string;
+  /** How long a sign-in lasts. */
+  tokenTtlHours: number;
+  /** True when AUTH_SECRET was supplied: tokens then survive a restart. */
+  secretConfigured: boolean;
+}
+
 export interface AppConfig {
   timezone: string;
   workingHours: WorkingHours;
   /** An active asset with no movement for this many days raises an idle_asset insight. */
   idleDays: number;
   openai: OpenAIConfig;
+  auth: AuthConfig;
 }
 
 export const DEFAULT_TIMEZONE = "Africa/Harare";
@@ -58,6 +69,17 @@ function validTimeZone(tz: string | undefined): string {
   }
 }
 
+/**
+ * Never fall back to a hard-coded signing key: an attacker who knows it can mint
+ * admin tokens. Without AUTH_SECRET the process signs with a random key, so the
+ * app still runs and tokens simply stop working when it restarts.
+ */
+function authSecret(env: NodeJS.ProcessEnv): { secret: string; configured: boolean } {
+  const configured = env.AUTH_SECRET?.trim();
+  if (configured && configured.length >= 16) return { secret: configured, configured: true };
+  return { secret: randomBytes(48).toString("hex"), configured: false };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const startHour = int(env.WORK_HOURS_START, 7, 0, 23);
   const endHour = int(env.WORK_HOURS_END, 18, 1, 24);
@@ -76,10 +98,28 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       authHeader: env.OPENAI_AUTH_HEADER?.trim().toLowerCase() === "api-key" ? "api-key" : "authorization",
       timeoutMs: int(env.OPENAI_TIMEOUT_MS, 8000, 1000, 60000),
     },
+    auth: (() => {
+      const { secret, configured } = authSecret(env);
+      return { secret, tokenTtlHours: int(env.AUTH_TOKEN_TTL_HOURS, 12, 1, 720), secretConfigured: configured };
+    })(),
   };
 }
 
-/** Configuration is read on demand so tests and restarts pick up environment changes. */
+/**
+ * Configuration is read on demand so tests and restarts pick up environment
+ * changes. The auth secret is the exception: it is resolved once, otherwise a
+ * process without AUTH_SECRET would sign every token with a different random key
+ * and no session would survive a single request.
+ */
+let cachedAuth: AuthConfig | null = null;
+
 export function getConfig(): AppConfig {
-  return loadConfig(process.env);
+  const config = loadConfig(process.env);
+  cachedAuth ??= config.auth;
+  return { ...config, auth: cachedAuth };
+}
+
+/** Testing seam: forget the resolved auth secret. */
+export function resetAuthConfigForTests(): void {
+  cachedAuth = null;
 }

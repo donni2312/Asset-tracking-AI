@@ -121,3 +121,14 @@ export const ASSETS: AssetSeed[] = [
 
 /** People who approve gate passes in the demo. */
 export const APPROVERS = { tsas: "Rudo Chikwanha", bak: "Simbarashe Chikore", prop: "Tsitsi Marufu" };
+
+/**
+ * Demo sign-ins, one per role. The passwords are deliberately obvious: this is
+ * demo data for an MVP with no real accounts behind it. Change them (or seed
+ * your own users) before the dashboard is reachable by anyone else.
+ */
+export const DEMO_USERS = [
+  { username: "admin",    name: APPROVERS.tsas,        role: "admin",    password: "admin123" },
+  { username: "operator", name: "Tendai Moyo",         role: "operator", password: "operator123" },
+  { username: "viewer",   name: "Nyasha Gumbo",        role: "viewer",   password: "viewer123" },
+] as const;

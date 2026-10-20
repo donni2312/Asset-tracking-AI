@@ -149,7 +149,7 @@ RFID Reader (at gate/office)  ──MQTT──► Azure IoT Hub
 ## 6. Key Features
 
 ### 6.1 Asset Registry
-Register and manage all organizational assets with RFID tags. Assets carry full lifecycle metadata (purchase value, assigned staff, maintenance history).
+Register and manage all organizational assets with RFID tags. Assets carry full lifecycle metadata (purchase value, assigned staff, maintenance history). An asset's details are edited from its own page, behind sign-in and a role check (§6.7); the serial number and RFID tag are fixed once registered, so the record and the physical tag cannot drift apart.
 
 ### 6.2 Automatic Movement Tracking (RFID)
 When an RFID reader at any location scans an asset tag, the system (one database transaction, `services/rfid-scan.ts`):
@@ -200,7 +200,25 @@ MVP: the BC connection is **mocked and syncs are manual** (*Sync Now* on the BC 
 - Location changes reflected in BC fixed asset module
 - Gate pass completions trigger BC asset transfer entries
 
-### 6.7 Operations Dashboard
+### 6.7 Authentication and roles
+Changing what the registry says about an asset is the one action that needed protecting first: a wrong serial or a
+silently reassigned asset undermines every other number in the system. The API therefore issues a **bearer token**
+(`POST /auth/login`, scrypt-hashed passwords, HS256 token signed with `AUTH_SECRET`) and checks a **role** on the
+asset write endpoints:
+
+| Role | May do |
+|---|---|
+| Viewer | Read everything |
+| Operator | + an asset's operational fields: status, holder, location, notes |
+| Administrator | + the record itself (name, category, SBU), and registering or deleting assets |
+
+The operator/administrator split means the day-to-day workflows (deploy, repair, dispose — all of which update the
+asset) stay open to operators, while the asset's identity stays with administrators. The check is **server-side**;
+the dashboard only decides which buttons to offer, and the signed-in user's name is what gets recorded on approvals
+and movements. Reading remains open without signing in, and the other mutating endpoints are not yet role-checked —
+the middleware is in place to extend (§13, D8).
+
+### 6.8 Operations Dashboard
 The dashboard is the entry screen: summary counters (total / missing assets, pending gate passes, today's movements),
 a per-SBU asset breakdown, the movements-per-day and asset-status-by-SBU charts (§12 colour-blind-safe palette, each
 with a Chart/Table toggle), a recent-activity feed, gate activity with entry/exit direction, and asset distribution by
@@ -212,7 +230,7 @@ the registry; Missing Assets → the registry filtered to `status=missing`; Pend
 registry filtered to that SBU; Gate Activity → gate passes; Asset Distribution → locations. The stat and list cards
 are clickable in full; the chart cards use a header link so their Chart/Table toggle keeps working.
 
-### 6.8 Personalisation (appearance and date format)
+### 6.9 Personalisation (appearance and date format)
 A **Settings** panel in the sidebar footer holds what each user can personalise. Appearance offers **Light**, **Dark**
 and **System** (follow the operating system, and keep following it while the app is open); dark mode exists for eye
 comfort, which matters for the after-hours gate approvals the workflow in §6.3 creates. The same panel holds the
@@ -236,7 +254,8 @@ gate-pass badge stay reachable from anywhere in a long list.
 
 | Feature | Status |
 |---|---|
-| Asset registry (CRUD) | ✅ Included |
+| Asset registry (CRUD, editing behind sign-in) | ✅ Included |
+| Authentication: sign-in, roles (viewer / operator / admin) enforced on asset records | ✅ Included |
 | Location management (list, create, edit) | ✅ Included |
 | Movement event log + manual movement form | ✅ Included |
 | Gate pass workflow (request / auto-raise at gate / approve / reject, in-app notifications) | ✅ Included |
@@ -256,7 +275,9 @@ gate-pass badge stay reachable from anywhere in a long list.
 - Mobile app for field staff
 - Email/SMS notifications (the MVP notifies approvers in-app)
 - Baseline / ML movement-pattern anomaly detection
-- Authentication and roles (the MVP records the operator's name on decisions)
+- Extending the role checks to the remaining mutating endpoints (gate-pass decisions, movements, RFID simulation,
+  BC sync); the MVP enforces them on asset records only
+- User administration in the UI (accounts are created by the seed script), password reset, and single sign-on
 - Multi-tenant support
 
 ---
@@ -315,9 +336,10 @@ This project addresses the following academic areas:
 |---|---|---|
 | Unit | Pure rules: gate-pass validity and direction, every anomaly rule (incl. severity escalation), timezone/working-hours maths, NL question parsing, OpenAI response handling | `artifacts/api-server/src/**/*.test.ts` |
 | API integration | The real Express app against an in-memory PostgreSQL (PGlite) built from the Drizzle schema: RFID scans, auto-raised passes, approve → `gate_pass` movement, reject → flag, validation (400/404/409), NL answers, BC sync, location and movement endpoints | `artifacts/api-server/src/routes/*.test.ts` |
+| Security | Sign-in (wrong password is indistinguishable from an unknown user, disabled accounts, forged and expired tokens) and the role matrix on asset records, including a demotion taking effect on the next request | `src/routes/auth.test.ts` |
 | Manual / demo | Seeded demo data and a scripted walkthrough in the dashboard | `pnpm seed`, `CLAUDE.md` |
 
-Run everything with `pnpm test`. Tests pin the clock (Wednesday 10:00 Harare) so time-based rules are deterministic, and the RFID / gate-pass tests were checked by mutation: reintroducing the old "every gate scan is a warning" behaviour or the hard-coded approver makes them fail.
+Run everything with `pnpm test` (10 files, 128 tests). Tests pin the clock (Wednesday 10:00 Harare) so time-based rules are deterministic, and the RFID / gate-pass tests were checked by mutation: reintroducing the old "every gate scan is a warning" behaviour or the hard-coded approver makes them fail.
 
 ## 13. Decision Log (October 2026)
 
@@ -380,3 +402,20 @@ that still accepts a new name. No schema or contract change.
 used; it is only as good as the data entered, and someone who has never appeared must be typed once. A real directory
 (Business Central staff, or Azure AD once authentication exists) replaces this source in Phase 2 without changing the
 pickers.
+
+**D8 — Authentication: bearer tokens, enforced on asset records first.**
+*Context:* editing an asset's details had to be restricted to the right people. The MVP had no authentication at all,
+so there was no server-side identity to check; a dashboard-only guard (hiding the button) would have been security
+theatre, since the API would still accept the request from anyone who could reach it.
+*Decision:* add real authentication — a `users` table with scrypt-hashed passwords, a signed bearer token from
+`POST /auth/login`, and `requireRole` on the server. Roles are viewer / operator / administrator, and the
+administrator boundary is drawn around the asset *record* (name, category, SBU) rather than its operational fields,
+so existing operator workflows keep working. The role is re-read from the database on each request, so a demotion
+takes effect immediately rather than when the token expires. Tokens are signed with `AUTH_SECRET`, with a random
+per-process key as the fallback — never a hard-coded one.
+*Consequences:* the asset-editing function is genuinely protected rather than merely hidden, and the signed-in user's
+name is what gets recorded on decisions. Reading stays open, and the other mutating endpoints are not yet
+role-checked — the middleware exists, so extending them is a routine change. Accounts are created by the seed script;
+user administration, password reset and SSO remain Phase 2.
+The `users` table holds *sign-ins*, not the staff directory: the people pickers (D7) still read the names recorded on
+assets, gate passes and movements, because most people who hold an asset never sign in to the dashboard.

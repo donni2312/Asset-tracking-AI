@@ -17,6 +17,8 @@ export default defineConfig({
       WORK_DAYS: "1-5",
       // Tests never call OpenAI; the OpenAI parser is exercised with a stubbed fetch.
       OPENAI_API_KEY: "",
+      // Fixed signing key so a token minted in a test is verifiable in the same run.
+      AUTH_SECRET: "test-secret-do-not-use-in-production",
     },
   },
 });

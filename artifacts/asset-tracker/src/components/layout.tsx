@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
 import { OperatorBadge } from "@/components/operator-badge";
 import { SettingsButton } from "@/components/settings-dialog";
+import { AccountBadge } from "@/components/sign-in";
 import { useDateFormat } from "@/lib/date-format";
 
 interface LayoutProps {
@@ -79,6 +80,7 @@ export function Layout({ children }: LayoutProps) {
           })}
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
+          <AccountBadge />
           <OperatorBadge />
           <SettingsButton />
           <div className="px-2 text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">

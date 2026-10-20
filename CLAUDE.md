@@ -19,6 +19,7 @@ test the project locally and records everything changed in the October 2026 pass
 | `pnpm --filter @workspace/api-server run test:watch` | Tests in watch mode |
 | `pnpm run typecheck` | Typecheck every package |
 | `pnpm codegen` | Regenerate React Query hooks + Zod schemas after editing `openapi.yaml` |
+| Demo sign-ins | `admin`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`) |
 | `pnpm run build` | Typecheck + production builds |
 
 ## Local development (Windows + VS Code)
@@ -298,6 +299,58 @@ then type a name that is not on it; type `31/12/2026` and check the pass shows *
 
 **Still typed free-hand:** the RFID simulator's replay time is a `datetime-local` input (it needs a time as well as a
 date) and keeps the OS format. The asset registry's own search box is unchanged — it queries the API.
+
+### 14. Editing an asset, behind real authentication
+**Before using this, run `pnpm db:push` (creates the `users` table) and `pnpm seed --reset` (creates the sign-ins).**
+Demo accounts: `admin` / `admin123`, `operator` / `operator123`, `viewer` / `viewer123`.
+
+- **Contract** (`openapi.yaml`): `POST /auth/login` → `{ token, expiresAt, user }`, `GET /auth/me`, a `bearerAuth`
+  security scheme, and `security` + 401/403 responses on the three asset write operations. Regenerated with
+  `pnpm codegen`, which is where `useLogin`, `useGetCurrentUser` and the `User` / `UserRole` types come from.
+- **DB** (`lib/db/src/schema/users.ts`): `users` — username, display name, role, `password_hash`, `active`,
+  `last_login_at`. Additive, so `pnpm db:push` applies it without data loss. Seeded with one account per role.
+- **Passwords and tokens** (`api-server/src/lib/auth.ts`): scrypt with a per-password salt and a constant-time
+  compare; compact HS256 JWTs signed with `AUTH_SECRET`. Both use `node:crypto` — no new dependency, which matters
+  on the TSL network. **Without `AUTH_SECRET` the process signs with a random key** generated at startup: the app
+  runs, but a restart signs everyone out. Never add a hard-coded fallback secret — it would let anyone mint an
+  admin token. Set it in `.env` (see `.env.example`).
+- **Middleware** (`api-server/src/middlewares/auth.ts`): `authenticate` runs on every `/api` request and attaches
+  `req.user` when a valid token is present — it never rejects, so the public endpoints are unaffected and each route
+  states its own requirement with `requireRole`. The role is **re-read from the database on every request**, not
+  trusted from the token, so demoting or disabling an account takes effect immediately instead of when the token
+  expires. 401 means "sign in", 403 means "ask someone else" — the two are kept distinct.
+
+| Role | May do |
+|---|---|
+| `viewer` | read everything |
+| `operator` | + change an asset's **operational** fields: status, assignedTo, currentLocationId, notes |
+| `admin` | + change the **record** (name, category, sbuId), register and delete assets |
+
+  The split is enforced in `PATCH /assets/:id` by inspecting which fields the body actually contains, so an operator
+  cannot smuggle `sbuId` in beside a `status` change — and the existing operator workflows (deploy, repair, dispose,
+  which all PATCH the asset) keep working without an admin.
+- **Front end**: `hooks/use-auth.ts` stores the session in localStorage and registers the generated client's
+  `setAuthTokenGetter`, so every request carries the bearer token; signing in also sets the "Acting as" name, so
+  approvals are recorded against the real user. `components/sign-in.tsx` adds the sidebar account badge and the
+  sign-in dialog. `pages/assets/edit.tsx` (route `/assets/:id/edit`) is the form, reached from an **Edit** button on
+  the asset detail page — shown to operators and admins, and a disabled lock with a reason for everyone else.
+  Admin-only fields are disabled with a lock icon for operators, and the form **sends only the fields that changed**
+  so an unchanged name does not trip the admin check. Serial number and RFID tag are read-only: they are not in
+  `AssetUpdate` and identify the physical asset.
+  **The UI gate is cosmetic** — it decides what is offered, never what is allowed. Anyone editing localStorage gets a
+  403 from the API, not an edit.
+
+Test: `src/routes/auth.test.ts` — 17 tests: sign-in (wrong password answers exactly like an unknown user, disabled
+accounts, `lastLoginAt`, no hash in the response), `/auth/me` (missing / forged / expired tokens), and the whole
+permission matrix including the smuggled-field case, demotion taking effect on the next request, and reading staying
+open. Mutation-checked: dropping `requireRole` from the PATCH route or the admin field check fails 6 of them.
+Suite is now **10 files, 128 tests**; `pnpm run typecheck` and `pnpm run build` clean.
+Manually: open an asset, confirm Edit is locked, sign in as `operator` (can change status/holder, name is locked),
+then as `admin` (everything), then sign out.
+
+**Not yet gated:** only the asset write routes check a role. Gate-pass decisions, movements, RFID simulation,
+insights and BC sync are still open, as is every GET — the dashboard is readable signed-out by design. Extending
+`requireRole` to the rest is a follow-up; the middleware is already in place for it.
 
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.

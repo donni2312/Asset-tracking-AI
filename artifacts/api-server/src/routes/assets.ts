@@ -3,6 +3,14 @@ import { db } from "@workspace/db";
 import { assetsTable, locationsTable, movementsTable, sbusTable, assetLifecycleEventsTable } from "@workspace/db";
 import { eq, ilike, and, or, sql, desc } from "drizzle-orm";
 import { ListAssetsQueryParams, CreateAssetBody, UpdateAssetBody } from "@workspace/api-zod";
+import { hasRole, requireRole } from "../middlewares/auth";
+import { HttpError, parseIdParam, sendError } from "../lib/http-error";
+
+/**
+ * Fields an operator may change in the course of their work. Everything else is
+ * the asset's record (what it is and which unit owns it) and needs an admin.
+ */
+const OPERATOR_FIELDS = new Set(["status", "assignedTo", "currentLocationId", "notes"]);
 
 const router = Router();
 
@@ -90,7 +98,7 @@ router.get("/assets", async (req, res) => {
 });
 
 // POST /assets
-router.post("/assets", async (req, res): Promise<void> => {
+router.post("/assets", requireRole("admin"), async (req, res): Promise<void> => {
   try {
     const parsed = CreateAssetBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -128,11 +136,20 @@ router.get("/assets/:id", async (req, res): Promise<void> => {
 });
 
 // PATCH /assets/:id
-router.patch("/assets/:id", async (req, res): Promise<void> => {
+router.patch("/assets/:id", requireRole("operator"), async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseIdParam(req.params.id);
     const parsed = UpdateAssetBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    const recordFields = Object.keys(parsed.data).filter((f) => !OPERATOR_FIELDS.has(f));
+    if (recordFields.length > 0 && !hasRole(req.user, "admin")) {
+      throw new HttpError(
+        403,
+        `Changing ${recordFields.join(", ")} needs the admin role; you are signed in as ${req.user!.role}.`,
+      );
+    }
+
     await db.update(assetsTable)
       .set({ ...(parsed.data as any), updatedAt: new Date() })
       .where(eq(assetsTable.id, id));
@@ -140,19 +157,17 @@ router.patch("/assets/:id", async (req, res): Promise<void> => {
     if (!asset) { res.status(404).json({ error: "Asset not found" }); return; }
     res.json(asset);
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to update asset" });
+    sendError(req, res, err, "Failed to update asset");
   }
 });
 
 // DELETE /assets/:id
-router.delete("/assets/:id", async (req, res) => {
+router.delete("/assets/:id", requireRole("admin"), async (req, res) => {
   try {
-    await db.delete(assetsTable).where(eq(assetsTable.id, parseInt(req.params.id)));
+    await db.delete(assetsTable).where(eq(assetsTable.id, parseIdParam(req.params.id)));
     res.status(204).send();
   } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "Failed to delete asset" });
+    sendError(req, res, err, "Failed to delete asset");
   }
 });
 

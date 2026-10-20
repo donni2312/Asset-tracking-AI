@@ -5,6 +5,42 @@
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
  * OpenAPI spec version: 0.3.0
  */
+/**
+ * viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.
+ */
+export type UserRole = typeof UserRole[keyof typeof UserRole];
+
+
+export const UserRole = {
+  viewer: 'viewer',
+  operator: 'operator',
+  admin: 'admin',
+} as const;
+
+export interface User {
+  id: number;
+  username: string;
+  /** Display name, recorded on approvals and movements */
+  name: string;
+  role: UserRole;
+  /** @nullable */
+  lastLoginAt?: string | null;
+}
+
+export interface LoginInput {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 1 */
+  password: string;
+}
+
+export interface LoginResult {
+  /** Bearer token for the Authorization header */
+  token: string;
+  expiresAt: string;
+  user: User;
+}
+
 export interface HealthStatus {
   status: string;
 }

@@ -25,6 +25,7 @@ export function ensureSchema(): Promise<void> {
 }
 
 const TABLES = [
+  "users",
   "ai_insights",
   "asset_lifecycle_events",
   "movements",

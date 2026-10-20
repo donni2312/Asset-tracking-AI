@@ -30,6 +30,8 @@ tags:
     description: AI-generated insights and anomaly detection
   - name: bc
     description: Business Central integration
+  - name: auth
+    description: Authentication and roles
 
 paths:
   /healthz:
@@ -44,6 +46,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Authentication ───────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in and receive a bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResult"
+        "401":
+          description: Unknown user, wrong password, or the account is disabled
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: The signed-in user behind the bearer token
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing, expired or invalid token
 
   # ── SBUs ─────────────────────────────────────────────────────────────────────
   /sbus:
@@ -185,6 +226,9 @@ paths:
       operationId: createAsset
       tags: [assets]
       summary: Register a new asset
+      description: Requires the `admin` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -198,6 +242,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Asset"
+        "401":
+          description: Not signed in
+        "403":
+          description: The signed-in user may not register assets
 
   /assets/{id}:
     get:
@@ -223,6 +271,12 @@ paths:
       operationId: updateAsset
       tags: [assets]
       summary: Update asset
+      description: >-
+        Requires a signed-in user. `operator` may change the operational fields
+        (status, assignedTo, currentLocationId, notes); changing the record
+        itself (name, category, sbuId) requires `admin`.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -242,10 +296,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Asset"
+        "401":
+          description: Not signed in
+        "403":
+          description: The signed-in user may not make this change
+        "404":
+          description: Not found
     delete:
       operationId: deleteAsset
       tags: [assets]
       summary: Retire/decommission asset
+      description: Requires the `admin` role.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -255,6 +318,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "401":
+          description: Not signed in
+        "403":
+          description: The signed-in user may not delete assets
 
   /assets/{id}/history:
     get:
@@ -891,7 +958,63 @@ paths:
                 $ref: "#/components/schemas/BCSyncStatus"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token returned by POST /auth/login.
+
   schemas:
+    # ── Auth schemas ─────────────────────────────────────────────────────────
+    UserRole:
+      type: string
+      enum: [viewer, operator, admin]
+      description: >-
+        viewer = read only; operator = day-to-day operations (movements, gate
+        passes, asset status); admin = also edits and registers asset records.
+
+    User:
+      type: object
+      required: [id, username, name, role]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+          description: Display name, recorded on approvals and movements
+        role:
+          $ref: "#/components/schemas/UserRole"
+        lastLoginAt:
+          type: ["string", "null"]
+          format: date-time
+
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+
+    LoginResult:
+      type: object
+      required: [token, expiresAt, user]
+      properties:
+        token:
+          type: string
+          description: Bearer token for the Authorization header
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/User"
+
     HealthStatus:
       type: object
       properties:

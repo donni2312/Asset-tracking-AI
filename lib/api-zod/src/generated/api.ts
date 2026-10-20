@@ -17,6 +17,43 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Sign in and receive a bearer token
+ */
+
+
+
+
+export const LoginBody = zod.object({
+  "username": zod.string().min(1),
+  "password": zod.string().min(1)
+})
+
+export const LoginResponse = zod.object({
+  "token": zod.string().describe('Bearer token for the Authorization header'),
+  "expiresAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string().describe('Display name, recorded on approvals and movements'),
+  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.'),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+})
+
+
+/**
+ * @summary The signed-in user behind the bearer token
+ */
+export const GetCurrentUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string().describe('Display name, recorded on approvals and movements'),
+  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.'),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+
+
+/**
  * @summary List all Strategic Business Units
  */
 export const ListSbusResponseItem = zod.object({
@@ -168,6 +205,7 @@ export const ListAssetsResponse = zod.array(ListAssetsResponseItem)
 
 
 /**
+ * Requires the `admin` role.
  * @summary Register a new asset
  */
 export const createAssetBodyStatusDefault = `active`;
@@ -236,6 +274,7 @@ export const GetAssetResponse = zod.object({
 
 
 /**
+ * Requires a signed-in user. `operator` may change the operational fields (status, assignedTo, currentLocationId, notes); changing the record itself (name, category, sbuId) requires `admin`.
  * @summary Update asset
  */
 export const UpdateAssetParams = zod.object({
@@ -274,6 +313,7 @@ export const UpdateAssetResponse = zod.object({
 
 
 /**
+ * Requires the `admin` role.
  * @summary Retire/decommission asset
  */
 export const DeleteAssetParams = zod.object({

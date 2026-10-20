@@ -8,6 +8,7 @@ import SbuList from './pages/sbus/list';
 import AssetList from './pages/assets/list';
 import NewAsset from './pages/assets/new';
 import AssetDetail from './pages/assets/detail';
+import EditAsset from './pages/assets/edit';
 import LocationList from './pages/locations/list';
 import NewLocation from './pages/locations/new';
 import EditLocation from './pages/locations/edit';
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />
       <Route path="/assets/new" component={NewAsset} />
+      <Route path="/assets/:id/edit" component={EditAsset} />
       <Route path="/assets/:id" component={AssetDetail} />
       <Route path="/locations" component={LocationList} />
       <Route path="/locations/new" component={NewLocation} />

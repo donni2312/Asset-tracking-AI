@@ -20,9 +20,19 @@ import {
   movementsTable,
   rfidReadersTable,
   sbusTable,
+  usersTable,
 } from "@workspace/db";
+import { randomBytes, scrypt as scryptCallback } from "node:crypto";
+import { promisify } from "node:util";
 import { count, eq, max, sql } from "drizzle-orm";
-import { APPROVERS, ASSETS, INACTIVE_READER, LOCATIONS, SBUS, type AssetSeed } from "./seed-data";
+import { APPROVERS, ASSETS, DEMO_USERS, INACTIVE_READER, LOCATIONS, SBUS, type AssetSeed } from "./seed-data";
+
+// Same scrypt format the API verifies (api-server/src/lib/auth.ts).
+const scrypt = promisify(scryptCallback) as (p: string, s: Buffer, k: number) => Promise<Buffer>;
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  return `scrypt$${salt.toString("hex")}$${(await scrypt(password, salt, 64)).toString("hex")}`;
+}
 
 const TZ = process.env.ORG_TIMEZONE?.trim() || "Africa/Harare";
 const DAY = 24 * 60 * 60 * 1000;
@@ -92,9 +102,21 @@ async function main() {
   await db.transaction(async (tx) => {
     if (reset) {
       await tx.execute(
-        sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, assets, rfid_readers, locations, sbus RESTART IDENTITY CASCADE`,
+        sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, assets, rfid_readers, locations, sbus, users RESTART IDENTITY CASCADE`,
       );
     }
+
+    // Sign-ins: one account per role (see DEMO_USERS for the passwords).
+    await tx.insert(usersTable).values(
+      await Promise.all(
+        DEMO_USERS.map(async (u) => ({
+          username: u.username,
+          name: u.name,
+          role: u.role,
+          passwordHash: await hashPassword(u.password),
+        })),
+      ),
+    );
 
     // SBUs, locations, readers
     const sbuRows = await tx.insert(sbusTable).values(SBUS).returning();
@@ -375,6 +397,7 @@ async function main() {
     console.log("Seeded AssetIQ demo data:");
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);
     console.log(`  ${movements.length} movements, 6 gate passes (2 pending, 3 approved, 1 rejected), 5 insights`);
+    console.log(`  ${DEMO_USERS.length} sign-ins: ${DEMO_USERS.map((u) => `${u.username}/${u.password} (${u.role})`).join(", ")}`);
     console.log("\nDemo pointers:");
     console.log(`  • Gate pass #${gp6.id} (auto-raised at TSL Head Office Gate) is waiting for approval.`);
     console.log(`  • Gate pass #${gp5.id} (manual request for ${epson.name}) is waiting for approval.`);

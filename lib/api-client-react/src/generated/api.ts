@@ -51,6 +51,8 @@ import type {
   LocationBreakdown,
   LocationInput,
   LocationUpdate,
+  LoginInput,
+  LoginResult,
   MovementEvent,
   MovementInput,
   MovementTrendPoint,
@@ -58,7 +60,8 @@ import type {
   RFIDScanResult,
   RFIDSimulateInput,
   SBUInput,
-  Sbu
+  Sbu,
+  User
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -153,6 +156,154 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLoginUrl = () => {
+
+
+
+
+  return `/api/auth/login`
+}
+
+/**
+ * @summary Sign in and receive a bearer token
+ */
+export const login = async (loginInput: LoginInput, options?: RequestInit): Promise<LoginResult> => {
+
+  return customFetch<LoginResult>(getLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(loginInput)
+  }
+);}
+
+
+
+
+
+export const getLoginMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext> => {
+
+const mutationKey = ['login'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof login>>, {data: BodyType<LoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  login(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginMutationResult = NonNullable<Awaited<ReturnType<typeof login>>>
+    export type LoginMutationBody = BodyType<LoginInput>
+    export type LoginMutationError = ErrorType<void>
+
+    /**
+ * @summary Sign in and receive a bearer token
+ */
+export const useLogin = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof login>>,
+        TError,
+        {data: BodyType<LoginInput>},
+        TContext
+      > => {
+      return useMutation(getLoginMutationOptions(options));
+    }
+
+export const getGetCurrentUserUrl = () => {
+
+
+
+
+  return `/api/auth/me`
+}
+
+/**
+ * @summary The signed-in user behind the bearer token
+ */
+export const getCurrentUser = async ( options?: RequestInit): Promise<User> => {
+
+  return customFetch<User>(getGetCurrentUserUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentUserQueryKey = () => {
+    return [
+    `/api/auth/me`
+    ] as const;
+    }
+
+
+export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentUserQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentUser>>> = ({ signal }) => getCurrentUser({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+export type GetCurrentUserQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in user behind the bearer token
+ */
+
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentUserQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -632,6 +783,7 @@ export const getCreateAssetUrl = () => {
 }
 
 /**
+ * Requires the `admin` role.
  * @summary Register a new asset
  */
 export const createAsset = async (assetInput: AssetInput, options?: RequestInit): Promise<Asset> => {
@@ -649,7 +801,7 @@ export const createAsset = async (assetInput: AssetInput, options?: RequestInit)
 
 
 
-export const getCreateAssetMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateAssetMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{data: BodyType<AssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{data: BodyType<AssetInput>}, TContext> => {
 
@@ -678,12 +830,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof createAsset>>>
     export type CreateAssetMutationBody = BodyType<AssetInput>
-    export type CreateAssetMutationError = ErrorType<unknown>
+    export type CreateAssetMutationError = ErrorType<void>
 
     /**
  * @summary Register a new asset
  */
-export const useCreateAsset = <TError = ErrorType<unknown>,
+export const useCreateAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{data: BodyType<AssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createAsset>>,
@@ -780,6 +932,7 @@ export const getUpdateAssetUrl = (id: number,) => {
 }
 
 /**
+ * Requires a signed-in user. `operator` may change the operational fields (status, assignedTo, currentLocationId, notes); changing the record itself (name, category, sbuId) requires `admin`.
  * @summary Update asset
  */
 export const updateAsset = async (id: number,
@@ -798,7 +951,7 @@ export const updateAsset = async (id: number,
 
 
 
-export const getUpdateAssetMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateAssetMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{id: number;data: BodyType<AssetUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{id: number;data: BodyType<AssetUpdate>}, TContext> => {
 
@@ -827,12 +980,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof updateAsset>>>
     export type UpdateAssetMutationBody = BodyType<AssetUpdate>
-    export type UpdateAssetMutationError = ErrorType<unknown>
+    export type UpdateAssetMutationError = ErrorType<void>
 
     /**
  * @summary Update asset
  */
-export const useUpdateAsset = <TError = ErrorType<unknown>,
+export const useUpdateAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{id: number;data: BodyType<AssetUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateAsset>>,
@@ -852,6 +1005,7 @@ export const getDeleteAssetUrl = (id: number,) => {
 }
 
 /**
+ * Requires the `admin` role.
  * @summary Retire/decommission asset
  */
 export const deleteAsset = async (id: number, options?: RequestInit): Promise<void> => {
@@ -869,7 +1023,7 @@ export const deleteAsset = async (id: number, options?: RequestInit): Promise<vo
 
 
 
-export const getDeleteAssetMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteAssetMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{id: number}, TContext> => {
 
@@ -898,12 +1052,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAsset>>>
 
-    export type DeleteAssetMutationError = ErrorType<unknown>
+    export type DeleteAssetMutationError = ErrorType<void>
 
     /**
  * @summary Retire/decommission asset
  */
-export const useDeleteAsset = <TError = ErrorType<unknown>,
+export const useDeleteAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteAsset>>,
