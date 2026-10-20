@@ -203,6 +203,38 @@ Manually: from the dashboard click each card and each "View all" hint; confirm M
 chip clears it, an SBU tile arrives filtered to that SBU, and the chart cards' toggles still switch Chart/Table
 without navigating.
 
+### 11. Dark mode + a Settings panel, and the sidebar no longer scrolls away
+- **Theme tokens**: `index.css` gained a `.dark` block with the same token names as `:root` (the
+  `@custom-variant dark (&:is(.dark *))` hook was already there), so every component follows without change. The
+  sidebar stays darker than the page, as in light mode. `color-scheme` is set in both themes so native controls,
+  scrollbars and `<select>` menus match.
+- **`hooks/use-theme.ts`**: `light` / `dark` / `system`, stored under `assetiq.theme` in localStorage, same
+  `useSyncExternalStore` shape as `use-operator.ts`. `system` keeps following the OS while the app is open
+  (`prefers-color-scheme` listener) and a change in another tab is picked up via the `storage` event.
+  `useResolvedTheme()` gives what is actually on screen — use it for labels, not the stored preference.
+- **No white flash**: a small inline script in `index.html` adds the `dark` class before first paint. It mirrors the
+  hook and must keep using the same storage key.
+- **`components/settings-dialog.tsx`**: `SettingsButton` in the sidebar footer (next to *Acting as*) is a
+  **Settings** button plus a one-click sun/moon toggle. The button opens a panel with Appearance
+  (Light / Dark / System, the system option showing which one is in effect) and the operator's name — the same
+  `useOperatorName` store as the badge, re-read whenever the panel opens so the two cannot drift apart.
+- **Locked sidebar** (`components/layout.tsx`): the shell is `md:h-[100dvh] md:overflow-hidden` and the `<aside>` is
+  `md:sticky md:top-0 md:h-[100dvh]`, so on desktop only the main column scrolls and the navigation (and the pending
+  gate-pass badge) stays in view. Its own nav list still scrolls if the menu outgrows a short window. Below `md`
+  the sidebar stays in normal flow above the content, as before.
+- **Hard-coded light colours fixed**: ~108 class tokens across 11 page/component files had literal Tailwind palette
+  colours (`bg-amber-50 text-amber-900`, status badges, alert banners, the location-type chips) that would have been
+  unreadable on a dark surface; each now carries a `dark:` counterpart. The three badges whose text sits on a **solid**
+  `bg-*-500` (the pending-count badges and the simulator's Trigger Scan button) were deliberately left alone — their
+  dark text is correct in both themes. The chart palettes in `dashboard-charts.tsx` are mid-tone hexes that read on
+  either surface and were not changed.
+
+Test: no new automated tests (presentation only); `pnpm run typecheck` clean, `pnpm run build` succeeds, `pnpm test`
+still 9 files / 111 tests. Manually: sidebar → *Settings* → switch Light / Dark / System and reload (the choice sticks
+with no white flash); flip the OS theme with *System* selected; scroll a long page (Assets, Movements) and confirm the
+sidebar stays put; check the amber pending badge, the dashboard alert banners, asset status badges, the location-type
+chips and the RFID simulator result panels in dark mode.
+
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
 - `GET /gate-passes?sbuId=` and `GET /movements?sbuId=` now filter (the parameters were ignored).

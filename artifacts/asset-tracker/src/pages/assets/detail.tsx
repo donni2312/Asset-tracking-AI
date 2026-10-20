@@ -57,9 +57,9 @@ function HistoryEvent({ event }: { event: any }) {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
           <div>
             <div className="flex items-center gap-2">
-              <LogOut className="w-3.5 h-3.5 text-purple-600" />
+              <LogOut className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <p className="text-sm font-medium">Left the premises{event.gatePassId ? ` under gate pass #${event.gatePassId}` : ""}</p>
-              <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200 border">GATE PASS</Badge>
+              <Badge className="text-[10px] bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900 border">GATE PASS</Badge>
             </div>
             {event.fromLocationName && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Via: {event.fromLocationName}</p>}
             {event.movedBy && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Carried by {event.movedBy}</p>}
@@ -110,7 +110,7 @@ function HistoryEvent({ event }: { event: any }) {
             <div className="flex items-center gap-2">
               <UserCheck className="w-3.5 h-3.5 text-green-500" />
               <p className="text-sm font-medium">Deployed to {event.assignedTo || "user"}</p>
-              <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 border">DEPLOYED</Badge>
+              <Badge className="text-[10px] bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900 border">DEPLOYED</Badge>
             </div>
             {event.toSbuName && <p className="text-xs text-muted-foreground mt-0.5 ml-5">SBU: {event.toSbuName}</p>}
             <p className="text-xs text-muted-foreground mt-0.5 ml-5">Performed by {event.performedBy}</p>
@@ -131,7 +131,7 @@ function HistoryEvent({ event }: { event: any }) {
             <div className="flex items-center gap-2">
               <CornerDownLeft className="w-3.5 h-3.5 text-blue-500" />
               <p className="text-sm font-medium">Returned to IT</p>
-              <Badge className="text-[10px] bg-blue-100 text-blue-700 border-blue-200 border">RETURNED</Badge>
+              <Badge className="text-[10px] bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900 border">RETURNED</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 ml-5">Performed by {event.performedBy}</p>
             {event.conditionBefore && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Condition: {event.conditionBefore}</p>}
@@ -152,7 +152,7 @@ function HistoryEvent({ event }: { event: any }) {
             <div className="flex items-center gap-2">
               <Wrench className="w-3.5 h-3.5 text-amber-500" />
               <p className="text-sm font-medium">Sent for repair{event.vendor ? ` — ${event.vendor}` : ""}</p>
-              <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 border">REPAIR</Badge>
+              <Badge className="text-[10px] bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900 border">REPAIR</Badge>
             </div>
             {event.ticketRef && <p className="text-xs text-muted-foreground mt-0.5 ml-5 font-mono">Ticket: {event.ticketRef}</p>}
             {event.conditionBefore && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Condition: {event.conditionBefore}</p>}
@@ -174,7 +174,7 @@ function HistoryEvent({ event }: { event: any }) {
             <div className="flex items-center gap-2">
               <CheckCircle className="w-3.5 h-3.5 text-green-500" />
               <p className="text-sm font-medium">Returned from repair{event.vendor ? ` (${event.vendor})` : ""}</p>
-              <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 border">REPAIRED</Badge>
+              <Badge className="text-[10px] bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900 border">REPAIRED</Badge>
             </div>
             {event.conditionAfter && <p className="text-xs text-muted-foreground mt-0.5 ml-5">Condition after: {event.conditionAfter}</p>}
             <p className="text-xs text-muted-foreground mt-0.5 ml-5">Received by {event.performedBy}</p>
@@ -194,7 +194,7 @@ function HistoryEvent({ event }: { event: any }) {
             <div className="flex items-center gap-2 flex-wrap">
               <ArrowRightLeft className="w-3.5 h-3.5 text-purple-500" />
               <p className="text-sm font-medium">SBU Transfer</p>
-              <Badge className="text-[10px] bg-purple-100 text-purple-700 border-purple-200 border">SBU TRANSFER</Badge>
+              <Badge className="text-[10px] bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900 border">SBU TRANSFER</Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 ml-5">
               {event.fromSbuName || "?"} → {event.toSbuName || "?"}
@@ -481,7 +481,7 @@ export default function AssetDetail() {
                   {asset.currentLocationName ? (
                     asset.currentLocationName
                   ) : offPremises ? (
-                    <span className="flex items-center gap-2 text-purple-700"><LogOut className="w-5 h-5" /> Off-premises</span>
+                    <span className="flex items-center gap-2 text-purple-700 dark:text-purple-300"><LogOut className="w-5 h-5" /> Off-premises</span>
                   ) : (
                     <span className="italic text-muted-foreground text-base">Unknown Location</span>
                   )}
@@ -512,12 +512,12 @@ export default function AssetDetail() {
                       key={alert.id}
                       className={`rounded-md border p-2.5 text-xs flex items-start gap-2 ${
                         alert.severity === "critical" ? "border-destructive/40 bg-destructive/5" :
-                        alert.severity === "warning" ? "border-amber-400/50 bg-amber-50" : "border-blue-300/50 bg-blue-50"
+                        alert.severity === "warning" ? "border-amber-400/50 bg-amber-50 dark:bg-amber-950/40" : "border-blue-300/50 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40"
                       }`}
                     >
                       {alert.severity === "info"
-                        ? <Info className="w-3.5 h-3.5 mt-0.5 text-blue-600 flex-shrink-0" />
-                        : <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${alert.severity === "critical" ? "text-destructive" : "text-amber-600"}`} />}
+                        ? <Info className="w-3.5 h-3.5 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        : <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${alert.severity === "critical" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}`} />}
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold uppercase tracking-wide text-[10px] mb-0.5">{alert.severity} · {alert.type.replace(/_/g, " ")}</div>
                         <div>{alert.message}</div>
@@ -575,7 +575,7 @@ export default function AssetDetail() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-green-600" />
+              <UserPlus className="w-5 h-5 text-green-600 dark:text-green-400" />
               Assign Asset to Employee
             </DialogTitle>
             <DialogDescription>

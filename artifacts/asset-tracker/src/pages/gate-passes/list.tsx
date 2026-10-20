@@ -17,7 +17,7 @@ function OriginBadge({ pass }: { pass: GatePass }) {
   if (pass.source === "rfid_gate") {
     return (
       <div className="space-y-0.5">
-        <Badge variant="outline" className="gap-1 text-[10px] border-blue-200 bg-blue-50 text-blue-700">
+        <Badge variant="outline" className="gap-1 text-[10px] border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
           <Radio className="w-3 h-3" /> AUTO · GATE READER
         </Badge>
         <div className="text-xs text-muted-foreground">Detected at {pass.gateLocationName ?? "a gate"}</div>
@@ -36,7 +36,7 @@ function DecisionCell({ pass }: { pass: GatePass }) {
   if (pass.status === "approved") {
     return (
       <div className="space-y-1 text-xs">
-        <div className="flex items-center gap-1.5 font-medium text-emerald-700">
+        <div className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-300">
           <CheckCircle className="w-3.5 h-3.5" /> Approved by {pass.approvedBy}
         </div>
         <div className="text-muted-foreground">{formatDate(pass.decidedAt ?? pass.updatedAt)}</div>
@@ -137,7 +137,7 @@ export default function GatePassList() {
                 </TableHeader>
                 <TableBody>
                   {passes.map((gp) => (
-                    <TableRow key={gp.id} className={gp.status === "pending" && gp.source === "rfid_gate" ? "bg-amber-50/50" : ""}>
+                    <TableRow key={gp.id} className={gp.status === "pending" && gp.source === "rfid_gate" ? "bg-amber-50/50 dark:bg-amber-950/40" : ""}>
                       <TableCell className="whitespace-nowrap">
                         <div className="font-mono text-sm font-semibold">#{gp.id}</div>
                         <div className="text-[11px] text-muted-foreground">{formatDate(gp.createdAt)}</div>

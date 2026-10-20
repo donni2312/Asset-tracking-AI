@@ -18,6 +18,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      // Apply the saved theme before first paint, so a reload in dark mode never
+      // flashes white. Mirrors src/hooks/use-theme.ts (same storage key).
+      (function () {
+        try {
+          var saved = window.localStorage.getItem('assetiq.theme') || 'system';
+          var dark = saved === 'dark' ||
+            (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* storage blocked - start in light mode */
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

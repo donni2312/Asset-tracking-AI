@@ -109,24 +109,24 @@ export default function Dashboard() {
         {/* Critical insights banner */}
         {activeInsights.filter(i => i.severity === "critical").length > 0 && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-red-800">
+              <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">
                 {activeInsights.filter(i => i.severity === "critical").length} Critical Alert{activeInsights.filter(i => i.severity === "critical").length > 1 ? "s" : ""}
               </h3>
-              <p className="text-sm text-red-700/80 mt-0.5">
+              <p className="text-sm text-red-700/80 dark:text-red-300/80 mt-0.5">
                 {activeInsights.filter(i => i.severity === "critical")[0]?.message}
-                {" "}<Link href="/insights" className="underline font-medium hover:text-red-900">Review all insights →</Link>
+                {" "}<Link href="/insights" className="underline font-medium hover:text-red-900 dark:hover:text-red-100">Review all insights →</Link>
               </p>
             </div>
           </div>
         )}
         {activeInsights.filter(i => i.severity !== "critical").length > 0 && activeInsights.filter(i => i.severity === "critical").length === 0 && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-amber-800">Active AI Insights ({activeInsights.length})</h3>
-              <p className="text-sm text-amber-700/80 mt-0.5">Anomalies or recommendations detected. <Link href="/insights" className="underline font-medium hover:text-amber-900">Review insights</Link></p>
+              <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200">Active AI Insights ({activeInsights.length})</h3>
+              <p className="text-sm text-amber-700/80 dark:text-amber-300/80 mt-0.5">Anomalies or recommendations detected. <Link href="/insights" className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100">Review insights</Link></p>
             </div>
           </div>
         )}
@@ -183,7 +183,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 truncate" title={sbu.sbuName}>{sbu.sbuName}</div>
                     <div className="mt-2 flex gap-2 text-[10px] text-muted-foreground">
-                      <span className="text-green-600 font-medium">{sbu.activeAssets} active</span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">{sbu.activeAssets} active</span>
                       {sbu.missingAssets > 0 && <span className="text-red-500 font-medium">{sbu.missingAssets} missing</span>}
                       {(sbu.maintenanceAssets ?? 0) > 0 && <span className="text-amber-500 font-medium">{sbu.maintenanceAssets} repair</span>}
                     </div>
@@ -267,7 +267,7 @@ export default function Dashboard() {
                           <p className="font-medium truncate">{ev.assetName}</p>
                           <p className="text-muted-foreground font-mono truncate">
                             {ev.direction !== "internal" && (
-                              <span className={ev.direction === "exit" ? "text-purple-600 font-sans font-semibold" : "text-emerald-600 font-sans font-semibold"}>
+                              <span className={ev.direction === "exit" ? "text-purple-600 dark:text-purple-400 font-sans font-semibold" : "text-emerald-600 dark:text-emerald-400 font-sans font-semibold"}>
                                 {ev.direction === "exit" ? "EXIT · " : "ENTRY · "}
                               </span>
                             )}

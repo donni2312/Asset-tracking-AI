@@ -27,18 +27,18 @@ function lastNight2am(): string {
 }
 
 const OUTCOMES: Record<RFIDScanResult["gateCheck"]["outcome"], { title: string; tone: string; icon: typeof Radio }> = {
-  not_gate: { title: "Internal scan — no gate check needed", tone: "border-slate-200 bg-slate-50 text-slate-700", icon: Radio },
-  entry: { title: "Entry — asset returned on site", tone: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: LogIn },
-  authorized: { title: "Authorised exit — covered by an approved gate pass", tone: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: ShieldCheck },
-  pending_created: { title: "No approved gate pass — pending pass raised, approvers notified", tone: "border-amber-300 bg-amber-50 text-amber-900", icon: ShieldAlert },
-  pending_existing: { title: "No approved gate pass — still awaiting approval", tone: "border-amber-300 bg-amber-50 text-amber-900", icon: ShieldAlert },
+  not_gate: { title: "Internal scan — no gate check needed", tone: "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300", icon: Radio },
+  entry: { title: "Entry — asset returned on site", tone: "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200", icon: LogIn },
+  authorized: { title: "Authorised exit — covered by an approved gate pass", tone: "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200", icon: ShieldCheck },
+  pending_created: { title: "No approved gate pass — pending pass raised, approvers notified", tone: "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100", icon: ShieldAlert },
+  pending_existing: { title: "No approved gate pass — still awaiting approval", tone: "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100", icon: ShieldAlert },
 };
 
 const SEVERITY_ICON = { critical: AlertTriangle, warning: AlertTriangle, info: Info } as const;
 const SEVERITY_TONE = {
   critical: "border-destructive/40 bg-destructive/5 text-destructive",
-  warning: "border-amber-400/50 bg-amber-50 text-amber-900",
-  info: "border-blue-300/50 bg-blue-50 text-blue-900",
+  warning: "border-amber-400/50 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100",
+  info: "border-blue-300/50 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100",
 } as const;
 
 export default function RfidSimulator() {
@@ -329,7 +329,7 @@ export default function RfidSimulator() {
                 <div className="space-y-2">
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Anomaly engine</div>
                   {lastResult.insights.length === 0 ? (
-                    <div className="flex items-center gap-2 text-sm text-emerald-700">
+                    <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="w-4 h-4" /> No anomalies — nothing raised for this scan.
                     </div>
                   ) : (

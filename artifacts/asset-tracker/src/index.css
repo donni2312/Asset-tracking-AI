@@ -68,6 +68,8 @@
 }
 
 :root {
+  color-scheme: light;
+
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
   --app-font-mono: 'JetBrains Mono', monospace;
   --radius: 0.25rem;
@@ -116,6 +118,60 @@
   --sidebar-accent: 215 28% 17%;
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-ring: 221 83% 53%;
+}
+
+/*
+ * Dark theme. Applied by adding `.dark` to <html> (see hooks/use-theme.ts and the
+ * pre-paint script in index.html). Same token names as :root, so every component
+ * follows without change. The sidebar stays darker than the page, as in light mode.
+ */
+.dark {
+  color-scheme: dark;
+
+  --background: 222 47% 9%;
+  --foreground: 210 40% 96%;
+
+  --card: 222 44% 12%;
+  --card-foreground: 210 40% 96%;
+  --card-border: 215 28% 20%;
+
+  --popover: 222 44% 12%;
+  --popover-foreground: 210 40% 96%;
+  --popover-border: 215 28% 20%;
+
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 215 28% 18%;
+  --secondary-foreground: 210 40% 96%;
+
+  --muted: 215 28% 17%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 215 28% 20%;
+  --accent-foreground: 210 40% 96%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 215 28% 20%;
+  --input: 215 28% 24%;
+  --ring: 217 91% 60%;
+
+  --chart-1: 217 91% 60%;
+  --chart-2: 199 89% 56%;
+  --chart-3: 152 60% 45%;
+  --chart-4: 35 92% 58%;
+  --chart-5: 0 84% 65%;
+
+  --sidebar: 222 47% 6%;
+  --sidebar-foreground: 210 40% 96%;
+  --sidebar-border: 215 28% 15%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 215 28% 15%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-ring: 217 91% 60%;
 }
 
 @layer base {

@@ -61,7 +61,7 @@ export function LocationForm({ initial, submitLabel, submitting, error, onSubmit
       </div>
 
       {values.type === "gate" && (
-        <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+        <div className="flex items-start gap-2 rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-3 text-xs text-blue-800 dark:text-blue-200">
           <Radio className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>
             Gate locations run the gate-pass check: when a reader here scans an asset without an approved pass,

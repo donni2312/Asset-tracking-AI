@@ -207,6 +207,17 @@ the registry; Missing Assets → the registry filtered to `status=missing`; Pend
 registry filtered to that SBU; Gate Activity → gate passes; Asset Distribution → locations. The stat and list cards
 are clickable in full; the chart cards use a header link so their Chart/Table toggle keeps working.
 
+### 6.8 Personalisation (appearance)
+A **Settings** panel in the sidebar footer holds what each user can personalise. Appearance offers **Light**, **Dark**
+and **System** (follow the operating system, and keep following it while the app is open); dark mode exists for eye
+comfort, which matters for the after-hours gate approvals the workflow in §6.3 creates. The same panel holds the
+operator name recorded on decisions (§6.3), so the two per-user settings live in one place, and the sidebar also
+carries a one-click light/dark toggle for quick switching. Choices are stored in the browser — the MVP has no user
+accounts (§7, Out of Scope) — and are applied before first paint so a reload in dark mode does not flash white.
+
+The sidebar is **pinned to the viewport** on desktop: only the content column scrolls, so navigation and the pending
+gate-pass badge stay reachable from anywhere in a long list.
+
 ---
 
 ## 7. MVP Scope (by 30 November 2025)
@@ -223,6 +234,7 @@ are clickable in full; the chart cards use a header link so their Chart/Table to
 | Dashboard (summary stats, activity feed, movement-trend and SBU-status charts, every card a drill-down link) | ✅ Included |
 | AI anomaly detection (rules) + natural-language query (rules, optional OpenAI) | ✅ Included |
 | BC sync status page (mock connection, manual sync) | ✅ Included |
+| Personalisation: light / dark / system theme, operator name (Settings panel) | ✅ Included |
 | Demo seed data (`pnpm seed`) | ✅ Included |
 | Automated tests (`pnpm test`) | ✅ Included |
 
@@ -325,3 +337,12 @@ visible chip to clear it) so the Missing Assets card lands on the right rows.
 *Consequences:* one click from a number to the records behind it, and the filter state lives in the URL, so a filtered
 view can be bookmarked or pasted to a colleague. Filtered deep links are limited to what the list endpoints already
 accept — no new query parameters were added to the contract.
+
+**D5 — Theme preference: per-browser, with "system" as the default.**
+*Context:* dark mode was asked for as an eye-comfort feature. There is no authentication in the MVP (§7), so there is
+nowhere on the server to keep a per-user preference, and the dashboard is used both in bright offices and after hours.
+*Decision:* store the choice in the browser's localStorage next to the operator name, defaulting to **system** so a
+first-time user gets whatever their OS already prefers. The theme is a token swap on a `dark` class on `<html>`, so
+components need no theme-specific code, and an inline script applies the stored value before first paint.
+*Consequences:* no contract, database or API change, and no flash of the wrong theme on reload; the preference does not
+follow a user between machines or browsers — it would move into a user profile when authentication arrives in Phase 2.

@@ -42,7 +42,7 @@ export default function BcSync() {
           <h1 className="text-2xl font-bold tracking-tight">ERP Integration</h1>
         </div>
 
-        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-4 text-sm text-blue-900 dark:text-blue-100">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <p>
             <strong>MVP scope:</strong> the Business Central connection is simulated and syncs are <strong>manual</strong>.

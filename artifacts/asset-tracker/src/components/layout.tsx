@@ -4,6 +4,7 @@ import { Activity, Box, Building2, Database, HardDrive, LayoutDashboard, MapPin,
 import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
 import { OperatorBadge } from "@/components/operator-badge";
+import { SettingsButton } from "@/components/settings-dialog";
 
 interface LayoutProps {
   children: ReactNode;
@@ -26,9 +27,13 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   return (
-    <div className="flex min-h-[100dvh] w-full bg-background text-foreground flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col flex-shrink-0">
+    <div className="flex min-h-[100dvh] w-full bg-background text-foreground flex-col md:h-[100dvh] md:flex-row md:overflow-hidden">
+      {/*
+       * Sidebar. On desktop it is pinned to the viewport (h-[100dvh] + sticky top-0)
+       * and only its own nav list scrolls, so the navigation never scrolls away with
+       * the page. On mobile it stays in normal flow above the content.
+       */}
+      <aside className="w-full flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex md:sticky md:top-0 md:h-[100dvh] md:w-64">
         <div className="p-4 md:p-6 border-b border-sidebar-border">
           <Link href="/" className="flex items-center gap-3 cursor-pointer">
             <img
@@ -69,6 +74,7 @@ export function Layout({ children }: LayoutProps) {
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
           <OperatorBadge />
+          <SettingsButton />
           <div className="px-2 text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
             TSL GROUP — ASSET MGMT v2
           </div>

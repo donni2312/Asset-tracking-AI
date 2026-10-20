@@ -147,7 +147,7 @@ export default function NewMovement() {
               </div>
 
               {destination?.type === "gate" && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs text-amber-800 dark:text-amber-200">
                   <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>Moving an asset to a gate does not authorise it to leave. Request a gate pass for exits.</span>
                 </div>

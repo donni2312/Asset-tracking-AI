@@ -88,7 +88,7 @@ export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassD
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {action === "approve" ? <CheckCircle className="w-5 h-5 text-emerald-600" /> : <XCircle className="w-5 h-5 text-destructive" />}
+              {action === "approve" ? <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <XCircle className="w-5 h-5 text-destructive" />}
               {action === "approve" ? "Approve" : "Reject"} gate pass #{pass.id}
             </DialogTitle>
             <DialogDescription>

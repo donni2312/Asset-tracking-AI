@@ -19,13 +19,13 @@ const typeIcons: Record<string, typeof Building2> = {
 };
 
 const typeColors: Record<string, string> = {
-  gate: "text-blue-600 bg-blue-50 border-blue-200",
+  gate: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900",
   office: "text-gray-600 bg-gray-50 border-gray-200",
-  warehouse: "text-amber-600 bg-amber-50 border-amber-200",
-  meeting_room: "text-purple-600 bg-purple-50 border-purple-200",
-  lab: "text-green-600 bg-green-50 border-green-200",
+  warehouse: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900",
+  meeting_room: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900",
+  lab: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-900",
   reception: "text-pink-600 bg-pink-50 border-pink-200",
-  server_room: "text-slate-600 bg-slate-50 border-slate-200",
+  server_room: "text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700",
 };
 
 export default function LocationList() {

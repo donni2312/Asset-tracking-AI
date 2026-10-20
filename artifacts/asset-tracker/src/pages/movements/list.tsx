@@ -8,16 +8,16 @@ import { Activity, ArrowRight, LogOut, Plus, Radio, ShieldCheck, UserRound } fro
 import { Link } from "wouter";
 
 const TRIGGERS: Record<string, { label: string; className: string; icon: typeof Radio }> = {
-  rfid: { label: "RFID", className: "border-blue-200 bg-blue-50 text-blue-700", icon: Radio },
-  manual: { label: "Manual", className: "border-slate-200 bg-slate-50 text-slate-700", icon: UserRound },
-  gate_pass: { label: "Gate pass", className: "border-purple-200 bg-purple-50 text-purple-700", icon: ShieldCheck },
+  rfid: { label: "RFID", className: "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300", icon: Radio },
+  manual: { label: "Manual", className: "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300", icon: UserRound },
+  gate_pass: { label: "Gate pass", className: "border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300", icon: ShieldCheck },
 };
 
 function Destination({ event }: { event: MovementEvent }) {
   if (event.toLocationName) return <>{event.toLocationName}</>;
   if (event.triggeredBy === "gate_pass") {
     return (
-      <span className="inline-flex items-center gap-1 text-purple-700">
+      <span className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
         <LogOut className="w-3 h-3" /> Off-premises
       </span>
     );
