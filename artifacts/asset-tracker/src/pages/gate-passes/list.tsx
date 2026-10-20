@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useListGatePasses, type GatePass } from "@workspace/api-client-react";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, formatDateOnly, cn } from "@/lib/utils";
 import { ShieldAlert, CheckCircle, XCircle, Radio, ShieldPlus, LogOut, Clock, Flag } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -154,7 +154,7 @@ export default function GatePassList() {
                         <div className="text-xs text-muted-foreground max-w-[240px] truncate" title={gp.reason}>{gp.reason}</div>
                       </TableCell>
                       <TableCell className="text-sm font-mono whitespace-nowrap">
-                        {gp.returnDate ? gp.returnDate : <span className="text-muted-foreground font-sans text-xs">Open-ended</span>}
+                        {gp.returnDate ? formatDateOnly(gp.returnDate) : <span className="text-muted-foreground font-sans text-xs">Open-ended</span>}
                       </TableCell>
                       <TableCell className="text-right">
                         {gp.status === "pending" ? (

@@ -235,6 +235,38 @@ with no white flash); flip the OS theme with *System* selected; scroll a long pa
 sidebar stays put; check the amber pending badge, the dashboard alert banners, asset status badges, the location-type
 chips and the RFID simulator result panels in dark mode.
 
+### 12. One date format for the whole system (dd/mm/yyyy by default)
+- **`lib/date-format.ts`** is now the only place a date is turned into text: `formatDate` (instant: `20/10/2026 14:05`),
+  `formatDateOnly` (calendar day), `formatTime` and `formatDayLabel` (chart axes / table days). The preference is
+  `dd/mm/yyyy` (default, as written in Zimbabwe), `mm/dd/yyyy` or `yyyy-mm-dd`, stored under `assetiq.dateFormat`.
+  The clock style follows the date order — month-first gets a 12-hour clock, the other two 24-hour.
+- `lib/utils.ts` re-exports those four, so the ~30 existing `import { formatDate } from "@/lib/utils"` call sites were
+  left untouched. The old implementation was a hard-coded `en-US` `Intl.DateTimeFormat` ("Oct 20, 2026, 2:05 PM").
+- **Dates that bypassed the formatter** now go through it: gate-pass **return dates** (decision dialog and the Gate
+  Passes table) and the asset **purchase date** printed the raw `YYYY-MM-DD` from the API; the gate-activity and AI-chat
+  clocks and the chart axis labels each called `toLocaleTimeString` / `toLocaleDateString` with their own locale.
+- **Date-only values are not instants.** `new Date("2026-12-31")` is parsed as UTC midnight and shows 30/12 in any
+  negative-offset timezone, so `YYYY-MM-DD` strings are formatted from the string's own parts and the weekday behind a
+  chart label is computed in UTC. (Harare is UTC+2, so this never showed up locally — it would have in Replit's UTC
+  or a US timezone.)
+- **How a change reaches every screen**: the formatters are plain functions that read the stored preference, so
+  `Layout` subscribes (`useDateFormat`) and keys the page-content wrapper on it — switching the format re-mounts the
+  current page. The sidebar and the open Settings panel sit outside that keyed element and survive, so the new format
+  is visible behind the dialog immediately. The trade-off is that page state (a search box, a filter tab) resets on a
+  format change; that is a deliberate, rare action, and it is what keeps a date from being formatted two ways on one
+  screen. **Keep formatting dates through `lib/date-format.ts`** — a component that calls `toLocaleDateString` itself
+  will silently ignore the setting.
+- Settings → **Date format** lists the three options with a live preview of the current time in the chosen format.
+
+Test: no new automated tests (presentation only); `pnpm run typecheck` clean, `pnpm run build` succeeds, `pnpm test`
+still 9 files / 111 tests. The formatters were checked directly for all three formats: instants, calendar days
+(`2026-01-05` stays 5 January), times, axis labels, and `null` / unparseable input → "—".
+Manually: Settings → Date format → each option, then check the Movement Log, an asset's history, the Gate Passes table
+(*Due back*), BC Sync's last-sync line, the dashboard activity feed and the movements chart axis.
+
+**Known limit:** native `<input type="date">` / `datetime-local` pickers (gate-pass return date, the simulator's replay
+time) render in the **operating system's** locale — no web app can restyle them. Only displayed dates follow the setting.
+
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
 - `GET /gate-passes?sbuId=` and `GET /movements?sbuId=` now filter (the parameters were ignored).

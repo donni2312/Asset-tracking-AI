@@ -5,16 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | null | undefined) {
-  if (!date) return "—";
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  }).format(new Date(date));
-}
+/**
+ * Dates are formatted in one place so the Settings preference applies everywhere.
+ * Re-exported here because most pages already import it from "@/lib/utils".
+ */
+export { formatDate, formatDateOnly, formatTime, formatDayLabel } from "./date-format";
 
 export function formatCurrency(value: number | null | undefined) {
   if (value == null) return "—";

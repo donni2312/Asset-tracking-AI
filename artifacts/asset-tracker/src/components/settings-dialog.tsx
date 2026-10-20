@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useOperatorName } from "@/hooks/use-operator";
 import { resolveTheme, useTheme, type Theme } from "@/hooks/use-theme";
+import { DATE_FORMATS, formatDate, useDateFormat } from "@/lib/date-format";
 
 const THEME_OPTIONS: { value: Theme; label: string; hint: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", hint: "Bright rooms", icon: Sun },
@@ -23,6 +24,7 @@ const THEME_OPTIONS: { value: Theme; label: string; hint: string; icon: typeof S
  */
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [theme, setTheme] = useTheme();
+  const [dateFormat, setDateFormat] = useDateFormat();
   const [name, setName] = useOperatorName();
   const [draftName, setDraftName] = useState(name);
 
@@ -75,6 +77,40 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <p className="text-xs text-muted-foreground">
               {THEME_OPTIONS.find((o) => o.value === theme)?.hint}
               {theme === "system" && ` — currently ${resolveTheme("system")}`}
+            </p>
+          </fieldset>
+
+          {/* Date format */}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Date format</legend>
+            <p className="text-xs text-muted-foreground">
+              Applies to every date in the system — movement logs, gate passes, asset history and charts.
+            </p>
+            <div className="space-y-1.5 pt-1">
+              {DATE_FORMATS.map((option) => {
+                const active = dateFormat === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setDateFormat(option.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left text-xs transition-colors",
+                      active
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    <span className="font-mono font-medium">{option.label}</span>
+                    <span className="flex-1">{option.hint}</span>
+                    {active && <Check className="h-3.5 w-3.5 flex-shrink-0 text-primary" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              With a time: <span className="font-mono">{formatDate(new Date(), dateFormat)}</span>
             </p>
           </fieldset>
 

@@ -8,7 +8,7 @@ import { BrainCircuit, Send, AlertTriangle, Info, Bot, Check, ShieldAlert, Spark
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
 
 const EXAMPLES = [
   "Where is the Dell laptop assigned to John Doe?",
@@ -171,7 +171,7 @@ export default function Insights() {
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                     {msg.result && <AnswerExtras result={msg.result} />}
                     <div className={`text-[10px] mt-1 ${msg.role === "user" ? "text-primary-foreground/70 text-right" : "text-muted-foreground"}`}>
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {formatTime(msg.timestamp)}
                     </div>
                   </div>
                 </div>

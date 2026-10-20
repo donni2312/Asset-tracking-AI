@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatDayLabel } from "@/lib/date-format";
 
 /*
  * Dashboard charts. Colours follow the data-viz method:
@@ -109,11 +110,8 @@ const trendConfig = {
   gatePass: { label: "Gate-pass exit", color: "#1baf7a" },
 } satisfies ChartConfig;
 
-const dayLabel = (key: string, withWeekday = false) => {
-  const [y, m, d] = key.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", ...(withWeekday ? { weekday: "short" } : {}) });
-};
+/** Axis and table labels follow the date-format preference (lib/date-format.ts). */
+const dayLabel = (key: string, withWeekday = false) => formatDayLabel(key, { withWeekday });
 
 export function MovementTrendChart({ days = 14, viewAllHref }: { days?: number; viewAllHref?: string }) {
   const [view, setView] = useState<"chart" | "table">("chart");

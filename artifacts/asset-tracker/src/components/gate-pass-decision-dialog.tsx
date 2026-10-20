@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useOperatorName } from "@/hooks/use-operator";
 import { apiErrorMessage } from "@/lib/api-error";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateOnly } from "@/lib/utils";
 
 export type GatePassAction = "approve" | "reject";
 
@@ -114,7 +114,7 @@ export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassD
               <div className="text-xs text-muted-foreground">
                 {pass.destination && <>To {pass.destination}</>}
                 {pass.destination && pass.returnDate && " · "}
-                {pass.returnDate && <>Due back {pass.returnDate}</>}
+                {pass.returnDate && <>Due back {formatDateOnly(pass.returnDate)}</>}
               </div>
             )}
           </div>

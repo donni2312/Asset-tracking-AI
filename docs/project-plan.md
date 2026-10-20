@@ -207,13 +207,18 @@ the registry; Missing Assets → the registry filtered to `status=missing`; Pend
 registry filtered to that SBU; Gate Activity → gate passes; Asset Distribution → locations. The stat and list cards
 are clickable in full; the chart cards use a header link so their Chart/Table toggle keeps working.
 
-### 6.8 Personalisation (appearance)
+### 6.8 Personalisation (appearance and date format)
 A **Settings** panel in the sidebar footer holds what each user can personalise. Appearance offers **Light**, **Dark**
 and **System** (follow the operating system, and keep following it while the app is open); dark mode exists for eye
 comfort, which matters for the after-hours gate approvals the workflow in §6.3 creates. The same panel holds the
 operator name recorded on decisions (§6.3), so the two per-user settings live in one place, and the sidebar also
 carries a one-click light/dark toggle for quick switching. Choices are stored in the browser — the MVP has no user
 accounts (§7, Out of Scope) — and are applied before first paint so a reload in dark mode does not flash white.
+
+**Date format** is the second setting: **dd/mm/yyyy** (the default, as dates are written in Zimbabwe), mm/dd/yyyy or
+ISO yyyy-mm-dd. One formatting module serves every screen — movement logs, asset history, gate passes, BC sync and the
+chart axes — so the chosen format is used consistently system-wide and changing it updates all of them at once. Native
+date pickers are the one exception: the browser renders those in the operating system's locale.
 
 The sidebar is **pinned to the viewport** on desktop: only the content column scrolls, so navigation and the pending
 gate-pass badge stay reachable from anywhere in a long list.
@@ -234,7 +239,7 @@ gate-pass badge stay reachable from anywhere in a long list.
 | Dashboard (summary stats, activity feed, movement-trend and SBU-status charts, every card a drill-down link) | ✅ Included |
 | AI anomaly detection (rules) + natural-language query (rules, optional OpenAI) | ✅ Included |
 | BC sync status page (mock connection, manual sync) | ✅ Included |
-| Personalisation: light / dark / system theme, operator name (Settings panel) | ✅ Included |
+| Personalisation: light / dark / system theme, system-wide date format, operator name (Settings panel) | ✅ Included |
 | Demo seed data (`pnpm seed`) | ✅ Included |
 | Automated tests (`pnpm test`) | ✅ Included |
 
@@ -346,3 +351,15 @@ first-time user gets whatever their OS already prefers. The theme is a token swa
 components need no theme-specific code, and an inline script applies the stored value before first paint.
 *Consequences:* no contract, database or API change, and no flash of the wrong theme on reload; the preference does not
 follow a user between machines or browsers — it would move into a user profile when authentication arrives in Phase 2.
+
+**D6 — Dates: dd/mm/yyyy by default, formatted in one module.**
+*Context:* dates were rendered by a hard-coded `en-US` formatter in one place and by ad-hoc `toLocaleDateString` /
+`toLocaleTimeString` calls in several others, so the same system showed "Oct 20, 2026, 2:05 PM" next to a raw
+`2026-12-31` return date. TSL writes dates day-first.
+*Decision:* all date text comes from a single module with an explicit day/month/year order — defaulting to
+**dd/mm/yyyy** rather than the browser's locale, so two users never read the same report differently — and the order is
+user-selectable in Settings. Calendar-day values (return dates, purchase dates) are formatted from the string itself
+rather than through `Date`, which would shift the day in a negative-offset timezone.
+*Consequences:* one place to change date presentation, and the setting is consistent across every screen and chart;
+new code must use that module, since a stray `toLocaleDateString` would ignore the preference. Native date-picker
+inputs still follow the operating system's locale — unavoidable in a browser.

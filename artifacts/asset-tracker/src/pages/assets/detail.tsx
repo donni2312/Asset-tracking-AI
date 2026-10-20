@@ -16,7 +16,7 @@ import {
   getGetAssetQueryKey, getGetAssetHistoryQueryKey, useListInsights, useDismissInsight,
 } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateOnly } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -425,7 +425,7 @@ export default function AssetDetail() {
                   {(asset as any).purchaseDate && (
                     <div>
                       <dt className="text-muted-foreground font-medium">Purchase Date</dt>
-                      <dd className="font-mono mt-1">{(asset as any).purchaseDate as string}</dd>
+                      <dd className="font-mono mt-1">{formatDateOnly((asset as any).purchaseDate as string)}</dd>
                     </div>
                   )}
                   {(asset as any).notes && (

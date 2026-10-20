@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { Activity, AlertCircle, ArrowRight, Box, MapPin, Radio, ShieldAlert, Wrench, UserCheck, ArrowRightLeft, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
 import { Link } from "wouter";
 import { MovementTrendChart, SbuStatusChart } from "@/components/dashboard-charts";
 import type { ReactNode } from "react";
@@ -275,7 +275,7 @@ export default function Dashboard() {
                           </p>
                         </div>
                         <span className="text-muted-foreground font-mono flex-shrink-0">
-                          {new Date(ev.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                          {formatTime(ev.timestamp)}
                         </span>
                       </div>
                     ))}

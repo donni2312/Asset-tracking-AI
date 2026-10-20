@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
 import { OperatorBadge } from "@/components/operator-badge";
 import { SettingsButton } from "@/components/settings-dialog";
+import { useDateFormat } from "@/lib/date-format";
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,6 +14,11 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const pendingGatePasses = usePendingGatePassNotifications();
+  // Dates are formatted by plain functions reading the stored preference, so the
+  // page content is re-mounted when it changes - that is what keeps every screen
+  // consistent after a switch in Settings. The sidebar (and the open Settings
+  // panel) sits outside the keyed element and survives.
+  const [dateFormat] = useDateFormat();
 
   const navigation = [
     { name: "Dashboard",       href: "/",              icon: LayoutDashboard },
@@ -84,7 +90,7 @@ export function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto w-full">
+          <div key={dateFormat} className="max-w-7xl mx-auto w-full">
             {children}
           </div>
         </div>
