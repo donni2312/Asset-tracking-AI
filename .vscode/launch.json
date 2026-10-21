@@ -1,16 +1,19 @@
 {
   // Debugging. Stop the "API: dev server (watch)" task first — both use port 8080.
+  // The .NET configurations need the C# extension (ms-dotnettools.csharp).
   "version": "0.2.0",
   "configurations": [
     {
       "name": "API: debug",
-      "type": "node",
+      "type": "coreclr",
       "request": "launch",
-      "cwd": "${workspaceFolder}/artifacts/api-server",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["exec", "tsx", "--env-file-if-exists=../../.env", "src/index.ts"],
+      "preLaunchTask": "Build: API (dotnet build)",
+      "program": "${workspaceFolder}/artifacts/api-server/src/AssetIQ.Api/bin/Debug/net8.0/AssetIQ.Api.dll",
+      "cwd": "${workspaceFolder}/artifacts/api-server/src/AssetIQ.Api",
+      // The API reads the repository's .env itself (DATABASE_URL, PORT, …).
+      "env": { "ASPNETCORE_ENVIRONMENT": "Development" },
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+      "justMyCode": true
     },
     {
       "name": "Web: debug in Edge",
@@ -20,14 +23,11 @@
       "webRoot": "${workspaceFolder}/artifacts/asset-tracker"
     },
     {
-      "name": "Tests: debug current API test file",
-      "type": "node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/artifacts/api-server",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["exec", "vitest", "run", "${file}"],
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+      // Run `$env:VSTEST_HOST_DEBUG=1; pnpm test` in a terminal, then attach to the testhost process it prints.
+      "name": "Tests: attach to the API test host",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
     },
     {
       "name": "Seed: debug",

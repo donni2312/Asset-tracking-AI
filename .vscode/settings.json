@@ -24,10 +24,13 @@
     "via-vite-proxy": { "baseUrl": "http://localhost:5173/api" }
   },
 
-  // Node.js was installed per-user (no admin) in %LOCALAPPDATA%\Programs\nodejs.
-  // Prepending it here lets VS Code terminals find node/pnpm even before VS Code
-  // picks up the updated user PATH. Harmless on machines without that folder.
+  // Node.js was installed per-user (no admin) in %LOCALAPPDATA%\Programs\nodejs, the .NET 8 SDK in
+  // %ProgramFiles%\dotnet. Prepending both lets VS Code terminals find node/pnpm/dotnet even before
+  // VS Code picks up the updated PATH. Harmless on machines without those folders.
   "terminal.integrated.env.windows": {
-    "PATH": "${env:LOCALAPPDATA}\\Programs\\nodejs;${env:PATH}"
-  }
+    "PATH": "${env:LOCALAPPDATA}\\Programs\\nodejs;${env:ProgramFiles}\\dotnet;${env:PATH}"
+  },
+
+  // C# extension: the API solution.
+  "dotnet.defaultSolution": "artifacts/api-server/AssetIQ.sln"
 }

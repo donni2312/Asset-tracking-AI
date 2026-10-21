@@ -98,9 +98,9 @@ RFID Reader (at gate/office)  ──MQTT──► Azure IoT Hub
 | Layer | MVP (This Project) | Production Target |
 |---|---|---|
 | **Frontend** | React + TypeScript + Vite | Same |
-| **Backend** | Node.js + Express | C# ASP.NET Core on Azure App Service |
-| **Database** | PostgreSQL | Azure SQL Database |
-| **ORM** | Drizzle ORM | Entity Framework Core |
+| **Backend** | C# ASP.NET Core 8 Web API (rewritten from the first Node.js + Express version, same API contract) | Same, on Azure App Service |
+| **Database** | PostgreSQL (schema defined with Drizzle in `lib/db`) | Azure SQL Database, or Azure Database for PostgreSQL to keep the schema unchanged |
+| **ORM** | Entity Framework Core 8 (Npgsql provider) | Entity Framework Core |
 | **IoT** | Simulated via API | Azure IoT Hub + RFID readers |
 | **AI** | Rule-based anomaly engine; NL queries parsed by OpenAI when configured, with the rule-based parser as fallback (see §13, D1) | Azure OpenAI Service (same OpenAI-compatible call) |
 | **BC Integration** | Mocked connection, **manual sync only** (see §13, D2) | Microsoft BC API (OAuth2), automatic sync |
@@ -334,12 +334,13 @@ This project addresses the following academic areas:
 
 | Level | What it covers | Where |
 |---|---|---|
-| Unit | Pure rules: gate-pass validity and direction, every anomaly rule (incl. severity escalation), timezone/working-hours maths, NL question parsing, OpenAI response handling | `artifacts/api-server/src/**/*.test.ts` |
-| API integration | The real Express app against an in-memory PostgreSQL (PGlite) built from the Drizzle schema: RFID scans, auto-raised passes, approve → `gate_pass` movement, reject → flag, validation (400/404/409), NL answers, BC sync, location and movement endpoints | `artifacts/api-server/src/routes/*.test.ts` |
-| Security | Sign-in (wrong password is indistinguishable from an unknown user, disabled accounts, forged and expired tokens) and the role matrix on asset records, including a demotion taking effect on the next request | `src/routes/auth.test.ts` |
+| Unit | Pure rules: gate-pass validity and direction, every anomaly rule (incl. severity escalation), timezone/working-hours maths, NL question parsing, OpenAI response handling, scrypt and token compatibility with the earlier Node implementation | `artifacts/api-server/tests/AssetIQ.Api.Tests/Unit` |
+| API integration | The real ASP.NET Core app (WebApplicationFactory) against a throwaway PostgreSQL 16 built from the schema's DDL: RFID scans, auto-raised passes, approve → `gate_pass` movement, reject → flag, validation (400/404/409), NL answers, BC sync, location and movement endpoints; plus a check that the EF Core model matches the schema column for column | `artifacts/api-server/tests/AssetIQ.Api.Tests/Integration` |
+| Security | Sign-in (wrong password is indistinguishable from an unknown user, disabled accounts, forged and expired tokens) and the role matrix on asset records, including a demotion taking effect on the next request | `Integration/AuthTests.cs` |
+| Migration parity | The Express and C# APIs run side by side on identical copies of the seeded data and answer the same 157 requests identically | one-off check during the rewrite (see `CLAUDE.md` §15) |
 | Manual / demo | Seeded demo data and a scripted walkthrough in the dashboard | `pnpm seed`, `CLAUDE.md` |
 
-Run everything with `pnpm test` (10 files, 128 tests). Tests pin the clock (Wednesday 10:00 Harare) so time-based rules are deterministic, and the RFID / gate-pass tests were checked by mutation: reintroducing the old "every gate scan is a warning" behaviour or the hard-coded approver makes them fail.
+Run everything with `pnpm test` (181 tests, xUnit). Tests pin the clock (Wednesday 10:00 Harare) so time-based rules are deterministic, and the RFID / gate-pass tests were checked by mutation: reintroducing the old "every gate scan is a warning" behaviour or the hard-coded approver makes them fail.
 
 ## 13. Decision Log (October 2026)
 

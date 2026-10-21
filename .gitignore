@@ -11,6 +11,13 @@ out-tsc
 # dependencies
 node_modules
 
+# .NET build output and tooling (artifacts/api-server)
+bin/
+obj/
+TestResults/
+*.user
+.vs/
+
 # IDEs and editors
 /.idea
 .project

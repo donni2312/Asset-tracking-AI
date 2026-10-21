@@ -1,7 +1,7 @@
 # CLAUDE.md — AssetIQ (TSL asset tracking)
 
-AssetIQ is an RFID-driven asset tracking MVP for TSL Group: React dashboard + Express API + PostgreSQL in a pnpm
-monorepo, contract-first from `lib/api-spec/openapi.yaml`. The degree-project plan (architecture, decision log,
+AssetIQ is an RFID-driven asset tracking MVP for TSL Group: React dashboard + ASP.NET Core API (C#, EF Core) +
+PostgreSQL in a pnpm monorepo, contract-first from `lib/api-spec/openapi.yaml`. The degree-project plan (architecture, decision log,
 testing) is `docs/project-plan.md`; the Replit agent's notes are `replit.md`. This file explains how to run and
 test the project locally and records everything changed in the October 2026 pass.
 
@@ -13,14 +13,14 @@ test the project locally and records everything changed in the October 2026 pass
 | `pnpm db:local` | Run a local PostgreSQL 16 in this terminal (port 5433, Ctrl+C stops it). `pnpm db:local status` / `stop` manage a leftover server |
 | `pnpm db:push` | Create / update tables from `lib/db/src/schema` (drizzle-kit) |
 | `pnpm seed` / `pnpm seed --reset` | Load demo data into an empty DB / wipe every AssetIQ table first |
-| `pnpm dev:api` | API on http://localhost:8080/api, restarts on save (tsx watch, reads `.env`) |
+| `pnpm dev:api` | C# API on http://localhost:8080/api with hot reload (`dotnet watch`, reads `.env`) |
 | `pnpm dev:web` | Dashboard on http://localhost:5173 (Vite hot reload, proxies `/api` to 8080) |
-| `pnpm test` | All automated tests (Vitest). No database needed |
-| `pnpm --filter @workspace/api-server run test:watch` | Tests in watch mode |
-| `pnpm run typecheck` | Typecheck every package |
+| `pnpm test` | All automated tests (xUnit via `dotnet test`). No running database needed: a throwaway PostgreSQL is started |
+| `pnpm --filter @workspace/api-server run test:watch` | Tests in watch mode (`dotnet watch test`) |
+| `pnpm run typecheck` | Typecheck every TypeScript package and compile the C# solution |
 | `pnpm codegen` | Regenerate React Query hooks + Zod schemas after editing `openapi.yaml` |
 | Demo sign-ins | `admin`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`) |
-| `pnpm run build` | Typecheck + production builds |
+| `pnpm run build` | Typecheck + production builds (the API is published to `artifacts/api-server/dist`) |
 
 ## Local development (Windows + VS Code)
 
@@ -28,6 +28,9 @@ test the project locally and records everything changed in the October 2026 pass
 - **Node.js 24.22.0 LTS** (portable, no admin) in `%LOCALAPPDATA%\Programs\nodejs`, added to the **user PATH**,
   plus **pnpm 10.34.7** in the same folder. Restart VS Code once so new terminals see it
   (`.vscode/settings.json` also prepends it for VS Code terminals). To remove: delete that folder and the PATH entry.
+- **.NET 8 SDK** (8.0.426) in `C:\Program Files\dotnet`, on the machine PATH. A VS Code window opened before the
+  install does not see it — restart VS Code. The pnpm scripts find it anyway (`artifacts/api-server/dotnet.mjs`) and
+  `.vscode/settings.json` prepends it for terminals. Recommended extension: C# (`ms-dotnettools.csharp`).
 - **PostgreSQL 16** comes from the `embedded-postgres` npm package (no admin, no Docker). `pnpm db:local` keeps its
   data in `%LOCALAPPDATA%\AssetIQ\pgdata` (outside OneDrive) and its log in `%LOCALAPPDATA%\AssetIQ\postgres.log`.
   It listens on localhost only; user/password `postgres`/`postgres`, database `assetiq`, server timezone UTC.
@@ -69,12 +72,15 @@ the removal down instead, and keeps it in the online Recycle Bin for 30 days.
 - Run Task → **Dev: full stack** starts PostgreSQL → API (watch) → Vite, each in its own terminal; open
   http://localhost:5173. Edits to the API restart it; edits to the React app hot-reload.
 - **Debug**: Run and Debug → *Full stack (debug API + Edge)* (stop the "API: dev server" task first — same port),
-  *Tests: debug current API test file*, *Seed: debug*.
+  *API: debug* (C# breakpoints), *Tests: attach to the API test host*, *Seed: debug*.
 - **Hit the API live**: `artifacts/api-server/requests.http` with the REST Client extension (Send Request).
-- **Tests**: Testing sidebar (Vitest extension) or Run Task → *Test: API (Vitest)* / *Test: API (watch mode)*.
+- **Tests**: Testing sidebar (C# extension) or Run Task → *Test: API (xUnit)* / *Test: API (watch mode)*.
 - **Inspect the DB**: PostgreSQL extension → localhost:5433, user `postgres`, password `postgres`, database `assetiq`.
 
 ## Changes made in October 2026 — and how to test them
+
+> Sections 1–14 were written for the Express (TypeScript) API that section 15 replaced with C#. The behaviour they
+> describe is unchanged; the TypeScript files they cite map to the C# files listed in section 15.
 
 All automated tests live in `artifacts/api-server/src`. Status after this pass: **9 test files, 111 tests passing**;
 `pnpm run typecheck` clean (it previously failed on two dashboard / BC page errors); production builds succeed;
@@ -352,6 +358,49 @@ then as `admin` (everything), then sign out.
 insights and BC sync are still open, as is every GET — the dashboard is readable signed-out by design. Extending
 `requireRole` to the rest is a follow-up; the middleware is already in place for it.
 
+### 15. Backend rewritten in C#: ASP.NET Core 8 + EF Core 8 + PostgreSQL
+The Express API was replaced by an ASP.NET Core Web API in `artifacts/api-server` (branch `csharp-backend`; the
+Express version stays on `main`). **The database is unchanged** — same tables, columns and data; `lib/db` (Drizzle
+schema, `pnpm db:push`) and `scripts/` (seed, local PostgreSQL) still own it. **The dashboard is unchanged** — same
+routes under `/api`, same JSON shapes, status codes and `{ "error": … }` bodies, so the generated client works as is.
+
+| Was (TypeScript) | Now (C#, `src/AssetIQ.Api/`) |
+|---|---|
+| `src/app.ts`, `src/index.ts` | `Program.cs` (pipeline, DI, PORT, `.env` loading) |
+| `src/routes/*.ts` | `Controllers/*Controller.cs` (thin; `[FailureMessage]` gives each its 500 text) |
+| `src/services/*.ts`, `nl-query/*` | `Services/*.cs`, `Services/NlQuery/*` (same names; rules stay pure static classes) |
+| `src/lib/config.ts`, `time.ts` | `Configuration/AppConfig.cs`, `Infrastructure/ZonedTime.cs` |
+| `src/lib/auth.ts`, `middlewares/auth.ts` | `Auth/` — scrypt, HS256 tokens, an ASP.NET authentication handler, `[RequireRole]` policies |
+| `src/lib/http-error.ts` | `Infrastructure/ApiErrors.cs` (`ApiException`, error middleware) |
+| Zod request validation | `Infrastructure/JsonBody.cs` (same required / optional / nullable rules) |
+| Drizzle queries | `Data/AssetIqDbContext.cs` + `Data/Entities.cs` (EF Core, Npgsql) |
+| Vitest + PGlite (`src/**/*.test.ts`) | `tests/AssetIQ.Api.Tests` (xUnit + WebApplicationFactory, throwaway PostgreSQL) |
+
+- **Mapping onto the existing schema**: entities use explicit table names and snake_case columns; foreign keys are
+  `NO ACTION` as in the database; EF never creates or migrates anything. Timestamps stay UTC in
+  `timestamp without time zone` columns (a value converter handles the kind), are written from the API's clock at
+  millisecond precision, and go over the wire exactly like JavaScript's `toISOString()` (`…T08:20:00.000Z`).
+- **Sign-ins carry over**: scrypt hashes in the seed's `scrypt$salt$hash` format verify unchanged (scrypt is
+  implemented in `Auth/Scrypt.cs`, checked against RFC 7914 and hashes made by Node), and HS256 tokens are byte-for-byte
+  the Node format — a browser signed in before the switch stays signed in if `AUTH_SECRET` is the same.
+- **Configuration**: the same environment variables (`.env.example`). `DATABASE_URL` stays a `postgres://` URL.
+- **Transactions and locks** are the same: the RFID pipeline, gate-pass request/approve/reject run in one transaction
+  with `SELECT … FOR UPDATE` on the asset and an atomic "claim the pending pass" update.
+- **Deliberate differences** (none visible to the dashboard): `purchaseValue` is a JSON number everywhere, as the
+  contract says (the Express API sent a string on most asset endpoints); validation 400s read
+  `requestedBy: String must contain at least 1 character(s)` instead of a serialised Zod issue list (the dashboard
+  shows either); ids that are not positive integers get a 400 everywhere; invalid query filters are ignored instead of
+  a 500; `GET /lifecycle?sbuId=` now filters (it was ignored); `/sbus/:id/assets` and `/locations/:id/assets` return
+  the full `Asset` shape; `POST /assets/:id/lifecycle` saves the event and the asset change in one transaction.
+
+Test: `pnpm test` — **181 tests** (unit tests for every rule module, crypto and parsing; integration tests ported from
+every Vitest route file; `SchemaConformanceTests` fails if the EF model and `Database/schema.sql` — drizzle-kit's DDL —
+ever disagree). The integration tests start a private PostgreSQL 16 from the `embedded-postgres` binaries in
+`node_modules` (or use `ASSETIQ_TEST_DATABASE_URL`), never the development database.
+Parity was also checked by running the old Express API and the C# API side by side on identical copies of the seeded
+data and replaying 157 requests (reads, every mutation, error cases, sign-in, NL questions): all 157 responses matched.
+Manually: `pnpm dev:api`, then use the dashboard as before.
+
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
 - `GET /gate-passes?sbuId=` and `GET /movements?sbuId=` now filter (the parameters were ignored).
@@ -360,18 +409,25 @@ insights and BC sync are still open, as is every GET — the dashboard is readab
 - Gate activity shows entry/exit direction and includes gate-pass exits; the activity feed names auto-raised passes and approvers.
 
 ## Conventions for future changes
-- **Contract first**: edit `lib/api-spec/openapi.yaml` → `pnpm codegen` → commit the generated files. Never hand-edit
-  `lib/*/src/generated`.
-- **Routes stay thin**; business logic goes in `artifacts/api-server/src/services`, with rules as pure functions so
-  they can be unit tested. Throw `HttpError` for 4xx; routes render it via `sendError`.
-- **Time**: columns are `timestamp without time zone` holding UTC, written from the API's clock. "Today", "this
-  week" and working hours use `ORG_TIMEZONE` helpers in `src/lib/time.ts`, never the server's timezone.
-- **New rule or workflow step?** Add a failing test first (unit test for the rule, route test for the behaviour).
-- Server code logs with `req.log` / `logger`, never `console.log` (scripts may print).
-- DB schema changes must stay additive for Replit (`pnpm --filter db push` runs on merge).
+- **Contract first**: edit `lib/api-spec/openapi.yaml` → `pnpm codegen` → commit the generated files, then make the
+  C# DTOs in `Contracts/Responses.cs` match. Never hand-edit `lib/*/src/generated`. (`lib/api-zod` is no longer used
+  by the API; codegen still produces it.)
+- **Controllers stay thin**; business logic goes in `artifacts/api-server/src/AssetIQ.Api/Services`, with rules as pure
+  static methods so they can be unit tested. Throw `ApiException` for 4xx; give every action a `[FailureMessage]`.
+- **Schema changes** happen in `lib/db/src/schema` (`pnpm db:push`), stay additive for Replit, and then need the EF
+  entity + `tests/AssetIQ.Api.Tests/Database/schema.sql` updated (regenerate it with the command in its header);
+  `SchemaConformanceTests` catches a mismatch.
+- **Time**: columns are `timestamp without time zone` holding UTC, written from the API's clock (`AppClock`, never
+  `DateTime.Now` or the database's `now()`). "Today", "this week" and working hours use `ZonedTime` with
+  `ORG_TIMEZONE`, never the server's timezone.
+- **New rule or workflow step?** Add a failing test first (unit test for the rule, integration test for the behaviour).
+- Server code logs through `ILogger<T>`, never `Console.WriteLine` (scripts may print).
 
 ## Not verified
 - The OpenAI call has not been tried against the live API (no key here). It is covered by tests with a stubbed
   response, and any failure falls back to the rules.
 - Replit and Azure deployments were not re-run. On Replit, run `pnpm --filter db push` (post-merge does it) to add the
-  new columns before using the new features.
+  new columns before using the new features. The C# API also needs the .NET 8 SDK on the Repl (`artifact.toml` runs
+  `dotnet artifacts/api-server/dist/AssetIQ.Api.dll`); that has not been tried.
+- **.NET 8 support ends on 10 November 2026.** Moving to .NET 10 (LTS) is a version bump: `TargetFramework` in
+  `artifacts/api-server/Directory.Build.props` plus the package versions in the two `.csproj` files.

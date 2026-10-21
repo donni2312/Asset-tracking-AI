@@ -5,8 +5,8 @@ An IoT-ready, AI-assisted enterprise asset tracking system. Assets are tracked a
 ## Run & Operate
 
 - `pnpm --filter @workspace/asset-tracker run dev` — run the React dashboard (uses PORT env; defaults to 5173 off Replit)
-- `pnpm --filter @workspace/api-server run dev` — run the API server in watch mode (tsx; port 8080, served at /api)
-- `pnpm test` — run the automated tests (Vitest; API tests use an in-memory PostgreSQL, no DATABASE_URL needed)
+- `pnpm --filter @workspace/api-server run dev` — run the C# API with hot reload (`dotnet watch`; port 8080, served at /api)
+- `pnpm test` — run the automated tests (xUnit; the API tests start a throwaway PostgreSQL, no DATABASE_URL needed)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` (or `pnpm codegen`) — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -17,22 +17,22 @@ An IoT-ready, AI-assisted enterprise asset tracking system. Assets are tracked a
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
+- pnpm workspaces, Node.js 24, TypeScript 5.9 (frontend, schema and scripts); .NET 8 SDK (API)
 - Frontend: React + Vite + TailwindCSS + shadcn/ui, TanStack Query, wouter, Recharts
-- API: Express 5 (Node.js for MVP; production target is C# ASP.NET Core on Azure)
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec in `lib/api-spec/openapi.yaml`)
-- Tests: Vitest + PGlite (Postgres in WebAssembly) for API integration tests
-- Build: esbuild (CJS bundle)
+- API: ASP.NET Core 8 Web API in C# (controllers + services), EF Core 8 with Npgsql
+- DB: PostgreSQL; the schema is defined with Drizzle ORM in `lib/db` (`pnpm db:push`, seed script), mapped by EF Core
+- API codegen: Orval (from OpenAPI spec in `lib/api-spec/openapi.yaml`) for the React Query client
+- Tests: xUnit + WebApplicationFactory against a throwaway PostgreSQL 16 (embedded-postgres binaries)
+- Build: `dotnet publish` → `artifacts/api-server/dist`
 
 ## Where things live
 
 - `lib/api-spec/openapi.yaml` — single source of truth for all API contracts
 - `lib/db/src/schema/` — database tables (sbus, locations, assets, movements, gate_passes, rfid_readers, ai_insights, asset_lifecycle_events)
-- `artifacts/api-server/src/routes/` — thin Express route handlers
-- `artifacts/api-server/src/services/` — business logic: `rfid-scan.ts` (RFID pipeline), `gate-pass-workflow.ts`, `anomaly-rules.ts` + `gate-pass-rules.ts` (pure rules), `insights.ts`, `nl-query/` (NL questions), `bc-sync.ts`, `dashboard.ts`
-- `artifacts/api-server/src/**/*.test.ts` — tests; `src/test/` holds the PGlite test database, fixtures and HTTP helper
+- `artifacts/api-server/src/AssetIQ.Api/Controllers/` — thin ASP.NET Core controllers
+- `artifacts/api-server/src/AssetIQ.Api/Services/` — business logic: `RfidScanService` (RFID pipeline), `GatePassService`, `AnomalyRules` + `GatePassRules` (pure rules), `InsightService`, `NlQuery/` (NL questions), `BcSyncService`, `DashboardService`
+- `artifacts/api-server/src/AssetIQ.Api/Data/` — EF Core entities and `AssetIqDbContext` (mapped onto the existing tables)
+- `artifacts/api-server/tests/AssetIQ.Api.Tests/` — unit and integration tests; `Infrastructure/` holds the throwaway PostgreSQL, fixtures and HTTP helper
 - `artifacts/asset-tracker/src/` — React frontend
 - `scripts/src/seed.ts`, `scripts/src/seed-data.ts` — demo data; `scripts/src/local-db.ts` — local PostgreSQL helper
 - `docs/project-plan.md` — full project plan, architecture, decision log and degree report content
@@ -58,16 +58,17 @@ AssetIQ tracks physical assets (laptops, projectors, equipment) across office lo
 - **AI**: deterministic anomaly rules; NL questions → structured intent (OpenAI optional, rules fallback) → executed against the DB, so answers always come from live data
 - **BC sync is manual in the MVP**: mock connection; movements and gate-pass decisions since the last sync are shown as pending changes
 - **Notifications are in-app**: pending gate passes are polled every 10 s (sidebar badge + toast)
-- **Node.js for MVP, C# for prod**: The Express backend mirrors the same route structure the C#/.NET 8 production implementation would follow on Azure App Service
+- **C# backend**: ASP.NET Core + EF Core on PostgreSQL (rewritten from the original Express API with identical routes and JSON), ready for Azure App Service
 
 ## Gotchas
 
 - After any OpenAPI spec change, always re-run codegen: `pnpm --filter @workspace/api-spec run codegen`
-- `purchaseDate` and `returnDate` DB columns are stored as `text` (ISO date strings) — the Orval-generated types produce `Date` objects from the `format: date` spec, so routes must call `.toISOString().split("T")[0]` before inserting
-- `purchaseValue` DB column is Drizzle `numeric()` which expects a string — routes convert with `String(value)`
-- Timestamps are `timestamp without time zone` holding **UTC**; the API writes them from its own clock. A Postgres server whose TimeZone isn't UTC shifts `defaultNow()` values (the local `pnpm db:local` server runs in UTC)
+- `purchaseDate` and `returnDate` DB columns are stored as `text` (ISO date strings, `YYYY-MM-DD`); the API converts the incoming date before writing
+- `purchaseValue` is `numeric` in the database and `decimal` in C#; the API returns it as a JSON number
+- Timestamps are `timestamp without time zone` holding **UTC**; the API writes them from its own clock (`AppClock`), never `now()`. EF Core converts UTC `DateTime`s for these columns
 - Business rules ("today", "this week", working hours) use `ORG_TIMEZONE` (default Africa/Harare), not the server timezone
-- Never use `console.log` in server code — use `req.log` in route handlers and `logger` from `lib/logger` elsewhere
+- A schema change in `lib/db/src/schema` also needs the EF entity and `tests/AssetIQ.Api.Tests/Database/schema.sql` updated — `SchemaConformanceTests` fails otherwise
+- Never use `Console.WriteLine` in server code — use `ILogger<T>`
 - `pnpm-workspace.yaml` keeps the win32-x64 native binaries (esbuild, rollup, lightningcss, tailwind oxide) so the workspace also runs on Windows
 
 ## User preferences

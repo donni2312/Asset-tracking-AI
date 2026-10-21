@@ -44,7 +44,7 @@
     },
     {
       "label": "API: dev server (watch)",
-      "detail": "Express API on http://localhost:8080/api, restarts on save",
+      "detail": "ASP.NET Core API on http://localhost:8080/api (dotnet watch: hot reload, restarts on rude edits)",
       "type": "shell",
       "command": "pnpm dev:api",
       "isBackground": true,
@@ -52,7 +52,7 @@
       "problemMatcher": {
         "owner": "assetiq-api",
         "pattern": { "regexp": "^__assetiq_never_matches__$" },
-        "background": { "activeBegins": true, "beginsPattern": "tsx watch", "endsPattern": "Server listening" }
+        "background": { "activeBegins": true, "beginsPattern": "dotnet watch", "endsPattern": "Server listening" }
       }
     },
     {
@@ -77,13 +77,13 @@
     },
     {
       "label": "Dev: database + web (for API debugging)",
-      "detail": "Used by the 'Full stack (debug API)' launch configuration",
+      "detail": "Used by the 'Full stack (debug API + Edge)' launch configuration",
       "dependsOn": ["DB: local PostgreSQL", "Web: dev server (Vite)"],
       "dependsOrder": "sequence",
       "problemMatcher": []
     },
     {
-      "label": "Test: API (Vitest)",
+      "label": "Test: API (xUnit)",
       "type": "shell",
       "command": "pnpm --filter @workspace/api-server run test",
       "group": { "kind": "test", "isDefault": true },
@@ -95,6 +95,13 @@
       "command": "pnpm --filter @workspace/api-server run test:watch",
       "isBackground": true,
       "problemMatcher": []
+    },
+    {
+      "label": "Build: API (dotnet build)",
+      "detail": "Compiles the API and its tests (runs before 'API: debug')",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/api-server run typecheck",
+      "problemMatcher": "$msCompile"
     },
     {
       "label": "Typecheck: workspace",

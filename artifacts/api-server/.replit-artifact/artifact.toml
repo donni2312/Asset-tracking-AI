@@ -4,6 +4,8 @@ title = "API Server"
 version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
 
+# ASP.NET Core 8 API (artifacts/api-server). The Repl needs the .NET 8 SDK (e.g. the dotnet-8.0 module).
+
 [[services]]
 localPort = 8080
 name = "API Server"
@@ -18,15 +20,15 @@ run = "pnpm --filter @workspace/api-server run dev"
 args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
 
 [services.production.build.env]
-NODE_ENV = "production"
+ASPNETCORE_ENVIRONMENT = "Production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+# Runs the published output directly (dotnet publish → artifacts/api-server/dist).
+args = ["dotnet", "artifacts/api-server/dist/AssetIQ.Api.dll"]
 
 [services.production.run.env]
 PORT = "8080"
-NODE_ENV = "production"
+ASPNETCORE_ENVIRONMENT = "Production"
 
 [services.production.health.startup]
 path = "/api/healthz"
