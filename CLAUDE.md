@@ -35,8 +35,10 @@ test the project locally and records everything changed in the October 2026 pass
   data in `%LOCALAPPDATA%\AssetIQ\pgdata` (outside OneDrive) and its log in `%LOCALAPPDATA%\AssetIQ\postgres.log`.
   It listens on localhost only; user/password `postgres`/`postgres`, database `assetiq`, server timezone UTC.
   That cluster is already initialised and seeded.
-- **`.env`** (git-ignored) was created from `.env.example`. It holds `DATABASE_URL`, `PORT` and the optional
-  AI / working-hours settings. Any PostgreSQL works: point `DATABASE_URL` at it instead of using `pnpm db:local`.
+- **`.env`** (git-ignored) was created from `.env.example`. It holds `DATABASE_URL`, `PORT`, `AUTH_SECRET` /
+  `AUTH_TOKEN_TTL_HOURS` and the optional AI / working-hours settings. Any PostgreSQL works: point `DATABASE_URL` at
+  it instead of using `pnpm db:local`. `AUTH_SECRET` on this PC is a random 64-character key (see section 16) —
+  never commit it or copy it into another environment.
 
 ### Where the working copy lives — keep it out of OneDrive
 Work from `C:\dev\Asset-Tracking-AI`. That is the active copy and the one these instructions assume.
@@ -400,6 +402,28 @@ ever disagree). The integration tests start a private PostgreSQL 16 from the `em
 Parity was also checked by running the old Express API and the C# API side by side on identical copies of the seeded
 data and replaying 157 requests (reads, every mutation, error cases, sign-in, NL questions): all 157 responses matched.
 Manually: `pnpm dev:api`, then use the dashboard as before.
+
+### 16. A fixed AUTH_SECRET, so sign-ins survive restarts
+Until now `.env` had no `AUTH_SECRET` (it predates section 14), so the API signed tokens with a key generated at
+startup: every restart — including each `dotnet watch` restart after a code change — signed everyone out, and the API
+logged `AUTH_SECRET is not set` at startup.
+
+- `.env` now has `AUTH_SECRET` (64 hex characters = 32 random bytes from a cryptographic generator) and
+  `AUTH_TOKEN_TTL_HOURS=12`, under `PORT`, matching `.env.example`. Nothing else changed; `.env` stays git-ignored.
+- **Each environment needs its own secret** (Replit Secrets, Azure App Service settings). Never reuse this one there
+  and never hard-code one: anyone who knows the key can mint an admin token.
+- **Changing the secret signs everyone out** (existing tokens stop verifying) — that is also how to revoke every
+  session at once.
+- Generate a new one in PowerShell (`.env.example` also shows the Node.js one-liner):
+  ```powershell
+  $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); -join ($b | % { $_.ToString('x2') })
+  ```
+- `.env` is read when the API starts; `dotnet watch` does not watch it, so restart the "API: dev server (watch)" task
+  after editing it.
+
+Test: covered by the existing auth tests (fixed test secret, forged/expired tokens). Manually: start the API — the
+`AUTH_SECRET is not set` warning no longer appears (verified). Once the `users` table exists (`pnpm db:push`), sign
+in, restart the API task and reload the dashboard: you stay signed in.
 
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
