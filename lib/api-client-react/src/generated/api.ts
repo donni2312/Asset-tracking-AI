@@ -402,6 +402,7 @@ export const getCreateSbuUrl = () => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Create an SBU
  */
 export const createSbu = async (sBUInput: SBUInput, options?: RequestInit): Promise<Sbu> => {
@@ -419,7 +420,7 @@ export const createSbu = async (sBUInput: SBUInput, options?: RequestInit): Prom
 
 
 
-export const getCreateSbuMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateSbuMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSbu>>, TError,{data: BodyType<SBUInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createSbu>>, TError,{data: BodyType<SBUInput>}, TContext> => {
 
@@ -448,12 +449,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateSbuMutationResult = NonNullable<Awaited<ReturnType<typeof createSbu>>>
     export type CreateSbuMutationBody = BodyType<SBUInput>
-    export type CreateSbuMutationError = ErrorType<unknown>
+    export type CreateSbuMutationError = ErrorType<void>
 
     /**
  * @summary Create an SBU
  */
-export const useCreateSbu = <TError = ErrorType<unknown>,
+export const useCreateSbu = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSbu>>, TError,{data: BodyType<SBUInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createSbu>>,
@@ -550,6 +551,7 @@ export const getUpdateSbuUrl = (id: number,) => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Update an SBU
  */
 export const updateSbu = async (id: number,
@@ -568,7 +570,7 @@ export const updateSbu = async (id: number,
 
 
 
-export const getUpdateSbuMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateSbuMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSbu>>, TError,{id: number;data: BodyType<SBUInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateSbu>>, TError,{id: number;data: BodyType<SBUInput>}, TContext> => {
 
@@ -597,12 +599,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateSbuMutationResult = NonNullable<Awaited<ReturnType<typeof updateSbu>>>
     export type UpdateSbuMutationBody = BodyType<SBUInput>
-    export type UpdateSbuMutationError = ErrorType<unknown>
+    export type UpdateSbuMutationError = ErrorType<void>
 
     /**
  * @summary Update an SBU
  */
-export const useUpdateSbu = <TError = ErrorType<unknown>,
+export const useUpdateSbu = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSbu>>, TError,{id: number;data: BodyType<SBUInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateSbu>>,
@@ -783,7 +785,7 @@ export const getCreateAssetUrl = () => {
 }
 
 /**
- * Requires the `admin` role.
+ * Requires the `operator` role.
  * @summary Register a new asset
  */
 export const createAsset = async (assetInput: AssetInput, options?: RequestInit): Promise<Asset> => {
@@ -932,7 +934,7 @@ export const getUpdateAssetUrl = (id: number,) => {
 }
 
 /**
- * Requires a signed-in user. `operator` may change the operational fields (status, assignedTo, currentLocationId, notes); changing the record itself (name, category, sbuId) requires `admin`.
+ * Requires the `operator` role (operators and administrators may change every field).
  * @summary Update asset
  */
 export const updateAsset = async (id: number,
@@ -1005,7 +1007,7 @@ export const getDeleteAssetUrl = (id: number,) => {
 }
 
 /**
- * Requires the `admin` role.
+ * Requires the `operator` role.
  * @summary Retire/decommission asset
  */
 export const deleteAsset = async (id: number, options?: RequestInit): Promise<void> => {
@@ -1231,6 +1233,7 @@ export const getCreateAssetLifecycleEventUrl = (id: number,) => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Record a lifecycle event for an asset
  */
 export const createAssetLifecycleEvent = async (id: number,
@@ -1249,7 +1252,7 @@ export const createAssetLifecycleEvent = async (id: number,
 
 
 
-export const getCreateAssetLifecycleEventMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateAssetLifecycleEventMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetLifecycleEvent>>, TError,{id: number;data: BodyType<AssetLifecycleEventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createAssetLifecycleEvent>>, TError,{id: number;data: BodyType<AssetLifecycleEventInput>}, TContext> => {
 
@@ -1278,12 +1281,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateAssetLifecycleEventMutationResult = NonNullable<Awaited<ReturnType<typeof createAssetLifecycleEvent>>>
     export type CreateAssetLifecycleEventMutationBody = BodyType<AssetLifecycleEventInput>
-    export type CreateAssetLifecycleEventMutationError = ErrorType<unknown>
+    export type CreateAssetLifecycleEventMutationError = ErrorType<void>
 
     /**
  * @summary Record a lifecycle event for an asset
  */
-export const useCreateAssetLifecycleEvent = <TError = ErrorType<unknown>,
+export const useCreateAssetLifecycleEvent = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetLifecycleEvent>>, TError,{id: number;data: BodyType<AssetLifecycleEventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createAssetLifecycleEvent>>,
@@ -1471,6 +1474,7 @@ export const getCreateLocationUrl = () => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Create a location
  */
 export const createLocation = async (locationInput: LocationInput, options?: RequestInit): Promise<Location> => {
@@ -1488,7 +1492,7 @@ export const createLocation = async (locationInput: LocationInput, options?: Req
 
 
 
-export const getCreateLocationMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateLocationMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,{data: BodyType<LocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,{data: BodyType<LocationInput>}, TContext> => {
 
@@ -1517,12 +1521,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateLocationMutationResult = NonNullable<Awaited<ReturnType<typeof createLocation>>>
     export type CreateLocationMutationBody = BodyType<LocationInput>
-    export type CreateLocationMutationError = ErrorType<unknown>
+    export type CreateLocationMutationError = ErrorType<void>
 
     /**
  * @summary Create a location
  */
-export const useCreateLocation = <TError = ErrorType<unknown>,
+export const useCreateLocation = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,{data: BodyType<LocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createLocation>>,
@@ -1619,6 +1623,7 @@ export const getUpdateLocationUrl = (id: number,) => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Update a location
  */
 export const updateLocation = async (id: number,
@@ -1637,7 +1642,7 @@ export const updateLocation = async (id: number,
 
 
 
-export const getUpdateLocationMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateLocationMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,{id: number;data: BodyType<LocationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,{id: number;data: BodyType<LocationUpdate>}, TContext> => {
 
@@ -1666,12 +1671,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateLocationMutationResult = NonNullable<Awaited<ReturnType<typeof updateLocation>>>
     export type UpdateLocationMutationBody = BodyType<LocationUpdate>
-    export type UpdateLocationMutationError = ErrorType<unknown>
+    export type UpdateLocationMutationError = ErrorType<void>
 
     /**
  * @summary Update a location
  */
-export const useUpdateLocation = <TError = ErrorType<unknown>,
+export const useUpdateLocation = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,{id: number;data: BodyType<LocationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateLocation>>,
@@ -1852,6 +1857,7 @@ export const getCreateMovementUrl = () => {
 }
 
 /**
+ * Requires the `viewer` role.
  * @summary Record a manual movement event
  */
 export const createMovement = async (movementInput: MovementInput, options?: RequestInit): Promise<MovementEvent> => {
@@ -2084,6 +2090,7 @@ export const getCreateGatePassUrl = () => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Submit a gate pass request
  */
 export const createGatePass = async (gatePassInput: GatePassInput, options?: RequestInit): Promise<GatePass> => {
@@ -3028,6 +3035,7 @@ export const getDismissInsightUrl = (id: number,) => {
 }
 
 /**
+ * Requires the `operator` role.
  * @summary Dismiss an insight
  */
 export const dismissInsight = async (id: number, options?: RequestInit): Promise<AIInsight> => {
@@ -3045,7 +3053,7 @@ export const dismissInsight = async (id: number, options?: RequestInit): Promise
 
 
 
-export const getDismissInsightMutationOptions = <TError = ErrorType<unknown>,
+export const getDismissInsightMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissInsight>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof dismissInsight>>, TError,{id: number}, TContext> => {
 
@@ -3074,12 +3082,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DismissInsightMutationResult = NonNullable<Awaited<ReturnType<typeof dismissInsight>>>
 
-    export type DismissInsightMutationError = ErrorType<unknown>
+    export type DismissInsightMutationError = ErrorType<void>
 
     /**
  * @summary Dismiss an insight
  */
-export const useDismissInsight = <TError = ErrorType<unknown>,
+export const useDismissInsight = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissInsight>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof dismissInsight>>,
@@ -3247,6 +3255,7 @@ export const getTriggerBcSyncUrl = () => {
 }
 
 /**
+ * Requires the `admin` role.
  * @summary Trigger a sync with Business Central
  */
 export const triggerBcSync = async ( options?: RequestInit): Promise<BCSyncStatus> => {
@@ -3264,7 +3273,7 @@ export const triggerBcSync = async ( options?: RequestInit): Promise<BCSyncStatu
 
 
 
-export const getTriggerBcSyncMutationOptions = <TError = ErrorType<unknown>,
+export const getTriggerBcSyncMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerBcSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof triggerBcSync>>, TError,void, TContext> => {
 
@@ -3293,12 +3302,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type TriggerBcSyncMutationResult = NonNullable<Awaited<ReturnType<typeof triggerBcSync>>>
 
-    export type TriggerBcSyncMutationError = ErrorType<unknown>
+    export type TriggerBcSyncMutationError = ErrorType<void>
 
     /**
  * @summary Trigger a sync with Business Central
  */
-export const useTriggerBcSync = <TError = ErrorType<unknown>,
+export const useTriggerBcSync = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerBcSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof triggerBcSync>>,

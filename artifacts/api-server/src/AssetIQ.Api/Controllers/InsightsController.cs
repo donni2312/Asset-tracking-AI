@@ -1,6 +1,8 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
 using AssetIQ.Api.Services;
 using AssetIQ.Api.Services.NlQuery;
@@ -23,6 +25,7 @@ public sealed class InsightsController(AssetIqDbContext db, InsightService insig
     }
 
     [HttpPost("insights/{id}/dismiss")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to dismiss insight")]
     public async Task<InsightDto> Dismiss(string id)
     {

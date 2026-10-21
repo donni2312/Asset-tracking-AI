@@ -1,5 +1,7 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 
 namespace AssetIQ.Api.Tests.Infrastructure;
 
@@ -22,10 +24,31 @@ public sealed class TestWorld
     public required Asset Laptop { get; init; }
     public required Asset Projector { get; init; }
 
+    /// <summary>Bearer tokens for one account per role; <see cref="ApiFixture.DefaultToken"/> is the admin's.</summary>
+    public required string AdminToken { get; init; }
+    public required string OperatorToken { get; init; }
+    public required string ViewerToken { get; init; }
+
     public static async Task<TestWorld> SeedAsync(ApiFixture api)
     {
         await using var db = api.NewDbContext();
         var now = api.Now;
+
+        // Tokens are minted directly (no password check), so the accounts need no real password hash.
+        var accounts = new[] { ("test-admin", Roles.Admin), ("test-operator", Roles.Operator), ("test-viewer", Roles.Viewer) }
+            .Select(a => new UserAccount
+            {
+                Username = a.Item1, Name = $"{a.Item1} user", Role = a.Item2, PasswordHash = "scrypt$00$00",
+                CreatedAt = now, UpdatedAt = now,
+            })
+            .ToList();
+        db.Users.AddRange(accounts);
+        await db.SaveChangesAsync();
+        // Valid far beyond any instant a test moves the clock to.
+        string Token(UserAccount u) =>
+            TokenService.Sign(new TokenPayload(u.Id, u.Username, u.Role, new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()), ApiFixture.AuthSecret);
+        var adminToken = Token(accounts[0]);
+        api.DefaultToken = adminToken;
 
         var tsas = new Sbu { Code = "TSAS", Name = "Tobacco Sales Administration Services", Color = "#2563EB", CreatedAt = now, UpdatedAt = now };
         var bak = new Sbu { Code = "BAK", Name = "Bak Logistics", Color = "#DC2626", CreatedAt = now, UpdatedAt = now };
@@ -69,6 +92,7 @@ public sealed class TestWorld
             Office = office, Gate = gate, BakGate = bakGate, BakWarehouse = bakWarehouse,
             OfficeReader = officeReader, GateReader = gateReader, BakGateReader = bakGateReader, InactiveReader = inactiveReader,
             Laptop = laptop, Projector = projector,
+            AdminToken = adminToken, OperatorToken = Token(accounts[1]), ViewerToken = Token(accounts[2]),
         };
     }
 }
@@ -95,7 +119,11 @@ public static class JsonAssertions
 
     public static List<JsonElement> Items(this JsonElement element) => element.EnumerateArray().ToList();
 
-    public static string Error(this ApiResponse response) => response.Body.Str("error") ?? "";
+    /// <summary>The error message, or "" when the body is not an error.</summary>
+    public static string Error(this ApiResponse response) =>
+        response.Body.ValueKind == JsonValueKind.Object && response.Body.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String
+            ? error.GetString()!
+            : "";
 
     /// <summary>The names of the object's properties, sorted.</summary>
     public static List<string> Keys(this JsonElement element) =>

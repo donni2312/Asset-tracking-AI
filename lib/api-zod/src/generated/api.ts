@@ -35,7 +35,7 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.'),
+  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.'),
   "lastLoginAt": zod.coerce.date().nullish()
 })
 })
@@ -48,7 +48,7 @@ export const GetCurrentUserResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.'),
+  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.'),
   "lastLoginAt": zod.coerce.date().nullish()
 })
 
@@ -71,6 +71,7 @@ export const ListSbusResponse = zod.array(ListSbusResponseItem)
 
 
 /**
+ * Requires the `operator` role.
  * @summary Create an SBU
  */
 export const CreateSbuBody = zod.object({
@@ -115,6 +116,7 @@ export const GetSbuResponse = zod.object({
 
 
 /**
+ * Requires the `operator` role.
  * @summary Update an SBU
  */
 export const UpdateSbuParams = zod.object({
@@ -205,7 +207,7 @@ export const ListAssetsResponse = zod.array(ListAssetsResponseItem)
 
 
 /**
- * Requires the `admin` role.
+ * Requires the `operator` role.
  * @summary Register a new asset
  */
 export const createAssetBodyStatusDefault = `active`;
@@ -274,7 +276,7 @@ export const GetAssetResponse = zod.object({
 
 
 /**
- * Requires a signed-in user. `operator` may change the operational fields (status, assignedTo, currentLocationId, notes); changing the record itself (name, category, sbuId) requires `admin`.
+ * Requires the `operator` role (operators and administrators may change every field).
  * @summary Update asset
  */
 export const UpdateAssetParams = zod.object({
@@ -313,7 +315,7 @@ export const UpdateAssetResponse = zod.object({
 
 
 /**
- * Requires the `admin` role.
+ * Requires the `operator` role.
  * @summary Retire/decommission asset
  */
 export const DeleteAssetParams = zod.object({
@@ -383,6 +385,7 @@ export const ListAssetLifecycleEventsResponse = zod.array(ListAssetLifecycleEven
 
 
 /**
+ * Requires the `operator` role.
  * @summary Record a lifecycle event for an asset
  */
 export const CreateAssetLifecycleEventParams = zod.object({
@@ -481,6 +484,7 @@ export const ListLocationsResponse = zod.array(ListLocationsResponseItem)
 
 
 /**
+ * Requires the `operator` role.
  * @summary Create a location
  */
 export const CreateLocationBody = zod.object({
@@ -530,6 +534,7 @@ export const GetLocationResponse = zod.object({
 
 
 /**
+ * Requires the `operator` role.
  * @summary Update a location
  */
 export const UpdateLocationParams = zod.object({
@@ -622,6 +627,7 @@ export const ListMovementsResponse = zod.array(ListMovementsResponseItem)
 
 
 /**
+ * Requires the `viewer` role.
  * @summary Record a manual movement event
  */
 export const CreateMovementBody = zod.object({
@@ -712,6 +718,7 @@ export const ListGatePassesResponse = zod.array(ListGatePassesResponseItem)
 
 
 /**
+ * Requires the `operator` role.
  * @summary Submit a gate pass request
  */
 
@@ -1088,6 +1095,7 @@ export const ListInsightsResponse = zod.array(ListInsightsResponseItem)
 
 
 /**
+ * Requires the `operator` role.
  * @summary Dismiss an insight
  */
 export const DismissInsightParams = zod.object({
@@ -1181,6 +1189,7 @@ export const GetBcSyncStatusResponse = zod.object({
 
 
 /**
+ * Requires the `admin` role.
  * @summary Trigger a sync with Business Central
  */
 export const TriggerBcSyncResponse = zod.object({

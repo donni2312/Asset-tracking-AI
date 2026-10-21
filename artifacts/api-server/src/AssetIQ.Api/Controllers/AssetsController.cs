@@ -14,15 +14,6 @@ namespace AssetIQ.Api.Controllers;
 
 public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQueries assets) : ApiControllerBase
 {
-    /// <summary>
-    /// Fields an operator may change in the course of their work. Everything else is the asset's record
-    /// (what it is and which unit owns it) and needs an admin.
-    /// </summary>
-    private static readonly HashSet<string> OperatorFields = ["status", "assignedTo", "currentLocationId", "notes"];
-
-    /// <summary>The updatable fields, in the contract's (AssetUpdate) order.</summary>
-    private static readonly string[] UpdateFields = ["name", "category", "status", "assignedTo", "currentLocationId", "sbuId", "notes"];
-
     [HttpGet("assets")]
     [FailureMessage("Failed to list assets")]
     public Task<List<AssetDto>> List(
@@ -49,7 +40,7 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
     }
 
     [HttpPost("assets")]
-    [RequireRole(Roles.Admin)]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to create asset")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -95,11 +86,7 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
         await assets.GetDetailedAsync(RequestValues.Id(id), Aborted)
         ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
 
-    /// <summary>
-    /// Operators may change the operational fields; changing the record itself (name, category, sbuId)
-    /// needs an admin. The split is decided by which fields the body actually contains, so a record
-    /// field cannot be smuggled in beside an allowed one.
-    /// </summary>
+    /// <summary>Operators and administrators may change every field of the asset.</summary>
     [HttpPatch("assets/{id}")]
     [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to update asset")]
@@ -115,14 +102,6 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
         var sbuId = input.NullableInt("sbuId");
         var notes = input.NullableString("notes");
         input.ThrowIfInvalid();
-
-        var recordFields = UpdateFields.Where(f => input.Has(f) && !OperatorFields.Contains(f)).ToList();
-        var user = User.GetAuthUser()!;
-        if (recordFields.Count > 0 && !Roles.Satisfies(user.Role, Roles.Admin))
-        {
-            throw new ApiException(StatusCodes.Status403Forbidden,
-                $"Changing {string.Join(", ", recordFields)} needs the admin role; you are signed in as {user.Role}.");
-        }
 
         var asset = await db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
@@ -140,7 +119,7 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
 
     /// <summary>Removes the asset row. An asset that already has history cannot be deleted (the database refuses).</summary>
     [HttpDelete("assets/{id}")]
-    [RequireRole(Roles.Admin)]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to delete asset")]
     public async Task<IActionResult> Delete(string id)
     {

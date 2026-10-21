@@ -7,7 +7,7 @@
  */
 
 /**
- * viewer = read only; operator = day-to-day operations (movements, gate passes, asset status); admin = also edits and registers asset records.
+ * viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.
  */
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 

@@ -121,6 +121,7 @@ public sealed class ApiFixture : IAsyncLifetime
     public async Task ResetAsync()
     {
         Clock.SetUtcNow(Wednesday10Am);
+        DefaultToken = null;
         Services.GetRequiredService<BcSyncService>().Reset();
         Services.GetRequiredService<BcSyncService>().SyncDuration = BcSyncService.DefaultSyncDuration;
         await using var db = NewDbContext();
@@ -137,6 +138,13 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public void SetNow(string isoInstant) => Clock.SetUtcNow(DateTimeOffset.Parse(isoInstant, System.Globalization.CultureInfo.InvariantCulture));
 
+    /// <summary>Pass as <c>token</c> to send a request signed out.</summary>
+    public const string Anonymous = "";
+
+    /// <summary>Token used when a call names none: the administrator of the current <see cref="TestWorld"/>.</summary>
+    public string? DefaultToken { get; set; }
+
+    /// <summary>Sends a request as <paramref name="token"/>, or as <see cref="DefaultToken"/> when it is null.</summary>
     public async Task<ApiResponse> CallAsync(string method, string path, object? body = null, string? token = null)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), "/api" + path);
@@ -144,7 +152,8 @@ public sealed class ApiFixture : IAsyncLifetime
         {
             request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         }
-        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var bearer = token ?? DefaultToken;
+        if (!string.IsNullOrEmpty(bearer)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
 
         using var response = await Client.SendAsync(request);
         var text = await response.Content.ReadAsStringAsync();

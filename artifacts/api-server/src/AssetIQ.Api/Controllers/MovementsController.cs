@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
 using AssetIQ.Api.Domain;
@@ -33,6 +34,7 @@ public sealed class MovementsController(AssetIqDbContext db, AppClock clock) : A
 
     /// <summary>A manual movement recorded by a person; the asset's current location follows.</summary>
     [HttpPost("movements")]
+    [RequireRole(Roles.Viewer)]
     [FailureMessage("Failed to create movement")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

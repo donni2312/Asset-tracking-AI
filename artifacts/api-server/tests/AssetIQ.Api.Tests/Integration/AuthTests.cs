@@ -120,7 +120,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
         var forged = TokenService.Sign(new TokenPayload(user.Id, "rudo", "admin", nowSeconds + 3600), "the-wrong-secret");
         var expired = TokenService.Sign(new TokenPayload(user.Id, "rudo", "admin", nowSeconds - 60), ApiFixture.AuthSecret);
 
-        Assert.Equal(401, (await api.CallAsync("GET", "/auth/me")).Status);
+        Assert.Equal(401, (await api.CallAsync("GET", "/auth/me", token: ApiFixture.Anonymous)).Status);
         Assert.Equal(401, (await api.CallAsync("GET", "/auth/me", token: "not.a.token")).Status);
         Assert.Equal(401, (await api.CallAsync("GET", "/auth/me", token: forged)).Status);
         Assert.Equal(401, (await api.CallAsync("GET", "/auth/me", token: expired)).Status);
@@ -129,7 +129,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task An_edit_with_no_token_is_refused_with_401_not_403()
     {
-        Assert.Equal(401, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Renamed" })).Status);
+        Assert.Equal(401, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Renamed" }, ApiFixture.Anonymous)).Status);
     }
 
     [Fact]
@@ -154,27 +154,26 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_operator_may_not_edit_the_record_itself_and_is_told_which_field()
+    public async Task An_operator_may_edit_the_asset_record_itself()
     {
         await CreateUser("tendai", "operator");
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Not my laptop", category = "Projector" }, await TokenFor("tendai"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}",
+            new { name = "Dell Latitude 5450", category = "Laptop", sbuId = w.Bak.Id, status = "maintenance" }, await TokenFor("tendai"));
 
-        Assert.Equal(403, res.Status);
-        Assert.Contains("name", res.Error());
-        Assert.Contains("admin", res.Error());
-        Assert.Equal("Dell Latitude 5440", (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}")).Body.Str("name"));
+        Assert.Equal(200, res.Status);
+        Assert.Equal(("Dell Latitude 5450", w.Bak.Id, "maintenance"), (res.Body.Str("name"), res.Body.Int("sbuId"), res.Body.Str("status")));
     }
 
     [Fact]
-    public async Task An_operator_may_not_smuggle_a_record_field_in_beside_an_allowed_one()
+    public async Task A_viewer_changes_nothing_on_the_asset_and_is_told_which_role_is_needed()
     {
-        await CreateUser("tendai", "operator");
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "maintenance", sbuId = w.Bak.Id }, await TokenFor("tendai"));
+        await CreateUser("nyasha", "viewer");
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "maintenance", sbuId = w.Bak.Id }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
+        Assert.Equal("This action needs the operator role; you are signed in as viewer.", res.Error());
         var after = await api.CallAsync("GET", $"/assets/{w.Laptop.Id}");
-        Assert.Equal("active", after.Body.Str("status")); // nothing was applied
-        Assert.Equal(w.Tsas.Id, after.Body.Int("sbuId"));
+        Assert.Equal(("active", w.Tsas.Id), (after.Body.Str("status"), after.Body.Int("sbuId"))); // nothing was applied
     }
 
     [Fact]
@@ -189,22 +188,22 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Only_an_admin_may_register_or_delete_an_asset()
+    public async Task Operators_and_admins_may_register_or_delete_an_asset_viewers_may_not()
     {
+        await CreateUser("nyasha", "viewer");
         await CreateUser("tendai", "operator");
-        await CreateUser("rudo", "admin");
+        var viewerToken = await TokenFor("nyasha");
         var operatorToken = await TokenFor("tendai");
-        var adminToken = await TokenFor("rudo");
         var asset = new { name = "HP EliteBook 840", category = "Laptop", serialNumber = "SN-HP-900", rfidTag = "TAG-HP-900", sbuId = w.Tsas.Id };
 
-        Assert.Equal(401, (await api.CallAsync("POST", "/assets", asset)).Status);
-        Assert.Equal(403, (await api.CallAsync("POST", "/assets", asset, operatorToken)).Status);
+        Assert.Equal(401, (await api.CallAsync("POST", "/assets", asset, ApiFixture.Anonymous)).Status);
+        Assert.Equal(403, (await api.CallAsync("POST", "/assets", asset, viewerToken)).Status);
 
-        var created = await api.CallAsync("POST", "/assets", asset, adminToken);
+        var created = await api.CallAsync("POST", "/assets", asset, operatorToken);
         Assert.Equal(201, created.Status);
 
-        Assert.Equal(403, (await api.CallAsync("DELETE", $"/assets/{created.Body.Int("id")}", token: operatorToken)).Status);
-        Assert.Equal(204, (await api.CallAsync("DELETE", $"/assets/{created.Body.Int("id")}", token: adminToken)).Status);
+        Assert.Equal(403, (await api.CallAsync("DELETE", $"/assets/{created.Body.Int("id")}", token: viewerToken)).Status);
+        Assert.Equal(204, (await api.CallAsync("DELETE", $"/assets/{created.Body.Int("id")}", token: operatorToken)).Status);
     }
 
     [Fact]
@@ -231,8 +230,8 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Reading_stays_open_so_the_dashboard_works_signed_out()
     {
-        Assert.Equal(200, (await api.CallAsync("GET", "/assets")).Status);
-        Assert.Equal(200, (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}")).Status);
+        Assert.Equal(200, (await api.CallAsync("GET", "/assets", token: ApiFixture.Anonymous)).Status);
+        Assert.Equal(200, (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}", token: ApiFixture.Anonymous)).Status);
     }
 
     [Fact]

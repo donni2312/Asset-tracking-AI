@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
 using AssetIQ.Api.Domain;
@@ -57,6 +58,7 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
 
     /// <summary>Records the event and applies what it implies to the asset (status, holder, owning SBU).</summary>
     [HttpPost("assets/{id}/lifecycle")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to create lifecycle event")]
     public async Task<IActionResult> Create(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

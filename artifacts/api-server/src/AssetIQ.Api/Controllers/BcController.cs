@@ -1,5 +1,7 @@
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
 using AssetIQ.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +16,7 @@ public sealed class BcController(AssetIqDbContext db, BcSyncService sync) : ApiC
     public Task<BcSyncStatusDto> Status() => sync.GetStatusAsync(db, Aborted);
 
     [HttpPost("bc/sync")]
+    [RequireRole(Roles.Admin)]
     [FailureMessage("BC sync failed")]
     public Task<BcSyncStatusDto> Trigger() => sync.TriggerAsync(db, Aborted);
 }

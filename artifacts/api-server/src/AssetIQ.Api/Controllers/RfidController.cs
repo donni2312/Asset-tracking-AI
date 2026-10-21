@@ -1,6 +1,8 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
 using AssetIQ.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +40,7 @@ public sealed class RfidController(AssetIqDbContext db, RfidScanService scans) :
 
     /// <summary>Processed exactly like a hardware read (see <see cref="RfidScanService"/>).</summary>
     [HttpPost("rfid/simulate")]
+    [RequireRole(Roles.Admin)]
     [FailureMessage("RFID simulation failed")]
     public Task<RfidScanResultDto> Simulate([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

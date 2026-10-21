@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
@@ -17,6 +18,7 @@ public sealed class GatePassesController(GatePassService gatePasses) : ApiContro
 
     /// <summary>The "Request gate pass" form.</summary>
     [HttpPost("gate-passes")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to create gate pass")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -37,6 +39,7 @@ public sealed class GatePassesController(GatePassService gatePasses) : ApiContro
 
     /// <summary>Records the gate_pass exit when the asset is waiting at a gate, and resolves the exit-attempt alert.</summary>
     [HttpPost("gate-passes/{id}/approve")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to approve gate pass")]
     public Task<GatePassDto> Approve(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -46,6 +49,7 @@ public sealed class GatePassesController(GatePassService gatePasses) : ApiContro
 
     /// <summary>Flags the asset: an unauthorised-movement alert plus an audit note in its history.</summary>
     [HttpPost("gate-passes/{id}/reject")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to reject gate pass")]
     public Task<GatePassDto> Reject(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

@@ -126,9 +126,14 @@ export const APPROVERS = { tsas: "Rudo Chikwanha", bak: "Simbarashe Chikore", pr
  * Demo sign-ins, one per role. The passwords are deliberately obvious: this is
  * demo data for an MVP with no real accounts behind it. Change them (or seed
  * your own users) before the dashboard is reachable by anyone else.
+ *
+ * What each role may do is enforced by the API (CLAUDE.md §17):
+ *   administrator  everything
+ *   operator       everything except the RFID simulator and Business Central sync
+ *   viewer         read everything; the only change allowed is recording an asset movement
  */
 export const DEMO_USERS = [
-  { username: "admin",    name: APPROVERS.tsas,        role: "admin",    password: "admin123" },
+  { username: "administrator", name: APPROVERS.tsas, role: "admin", password: "admin123" },
   { username: "operator", name: "Tendai Moyo",         role: "operator", password: "operator123" },
   { username: "viewer",   name: "Nyasha Gumbo",        role: "viewer",   password: "viewer123" },
 ] as const;

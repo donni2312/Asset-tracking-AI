@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
 using AssetIQ.Api.Domain;
@@ -25,6 +26,7 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
     }
 
     [HttpPost("locations")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to create location")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -60,6 +62,7 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
     public Task<LocationDto> Get(string id) => GetDtoAsync(RequestValues.Id(id));
 
     [HttpPatch("locations/{id}")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to update location")]
     public async Task<LocationDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

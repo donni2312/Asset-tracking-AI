@@ -105,6 +105,9 @@ paths:
       operationId: createSbu
       tags: [sbus]
       summary: Create an SBU
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -112,6 +115,10 @@ paths:
             schema:
               $ref: "#/components/schemas/SBUInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "201":
           description: Created
           content:
@@ -143,6 +150,9 @@ paths:
       operationId: updateSbu
       tags: [sbus]
       summary: Update an SBU
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -156,6 +166,10 @@ paths:
             schema:
               $ref: "#/components/schemas/SBUInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "200":
           description: Updated
           content:
@@ -226,7 +240,7 @@ paths:
       operationId: createAsset
       tags: [assets]
       summary: Register a new asset
-      description: Requires the `admin` role.
+      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -272,9 +286,8 @@ paths:
       tags: [assets]
       summary: Update asset
       description: >-
-        Requires a signed-in user. `operator` may change the operational fields
-        (status, assignedTo, currentLocationId, notes); changing the record
-        itself (name, category, sbuId) requires `admin`.
+        Requires the `operator` role (operators and administrators may change
+        every field).
       security:
         - bearerAuth: []
       parameters:
@@ -306,7 +319,7 @@ paths:
       operationId: deleteAsset
       tags: [assets]
       summary: Retire/decommission asset
-      description: Requires the `admin` role.
+      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       parameters:
@@ -368,6 +381,9 @@ paths:
       operationId: createAssetLifecycleEvent
       tags: [lifecycle]
       summary: Record a lifecycle event for an asset
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -381,6 +397,10 @@ paths:
             schema:
               $ref: "#/components/schemas/AssetLifecycleEventInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "201":
           description: Created
           content:
@@ -448,6 +468,9 @@ paths:
       operationId: createLocation
       tags: [locations]
       summary: Create a location
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -455,6 +478,10 @@ paths:
             schema:
               $ref: "#/components/schemas/LocationInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "201":
           description: Created
           content:
@@ -484,6 +511,9 @@ paths:
       operationId: updateLocation
       tags: [locations]
       summary: Update a location
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -497,6 +527,10 @@ paths:
             schema:
               $ref: "#/components/schemas/LocationUpdate"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "200":
           description: Updated
           content:
@@ -558,6 +592,9 @@ paths:
       operationId: createMovement
       tags: [movements]
       summary: Record a manual movement event
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -565,6 +602,10 @@ paths:
             schema:
               $ref: "#/components/schemas/MovementInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `viewer` role
         "201":
           description: Created
           content:
@@ -624,6 +665,9 @@ paths:
       operationId: createGatePass
       tags: [gate-passes]
       summary: Submit a gate pass request
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -631,6 +675,10 @@ paths:
             schema:
               $ref: "#/components/schemas/GatePassInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "201":
           description: Created
           content:
@@ -668,6 +716,8 @@ paths:
       operationId: approveGatePass
       tags: [gate-passes]
       summary: Approve a gate pass
+      security:
+        - bearerAuth: []
       description: Approving records a `gate_pass` movement (the asset leaves the premises) and resolves the related unauthorised-movement alert.
       parameters:
         - name: id
@@ -682,6 +732,10 @@ paths:
             schema:
               $ref: "#/components/schemas/GatePassDecision"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "200":
           description: Approved
           content:
@@ -698,6 +752,8 @@ paths:
       operationId: rejectGatePass
       tags: [gate-passes]
       summary: Reject a gate pass
+      security:
+        - bearerAuth: []
       description: Rejecting flags the asset (unauthorised-movement alert plus an audit note in the asset history).
       parameters:
         - name: id
@@ -712,6 +768,10 @@ paths:
             schema:
               $ref: "#/components/schemas/GatePassDecision"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "200":
           description: Rejected
           content:
@@ -729,6 +789,8 @@ paths:
       operationId: simulateRfidRead
       tags: [rfid]
       summary: Simulate an RFID tag read event at a gate or office reader
+      security:
+        - bearerAuth: []
       description: |
         Processes a tag read exactly like a hardware event would be processed:
         records an `rfid` movement, runs the gate-pass check for gate readers
@@ -742,6 +804,10 @@ paths:
             schema:
               $ref: "#/components/schemas/RFIDSimulateInput"
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `admin` role
         "200":
           description: Scan result (movement, gate check outcome and any insights raised)
           content:
@@ -897,6 +963,9 @@ paths:
       operationId: dismissInsight
       tags: [insights]
       summary: Dismiss an insight
+      description: Requires the `operator` role.
+      security:
+        - bearerAuth: []
       parameters:
         - name: id
           in: path
@@ -904,6 +973,10 @@ paths:
           schema:
             type: integer
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `operator` role
         "200":
           description: Dismissed
           content:
@@ -949,7 +1022,14 @@ paths:
       operationId: triggerBcSync
       tags: [bc]
       summary: Trigger a sync with Business Central
+      description: Requires the `admin` role.
+      security:
+        - bearerAuth: []
       responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in without the `admin` role
         "200":
           description: Sync triggered
           content:
@@ -971,8 +1051,9 @@ components:
       type: string
       enum: [viewer, operator, admin]
       description: >-
-        viewer = read only; operator = day-to-day operations (movements, gate
-        passes, asset status); admin = also edits and registers asset records.
+        viewer = read everything and record asset movements; operator = every
+        change except the RFID simulator and the Business Central sync; admin =
+        everything.
 
     User:
       type: object

@@ -1,6 +1,8 @@
 using System.Text.Json;
+using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
 using AssetIQ.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +18,7 @@ public sealed class SbusController(AssetIqDbContext db, AppClock clock, AssetQue
     public Task<List<SbuDto>> List() => Project(db.Sbus.AsNoTracking()).ToListAsync(Aborted);
 
     [HttpPost("sbus")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to create SBU")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -53,6 +56,7 @@ public sealed class SbusController(AssetIqDbContext db, AppClock clock, AssetQue
 
     /// <summary>code, name and color change only when given a value; description and headOffice whenever present (null clears them).</summary>
     [HttpPatch("sbus/{id}")]
+    [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to update SBU")]
     public async Task<SbuDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

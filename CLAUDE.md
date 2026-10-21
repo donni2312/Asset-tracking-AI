@@ -19,7 +19,7 @@ test the project locally and records everything changed in the October 2026 pass
 | `pnpm --filter @workspace/api-server run test:watch` | Tests in watch mode (`dotnet watch test`) |
 | `pnpm run typecheck` | Typecheck every TypeScript package and compile the C# solution |
 | `pnpm codegen` | Regenerate React Query hooks + Zod schemas after editing `openapi.yaml` |
-| Demo sign-ins | `admin`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`) |
+| Demo sign-ins | `administrator`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`; what each may do: section 17) |
 | `pnpm run build` | Typecheck + production builds (the API is published to `artifacts/api-server/dist`) |
 
 ## Local development (Windows + VS Code)
@@ -310,7 +310,8 @@ date) and keeps the OS format. The asset registry's own search box is unchanged 
 
 ### 14. Editing an asset, behind real authentication
 **Before using this, run `pnpm db:push` (creates the `users` table) and `pnpm seed --reset` (creates the sign-ins).**
-Demo accounts: `admin` / `admin123`, `operator` / `operator123`, `viewer` / `viewer123`.
+Demo accounts: `administrator` / `admin123`, `operator` / `operator123`, `viewer` / `viewer123`.
+**Superseded by section 17:** the role rules below are the original ones; section 17 changed them and gated every write.
 
 - **Contract** (`openapi.yaml`): `POST /auth/login` → `{ token, expiresAt, user }`, `GET /auth/me`, a `bearerAuth`
   security scheme, and `security` + 401/403 responses on the three asset write operations. Regenerated with
@@ -356,9 +357,7 @@ Suite is now **10 files, 128 tests**; `pnpm run typecheck` and `pnpm run build` 
 Manually: open an asset, confirm Edit is locked, sign in as `operator` (can change status/holder, name is locked),
 then as `admin` (everything), then sign out.
 
-**Not yet gated:** only the asset write routes check a role. Gate-pass decisions, movements, RFID simulation,
-insights and BC sync are still open, as is every GET — the dashboard is readable signed-out by design. Extending
-`requireRole` to the rest is a follow-up; the middleware is already in place for it.
+**Not yet gated (at the time):** only the asset write routes checked a role. Section 17 gates every other write.
 
 ### 15. Backend rewritten in C#: ASP.NET Core 8 + EF Core 8 + PostgreSQL
 The Express API was replaced by an ASP.NET Core Web API in `artifacts/api-server` (branch `csharp-backend`; the
@@ -424,6 +423,51 @@ logged `AUTH_SECRET is not set` at startup.
 Test: covered by the existing auth tests (fixed test secret, forged/expired tokens). Manually: start the API — the
 `AUTH_SECRET is not set` warning no longer appears (verified). Once the `users` table exists (`pnpm db:push`), sign
 in, restart the API task and reload the dashboard: you stay signed in.
+
+### 17. Sign-ins created, and every change now needs the right role
+**Database:** `pnpm db:push` created the missing `users` table on this PC (an additive change — no other table or row
+was touched; 32 assets before and after). Three accounts were inserted directly (not `pnpm seed --reset`, which would
+have wiped the demo data), with scrypt hashes in the seed's format:
+
+| Sign-in | Name on records | Role |
+|---|---|---|
+| `administrator` / `admin123` | Rudo Chikwanha | `admin` |
+| `operator` / `operator123` | Tendai Moyo | `operator` |
+| `viewer` / `viewer123` | Nyasha Gumbo | `viewer` |
+
+`scripts/src/seed-data.ts` (`DEMO_USERS`) now uses `administrator` too, so `pnpm seed --reset` creates the same three.
+
+**Permissions** (enforced by the API with `[RequireRole]`; viewer < operator < administrator):
+
+| Action | Signed out | Viewer | Operator | Administrator |
+|---|---|---|---|---|
+| View everything (dashboard, lists, history), ask the AI assistant | ✓ | ✓ | ✓ | ✓ |
+| Record an asset movement (`POST /movements`) | – | ✓ | ✓ | ✓ |
+| Register, edit (**every field**, incl. name, category, SBU) or delete assets; lifecycle events; create/edit locations and SBUs; request, approve and reject gate passes; dismiss insights | – | – | ✓ | ✓ |
+| RFID simulator (`POST /rfid/simulate`), Business Central sync (`POST /bc/sync`) | – | – | – | ✓ |
+
+- A refused call is **401 "Sign in to continue"** when signed out and **403 "This action needs the operator role; you
+  are signed in as viewer."** otherwise. Reading stays open, so the dashboard still works signed out.
+- Changes from section 14: operators may now change the asset record itself and register / delete assets (the
+  operational-vs-record field split is gone); every other write — which was open to anyone — now needs a role.
+- `lib/api-spec/openapi.yaml` states the role and the 401/403 responses on each of these operations; `pnpm codegen` was
+  re-run (generated client: comments and the error type of six mutations only).
+
+**Not done — needs a decision:**
+- **Report downloads**: the dashboard has no download / export feature yet, so there is nothing for viewers to
+  download; viewers can see every screen. Adding exports (e.g. CSV of the asset register or movement log) is new work.
+- **The dashboard still hides what the API now allows.** The asset edit page locks name, category and SBU for anyone
+  below admin (`pages/assets/edit.tsx`: `canEditRecord = useHasRole("admin")`), and the RFID simulator, BC sync and
+  write buttons stay visible to roles the API refuses (they show the 403 message). The API is what enforces the
+  rules; aligning the UI is a small frontend change that was left alone because the frontend is kept as is.
+
+Test: `pnpm test` — **203 tests**. `Integration/PermissionTests.cs` checks every protected endpoint for all four
+callers; `AuthTests` covers the new operator / viewer rules. The integration tests now act as an administrator by
+default (`ApiFixture.DefaultToken`); pass `ApiFixture.Anonymous` to call signed out. Checked live against this PC's
+database through the dashboard proxy with the three real accounts, without changing data: every cell of the table
+above behaved as listed.
+Manually: sign in (sidebar) as each account and try Record Movement, editing an asset, Approve on a gate pass, the
+RFID simulator and Sync Now.
 
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.
