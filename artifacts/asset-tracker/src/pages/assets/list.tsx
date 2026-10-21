@@ -9,6 +9,8 @@ import { Box, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { ExportCsvButton } from "@/components/export-button";
+import { Permitted } from "@/components/permission";
 
 function SbuFilterTab({
   label, color, active, onClick,
@@ -78,9 +80,16 @@ export default function AssetList() {
               </button>
             )}
           </div>
-          <Link href="/assets/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />Register Asset
-          </Link>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              request={{ report: "assets", params: { q: search || undefined, sbuId: sbuFilter ?? undefined, status: statusFilter ?? undefined } }}
+            />
+            <Permitted role="operator" action="register assets" label="Register Asset" variant="default">
+              <Link href="/assets/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
+                <Plus className="w-4 h-4 mr-2" />Register Asset
+              </Link>
+            </Permitted>
+          </div>
         </div>
 
         {/* SBU Filter Tabs */}

@@ -1,14 +1,13 @@
 import { useSyncExternalStore } from "react";
 import { setAuthTokenGetter, type LoginResult, type User, type UserRole } from "@workspace/api-client-react";
-import { setOperatorName } from "./use-operator";
 
 /**
  * The signed-in user.
  *
  * The API issues a bearer token (POST /auth/login); it is kept in localStorage
  * and attached to every request by the generated client's token getter,
- * registered once below. Reading the dashboard needs no sign-in — only changing
- * an asset record does (see the API's requireRole).
+ * registered once below. Reading the dashboard needs no sign-in — changes and
+ * report downloads do (see the API's [RequireRole]).
  *
  * Nothing here is a security boundary: the role in this store only decides what
  * the UI offers. Every protected action is checked again by the API, so a user
@@ -84,8 +83,6 @@ function write(session: Session | null) {
 
 export function startSession(result: LoginResult) {
   write({ token: result.token, expiresAt: result.expiresAt, user: result.user });
-  // Approvals, requests and manual moves are recorded against this name.
-  setOperatorName(result.user.name);
 }
 
 export function endSession() {

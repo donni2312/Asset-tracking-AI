@@ -10,6 +10,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { GatePassRequestDialog } from "@/components/gate-pass-request-dialog";
 import { GatePassDecisionDialog, type GatePassAction } from "@/components/gate-pass-decision-dialog";
+import { ExportCsvButton } from "@/components/export-button";
+import { LockedAction, Permitted, usePermission } from "@/components/permission";
 
 type Status = "pending" | "approved" | "rejected";
 
@@ -66,6 +68,7 @@ export default function GatePassList() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [decision, setDecision] = useState<{ pass: GatePass; action: GatePassAction } | null>(null);
   const { data: allPasses, isLoading } = useListGatePasses();
+  const decide = usePermission("operator", "approve or reject gate passes");
 
   const counts = {
     pending: allPasses?.filter((p) => p.status === "pending").length ?? 0,
@@ -81,9 +84,14 @@ export default function GatePassList() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Gate Passes</h1>
           </div>
-          <Button onClick={() => setRequestOpen(true)} className="gap-2 flex-shrink-0">
-            <ShieldPlus className="w-4 h-4" /> Request Gate Pass
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton request={{ report: "gate-passes", params: { status: filter } }} label={`Export ${filter} (CSV)`} />
+            <Permitted role="operator" action="request gate passes" label="Request Gate Pass" variant="default">
+              <Button onClick={() => setRequestOpen(true)} className="gap-2 flex-shrink-0">
+                <ShieldPlus className="w-4 h-4" /> Request Gate Pass
+              </Button>
+            </Permitted>
+          </div>
         </div>
 
         <div className="flex gap-2 bg-muted p-1 rounded-lg w-fit">
@@ -157,7 +165,11 @@ export default function GatePassList() {
                         {gp.returnDate ? formatDateOnly(gp.returnDate) : <span className="text-muted-foreground font-sans text-xs">Open-ended</span>}
                       </TableCell>
                       <TableCell className="text-right">
-                        {gp.status === "pending" ? (
+                        {gp.status === "pending" && !decide.allowed ? (
+                          <div className="flex justify-end">
+                            <LockedAction size="sm" reason={decide.reason}>Decide</LockedAction>
+                          </div>
+                        ) : gp.status === "pending" ? (
                           <div className="flex justify-end gap-2">
                             <Button
                               size="sm"

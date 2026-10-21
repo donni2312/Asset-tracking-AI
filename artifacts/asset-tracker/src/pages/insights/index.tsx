@@ -9,6 +9,8 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDate, formatTime } from "@/lib/utils";
+import { ExportCsvButton } from "@/components/export-button";
+import { usePermission } from "@/components/permission";
 
 const EXAMPLES = [
   "Where is the Dell laptop assigned to John Doe?",
@@ -68,6 +70,7 @@ export default function Insights() {
   const { data: insights } = useListInsights();
   const dismissInsight = useDismissInsight();
   const askAi = useAiQuery();
+  const { allowed: canDismiss } = usePermission("operator", "dismiss alerts");
 
   const [question, setQuestion] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([
@@ -103,8 +106,9 @@ export default function Insights() {
   return (
     <Layout>
       <div className="space-y-6 h-full flex flex-col max-w-5xl mx-auto">
-        <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">AI Insights & Analytics</h1>
+          <ExportCsvButton request={{ report: "insights" }} />
         </div>
 
         {/* Active Insights */}
@@ -132,9 +136,11 @@ export default function Insights() {
                       </div>
                       <p className="text-sm font-medium leading-tight">{insight.message}</p>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-1 shrink-0" onClick={() => handleDismiss(insight.id)} title="Dismiss">
-                      <Check className="w-4 h-4 text-muted-foreground" />
-                    </Button>
+                    {canDismiss && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-1 shrink-0" onClick={() => handleDismiss(insight.id)} title="Dismiss">
+                        <Check className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {insight.assetName && insight.assetId != null && (

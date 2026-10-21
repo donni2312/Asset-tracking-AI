@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocationForm, EMPTY_LOCATION, type LocationFormValues } from "@/components/location-form";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
+import { PermissionNotice } from "@/components/permission";
 
 export default function NewLocation() {
   const [, navigate] = useLocation();
@@ -45,6 +46,7 @@ export default function NewLocation() {
           <h1 className="text-2xl font-bold tracking-tight">Add Location</h1>
           <p className="text-muted-foreground text-sm">Register an office, gate, warehouse or other facility.</p>
         </div>
+        <PermissionNotice role="operator" action="add locations" />
         <Card>
           <CardHeader>
             <CardTitle>Location Details</CardTitle>

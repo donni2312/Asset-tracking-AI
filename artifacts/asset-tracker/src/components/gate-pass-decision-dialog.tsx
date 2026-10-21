@@ -31,7 +31,7 @@ interface GatePassDecisionDialogProps {
 export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassDecisionDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [operator, setOperator] = useOperatorName();
+  const operator = useOperatorName();
   const { people } = usePeople();
   const approve = useApproveGatePass();
   const reject = useRejectGatePass();
@@ -67,7 +67,6 @@ export function GatePassDecisionDialog({ pass, action, onOpenChange }: GatePassD
       { id: pass.id, data: { decidedBy: decidedBy.trim(), note: note.trim() || undefined } },
       {
         onSuccess: (updated) => {
-          setOperator(decidedBy.trim());
           if (action === "approve") {
             toast({
               title: `Gate pass #${updated.id} approved`,

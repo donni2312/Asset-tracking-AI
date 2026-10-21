@@ -1,13 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Monitor, Moon, Settings, Sun } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { useOperatorName } from "@/hooks/use-operator";
 import { resolveTheme, useTheme, type Theme } from "@/hooks/use-theme";
 import { DATE_FORMATS, formatDate, useDateFormat } from "@/lib/date-format";
 
@@ -18,21 +15,12 @@ const THEME_OPTIONS: { value: Theme; label: string; hint: string; icon: typeof S
 ];
 
 /**
- * Personalisation panel. Everything here is stored in this browser (there is no
- * user account in the MVP): the colour theme and the operator name recorded on
- * approvals, requests and manual movements.
+ * Personalisation panel: colour theme and date format, stored in this browser.
+ * The name recorded on approvals, requests and movements is the signed-in user's.
  */
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [theme, setTheme] = useTheme();
   const [dateFormat, setDateFormat] = useDateFormat();
-  const [name, setName] = useOperatorName();
-  const [draftName, setDraftName] = useState(name);
-
-  // Re-read the stored name each time the panel opens - it can also be changed
-  // from the "Acting as" badge in the sidebar while this component is mounted.
-  useEffect(() => {
-    if (open) setDraftName(name);
-  }, [open, name]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,33 +101,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               With a time: <span className="font-mono">{formatDate(new Date(), dateFormat)}</span>
             </p>
           </fieldset>
-
-          {/* Operator */}
-          <div className="space-y-2">
-            <Label htmlFor="settings-operator">Your name</Label>
-            <Input
-              id="settings-operator"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              placeholder="e.g. Tendai Moyo"
-            />
-            <p className="text-xs text-muted-foreground">
-              Recorded on gate-pass approvals, requests and manual movements, and shown as
-              “Acting as” in the sidebar.
-            </p>
-          </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={() => {
-              setName(draftName);
-              onOpenChange(false);
-            }}
-          >
-            Save
-          </Button>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -159,7 +124,7 @@ export function SettingsButton() {
           type="button"
           onClick={() => setOpen(true)}
           className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-sidebar-accent"
-          title="Theme and your name"
+          title="Theme and date format"
         >
           <Settings className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/60" />
           <span className="font-medium">Settings</span>

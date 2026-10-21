@@ -1174,6 +1174,74 @@ export const AiQueryResponse = zod.object({
 
 
 /**
+ * Requires the `viewer` role.
+ * @summary Asset register as CSV (same filters as listAssets)
+ */
+export const DownloadAssetsReportQueryParams = zod.object({
+  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).optional(),
+  "locationId": zod.coerce.number().optional(),
+  "sbuId": zod.coerce.number().optional(),
+  "category": zod.coerce.string().optional(),
+  "q": zod.coerce.string().optional()
+})
+
+export const DownloadAssetsReportResponse = zod.unknown()
+
+
+/**
+ * Requires the `viewer` role.
+ * @summary Movement log as CSV, oldest first
+ */
+export const DownloadMovementsReportQueryParams = zod.object({
+  "from": zod.date().optional().describe('First calendar day (YYYY-MM-DD, organisation time zone), inclusive'),
+  "to": zod.date().optional().describe('Last calendar day (YYYY-MM-DD, organisation time zone), inclusive'),
+  "assetId": zod.coerce.number().optional(),
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const DownloadMovementsReportResponse = zod.unknown()
+
+
+/**
+ * Requires the `viewer` role.
+ * @summary Gate passes requested in a period as CSV, newest first
+ */
+export const DownloadGatePassesReportQueryParams = zod.object({
+  "status": zod.enum(['pending', 'approved', 'rejected']).optional(),
+  "sbuId": zod.coerce.number().optional(),
+  "from": zod.date().optional().describe('First calendar day (YYYY-MM-DD, organisation time zone), inclusive'),
+  "to": zod.date().optional().describe('Last calendar day (YYYY-MM-DD, organisation time zone), inclusive')
+})
+
+export const DownloadGatePassesReportResponse = zod.unknown()
+
+
+/**
+ * Requires the `viewer` role.
+ * @summary AI alerts as CSV, newest first
+ */
+export const DownloadInsightsReportQueryParams = zod.object({
+  "includeDismissed": zod.coerce.boolean().optional().describe('false = open alerts only (default true)')
+})
+
+export const DownloadInsightsReportResponse = zod.unknown()
+
+
+/**
+ * Requires the `viewer` role.
+ * @summary Lifecycle events in a period as CSV, oldest first
+ */
+export const DownloadLifecycleReportQueryParams = zod.object({
+  "eventType": zod.enum(['deployment', 'return_to_it', 'repair_sent', 'repair_returned', 'sbu_transfer', 'note']).optional(),
+  "sbuId": zod.coerce.number().optional(),
+  "from": zod.date().optional().describe('First calendar day (YYYY-MM-DD, organisation time zone), inclusive'),
+  "to": zod.date().optional().describe('Last calendar day (YYYY-MM-DD, organisation time zone), inclusive')
+})
+
+export const DownloadLifecycleReportResponse = zod.unknown()
+
+
+/**
  * @summary Get Business Central sync status
  */
 export const GetBcSyncStatusResponse = zod.object({

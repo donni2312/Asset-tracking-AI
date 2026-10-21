@@ -6,11 +6,14 @@ import { useCreateAsset, useListLocations } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { PermissionNotice, usePermission } from "@/components/permission";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function NewAsset() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createAsset = useCreateAsset();
+  const { allowed: canRegister } = usePermission("operator", "register assets");
   const { data: locations } = useListLocations();
 
   const [formData, setFormData] = useState({
@@ -36,8 +39,8 @@ export default function NewAsset() {
         toast({ title: "Asset registered successfully" });
         setLocation(`/assets/${asset.id}`);
       },
-      onError: () => {
-        toast({ title: "Failed to register asset", variant: "destructive" });
+      onError: (err) => {
+        toast({ title: "Failed to register asset", description: apiErrorMessage(err), variant: "destructive" });
       }
     });
   };
@@ -49,6 +52,8 @@ export default function NewAsset() {
           <h1 className="text-2xl font-bold tracking-tight">Register New Asset</h1>
           <p className="text-muted-foreground text-sm">Enter the details to add a new asset to the registry.</p>
         </div>
+
+        <PermissionNotice role="operator" action="register assets" />
 
         <Card>
           <CardHeader>
@@ -100,7 +105,7 @@ export default function NewAsset() {
 
               <div className="pt-4 flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setLocation('/assets')}>Cancel</Button>
-                <Button type="submit" disabled={createAsset.isPending}>
+                <Button type="submit" disabled={createAsset.isPending || !canRegister}>
                   {createAsset.isPending ? 'Registering...' : 'Register Asset'}
                 </Button>
               </div>

@@ -18,6 +18,7 @@ import GatePassList from './pages/gate-passes/list';
 import RfidSimulator from './pages/rfid-simulator';
 import Insights from './pages/insights';
 import BcSync from './pages/bc-sync';
+import Reports from './pages/reports';
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/rfid-simulator" component={RfidSimulator} />
       <Route path="/insights" component={Insights} />
       <Route path="/bc-sync" component={BcSync} />
+      <Route path="/reports" component={Reports} />
       <Route component={NotFound} />
     </Switch>
   );

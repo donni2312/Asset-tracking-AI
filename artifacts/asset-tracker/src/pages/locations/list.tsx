@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Link, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { LOCATION_TYPES, locationTypeLabel } from "@/lib/constants";
+import { Permitted, usePermission } from "@/components/permission";
 
 const typeIcons: Record<string, typeof Building2> = {
   gate: Radio,
@@ -64,9 +65,11 @@ export default function LocationList() {
               <p className="text-muted-foreground text-sm">{activeSbu.name} locations</p>
             )}
           </div>
-          <Link href="/locations/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />Add Location
-          </Link>
+          <Permitted role="operator" action="add locations" label="Add Location" variant="default">
+            <Link href="/locations/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
+              <Plus className="w-4 h-4 mr-2" />Add Location
+            </Link>
+          </Permitted>
         </div>
 
         {/* SBU filter */}
@@ -135,6 +138,7 @@ export default function LocationList() {
 function LocationCard({ loc }: { loc: any }) {
   const Icon = typeIcons[loc.type] ?? MapPin;
   const colorClass = typeColors[loc.type] ?? "text-gray-600 bg-gray-50 border-gray-200";
+  const { allowed: canEdit } = usePermission("operator", "edit locations");
 
   return (
     <Card className="hover:border-primary/40 transition-colors">
@@ -145,14 +149,16 @@ function LocationCard({ loc }: { loc: any }) {
             <Badge className={cn("text-[10px] uppercase tracking-wide border", colorClass)}>
               <Icon className="w-3 h-3 mr-1" />{locationTypeLabel(loc.type)}
             </Badge>
-            <Link
-              href={`/locations/${loc.id}/edit`}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
-              aria-label={`Edit ${loc.name}`}
-              title="Edit location"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </Link>
+            {canEdit && (
+              <Link
+                href={`/locations/${loc.id}/edit`}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                aria-label={`Edit ${loc.name}`}
+                title="Edit location"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Link>
+            )}
           </div>
         </div>
         {loc.sbuCode && (

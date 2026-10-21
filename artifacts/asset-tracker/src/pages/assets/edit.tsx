@@ -5,7 +5,7 @@ import {
   getGetAssetQueryKey, useGetAsset, useListLocations, useListSbus, useUpdateAsset,
   type AssetUpdate,
 } from "@workspace/api-client-react";
-import { Lock, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,9 @@ const STATUSES = ["active", "maintenance", "missing", "retired"] as const;
 /**
  * Edit an asset record.
  *
- * The API decides what may be changed (PATCH /assets/:id): an operator may
- * change the operational fields, an admin the record itself. This page mirrors
- * that so the difference is visible rather than discovered through a 403 — but
- * the API is what enforces it.
+ * Operators and administrators may change every field (PATCH /assets/:id needs
+ * the operator role). The API is what enforces that; this page only decides
+ * whether the form is offered.
  */
 export default function EditAsset() {
   const { id } = useParams();
@@ -40,8 +39,7 @@ export default function EditAsset() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const user = useCurrentUser();
-  const canEditRecord = useHasRole("admin");
-  const canEditOperational = useHasRole("operator");
+  const canEdit = useHasRole("operator");
 
   const { data: asset, isLoading, isError } = useGetAsset(assetId, {
     query: { enabled: Number.isInteger(assetId) && assetId > 0, queryKey: getGetAssetQueryKey(assetId) },
@@ -100,12 +98,10 @@ export default function EditAsset() {
       data.currentLocationId = form.currentLocationId ? Number(form.currentLocationId) : null;
     }
     if (form.notes.trim() !== (asset.notes ?? "")) data.notes = form.notes.trim() || null;
-    if (canEditRecord) {
-      if (form.name.trim() !== asset.name) data.name = form.name.trim();
-      if (form.category !== asset.category) data.category = form.category;
-      if (form.sbuId !== (asset.sbuId != null ? String(asset.sbuId) : "")) {
-        data.sbuId = form.sbuId ? Number(form.sbuId) : null;
-      }
+    if (form.name.trim() !== asset.name) data.name = form.name.trim();
+    if (form.category !== asset.category) data.category = form.category;
+    if (form.sbuId !== (asset.sbuId != null ? String(asset.sbuId) : "")) {
+      data.sbuId = form.sbuId ? Number(form.sbuId) : null;
     }
 
     if (Object.keys(data).length === 0) {
@@ -126,7 +122,7 @@ export default function EditAsset() {
     );
   }
 
-  if (!canEditOperational) {
+  if (!canEdit) {
     return (
       <Layout>
         <div className="mx-auto max-w-2xl space-y-4">
@@ -162,15 +158,6 @@ export default function EditAsset() {
           </p>
         </div>
 
-        {!canEditRecord && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-            <span>
-              Signed in as <strong>{user?.role}</strong>: you can change status, holder, location and notes.
-              The name, category and SBU are part of the asset record and need an administrator.
-            </span>
-          </div>
-        )}
 
         <Card>
           <CardHeader>
@@ -185,26 +172,20 @@ export default function EditAsset() {
               <form onSubmit={submit} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="as-name">
-                      Name {!canEditRecord && <Lock className="ml-1 inline h-3 w-3 text-muted-foreground" />}
-                    </Label>
+                    <Label htmlFor="as-name">Name</Label>
                     <Input
                       id="as-name"
                       value={form.name}
-                      disabled={!canEditRecord}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="as-category">
-                      Category {!canEditRecord && <Lock className="ml-1 inline h-3 w-3 text-muted-foreground" />}
-                    </Label>
+                    <Label htmlFor="as-category">Category</Label>
                     <select
                       id="as-category"
                       className={SELECT_CLASS}
                       value={form.category}
-                      disabled={!canEditRecord}
                       onChange={(e) => setForm({ ...form, category: e.target.value })}
                     >
                       {!CATEGORIES.includes(form.category) && form.category && (
@@ -245,14 +226,11 @@ export default function EditAsset() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="as-sbu">
-                      SBU {!canEditRecord && <Lock className="ml-1 inline h-3 w-3 text-muted-foreground" />}
-                    </Label>
+                    <Label htmlFor="as-sbu">SBU</Label>
                     <select
                       id="as-sbu"
                       className={SELECT_CLASS}
                       value={form.sbuId}
-                      disabled={!canEditRecord}
                       onChange={(e) => setForm({ ...form, sbuId: e.target.value })}
                     >
                       <option value="">Unassigned</option>

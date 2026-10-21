@@ -13,6 +13,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
 import { cn, formatDate } from "@/lib/utils";
+import { PermissionNotice, usePermission } from "@/components/permission";
 
 /** datetime-local value (browser time) → ISO string. */
 const localInputToIso = (value: string) => new Date(value).toISOString();
@@ -46,6 +47,7 @@ export default function RfidSimulator() {
   const { data: assets, isLoading: loadingAssets } = useListAssets({ status: "active" });
   const { data: sbus } = useListSbus();
   const simulate = useSimulateRfidRead();
+  const { allowed: canScan, reason: scanBlockedReason } = usePermission("admin", "run the RFID simulator");
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -101,6 +103,8 @@ export default function RfidSimulator() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">IoT RFID Simulator</h1>
         </div>
+
+        <PermissionNotice role="admin" action="run the RFID simulator" />
 
         {/* SBU Filter */}
         <div className="flex flex-wrap gap-2">
@@ -251,7 +255,8 @@ export default function RfidSimulator() {
                       ? "bg-cyan-500 hover:bg-cyan-400 text-slate-900"
                       : "bg-slate-800 text-slate-500 hover:bg-slate-800"
                   )}
-                  disabled={!selectedReader || !selectedTag || simulate.isPending || (customTime && !scanTime)}
+                  disabled={!canScan || !selectedReader || !selectedTag || simulate.isPending || (customTime && !scanTime)}
+                  title={scanBlockedReason || undefined}
                   onClick={handleSimulate}
                 >
                   {simulate.isPending ? "SIMULATING..." : "TRIGGER SCAN"}

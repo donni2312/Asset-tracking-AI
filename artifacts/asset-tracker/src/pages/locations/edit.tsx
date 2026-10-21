@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocationForm, type LocationFormValues } from "@/components/location-form";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
+import { PermissionNotice } from "@/components/permission";
 import type { LocationTypeValue } from "@/lib/constants";
 
 export default function EditLocation() {
@@ -69,6 +70,7 @@ export default function EditLocation() {
             {location ? `${location.name} · ${location.assetCount ?? 0} assets currently here` : "Update facility details."}
           </p>
         </div>
+        <PermissionNotice role="operator" action="edit locations" />
         <Card>
           <CardHeader>
             <CardTitle>Location Details</CardTitle>

@@ -157,7 +157,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
         using var response = await Client.SendAsync(request);
         var text = await response.Content.ReadAsStringAsync();
-        var json = text.Length == 0 ? default : JsonDocument.Parse(text).RootElement.Clone();
+        // Non-JSON bodies (CSV reports) carry no JSON to inspect; callers read those through Client directly.
+        var isJson = response.Content.Headers.ContentType?.MediaType?.Contains("json") ?? true;
+        var json = text.Length == 0 || !isJson ? default : JsonDocument.Parse(text).RootElement.Clone();
         return new ApiResponse((int)response.StatusCode, json);
     }
 }

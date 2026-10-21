@@ -6,6 +6,8 @@ import { useListMovements, type MovementEvent } from "@workspace/api-client-reac
 import { formatDate, cn } from "@/lib/utils";
 import { Activity, ArrowRight, LogOut, Plus, Radio, ShieldCheck, UserRound } from "lucide-react";
 import { Link } from "wouter";
+import { ExportCsvButton } from "@/components/export-button";
+import { Permitted } from "@/components/permission";
 
 const TRIGGERS: Record<string, { label: string; className: string; icon: typeof Radio }> = {
   rfid: { label: "RFID", className: "border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300", icon: Radio },
@@ -35,9 +37,14 @@ export default function MovementList() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Movement Log</h1>
           </div>
-          <Link href="/movements/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />Record Movement
-          </Link>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton request={{ report: "movements" }} />
+            <Permitted role="viewer" action="record a movement" label="Record Movement" variant="default">
+              <Link href="/movements/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
+                <Plus className="w-4 h-4 mr-2" />Record Movement
+              </Link>
+            </Permitted>
+          </div>
         </div>
 
         <Card>

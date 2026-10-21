@@ -29,7 +29,7 @@ interface GatePassRequestDialogProps {
 export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassRequestDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [operator, setOperator] = useOperatorName();
+  const operator = useOperatorName();
   const { data: assets } = useListAssets();
   const { people } = usePeople();
   const createGatePass = useCreateGatePass();
@@ -93,7 +93,6 @@ export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassR
       {
         onSuccess: (pass) => {
           acknowledgeGatePass(pass.id); // the requester doesn't need an "awaiting approval" toast for their own pass
-          if (!operator) setOperator(requestedBy.trim());
           toast({ title: `Gate pass #${pass.id} requested`, description: `${pass.assetName} is now awaiting approval.` });
           qc.invalidateQueries();
           onOpenChange(false);

@@ -1,9 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Activity, Box, Building2, Database, HardDrive, LayoutDashboard, MapPin, Radio, ShieldAlert } from "lucide-react";
+import { Activity, Box, Building2, Database, FileDown, HardDrive, LayoutDashboard, MapPin, Radio, ShieldAlert } from "lucide-react";
 import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
-import { OperatorBadge } from "@/components/operator-badge";
 import { SettingsButton } from "@/components/settings-dialog";
 import { AccountBadge } from "@/components/sign-in";
 import { useDateFormat } from "@/lib/date-format";
@@ -30,6 +29,7 @@ export function Layout({ children }: LayoutProps) {
     { name: "Gate Passes",     href: "/gate-passes",   icon: ShieldAlert },
     { name: "RFID Simulator",  href: "/rfid-simulator",icon: Radio },
     { name: "AI Insights",     href: "/insights",      icon: Database },
+    { name: "Reports",         href: "/reports",       icon: FileDown },
     { name: "BC Sync",         href: "/bc-sync",       icon: HardDrive },
   ];
 
@@ -81,7 +81,6 @@ export function Layout({ children }: LayoutProps) {
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
           <AccountBadge />
-          <OperatorBadge />
           <SettingsButton />
           <div className="px-2 text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
             TSL GROUP — ASSET MGMT v2

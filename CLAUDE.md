@@ -453,13 +453,8 @@ have wiped the demo data), with scrypt hashes in the seed's format:
 - `lib/api-spec/openapi.yaml` states the role and the 401/403 responses on each of these operations; `pnpm codegen` was
   re-run (generated client: comments and the error type of six mutations only).
 
-**Not done — needs a decision:**
-- **Report downloads**: the dashboard has no download / export feature yet, so there is nothing for viewers to
-  download; viewers can see every screen. Adding exports (e.g. CSV of the asset register or movement log) is new work.
-- **The dashboard still hides what the API now allows.** The asset edit page locks name, category and SBU for anyone
-  below admin (`pages/assets/edit.tsx`: `canEditRecord = useHasRole("admin")`), and the RFID simulator, BC sync and
-  write buttons stay visible to roles the API refuses (they show the 403 message). The API is what enforces the
-  rules; aligning the UI is a small frontend change that was left alone because the frontend is kept as is.
+**Not done at the time (both resolved in section 18):** there were no report downloads, and the dashboard did not
+match these rules (admin-only record fields on the edit page; buttons shown to roles the API refuses).
 
 Test: `pnpm test` — **203 tests**. `Integration/PermissionTests.cs` checks every protected endpoint for all four
 callers; `AuthTests` covers the new operator / viewer rules. The integration tests now act as an administrator by
@@ -468,6 +463,53 @@ database through the dashboard proxy with the three real accounts, without chang
 above behaved as listed.
 Manually: sign in (sidebar) as each account and try Record Movement, editing an asset, Approve on a gate pass, the
 RFID simulator and Sync Now.
+
+### 18. CSV report downloads, and the dashboard now matches the permissions
+**API** (`Controllers/ReportsController.cs`, `Services/ReportService.cs`, `Infrastructure/CsvBuilder.cs`). Every
+report needs a signed-in user (viewer or above; 401 when signed out). The JSON reads stay open.
+
+| Endpoint | Filters (all optional) |
+|---|---|
+| `GET /reports/assets.csv` | `status`, `locationId`, `sbuId`, `category`, `search` |
+| `GET /reports/movements.csv` | `from`, `to`, `assetId`, `sbuId` |
+| `GET /reports/gate-passes.csv` | `status`, `sbuId`, `from`, `to` |
+| `GET /reports/insights.csv` | `includeDismissed` (default true) |
+| `GET /reports/lifecycle.csv` | `eventType`, `sbuId`, `from`, `to` |
+
+- `from` / `to` are `YYYY-MM-DD` days in the organisation time zone, both inclusive; a bad date or `from` after `to`
+  returns 400. No row limit.
+- CSV format: RFC 4180, CRLF line endings, UTF-8 with a BOM (so Excel shows "–" and accents correctly), Yes/No for
+  booleans, and times as `yyyy-MM-dd HH:mm` in the organisation zone (the header names the zone).
+- Spreadsheet formula injection is blocked: a text cell starting with `= + - @`, tab or CR gets a leading `'`.
+- The file name is `assetiq-{report}-{date}.csv`. CORS exposes `Content-Disposition`.
+- The OpenAPI spec has a `reports` tag; `pnpm codegen` generated `downloadAssetsReport(...)` and the other four.
+
+**Dashboard:**
+- New **Reports** page (sidebar, `/reports`): five report cards with shared SBU and date filters plus per-report
+  filters, each with *Download CSV*.
+- Export CSV buttons on Assets (uses the current search, SBU and status), Movements, Gate Passes (the selected tab)
+  and AI Insights.
+- `lib/reports.ts` (`downloadReport`) calls the generated client, so the sign-in token is attached.
+- `components/permission.tsx`:
+  - `usePermission(role, action)`;
+  - `<Permitted>`: shows the control, or a locked button whose tooltip says which role is needed;
+  - `<PermissionNotice>`: amber banner on pages the user can't use.
+- Aligned with section 17:
+  - Operators can edit every asset field; the admin lock is gone.
+  - Register, edit, assign, dispose, gate-pass request/approve/reject, locations and dismissing insights need operator.
+  - Record Movement needs viewer.
+  - The RFID simulator and Sync Now need administrator.
+  - The sign-in role descriptions are updated.
+- The sidebar's **"Acting as"** name and the *Your name* field in Settings are gone (`operator-badge.tsx` deleted).
+  `useOperatorName()` now returns the signed-in user's name, which pre-fills "Moved by", "Requested by" and the
+  approver field. Signed out it is empty. The fields stay editable, e.g. to record who physically moved an asset.
+
+Test: `pnpm test` — **221 tests**. `Integration/ReportTests.cs` covers each report's columns, filters, time zone,
+BOM, escaping and the formula guard; the permission matrix covers the report endpoints. `ApiFixture.CallAsync` no
+longer tries to parse non-JSON bodies. Checked live through the dashboard proxy: signed out → 401; all three accounts
+download all five reports (200, correct file name, BOM present); a reversed date range returns 400.
+Manually: sign in as `viewer`, open Reports and download each one. Open the files in Excel. Check that the edit,
+approve and sync buttons show as locked.
 
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.

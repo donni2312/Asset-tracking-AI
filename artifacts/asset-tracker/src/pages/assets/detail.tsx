@@ -25,9 +25,9 @@ import {
   Activity, MapPin, HardDrive, History, User, Radio, ArrowRight,
   UserCheck, CornerDownLeft, Wrench, CheckCircle, ArrowRightLeft, MessageSquare,
   Building2, Trash2, UserPlus, LogOut, ShieldPlus, AlertTriangle, Info, Check, Move,
-  Pencil, Lock,
+  Pencil,
 } from "lucide-react";
-import { useCurrentUser, useHasRole } from "@/hooks/use-auth";
+import { Permitted, usePermission } from "@/components/permission";
 
 function SbuBadge({ code, name, color }: { code: string; name?: string | null; color?: string }) {
   const c = color ?? "#6B7280";
@@ -239,10 +239,8 @@ export default function AssetDetail() {
   const assetId = Number(id);
   const qc = useQueryClient();
   const { toast } = useToast();
-  // The API enforces this too (PATCH /assets/:id); here it only decides whether
-  // the button is offered.
-  const currentUser = useCurrentUser();
-  const canEdit = useHasRole("operator");
+  // The API enforces the roles; here they only decide which actions are offered.
+  const { allowed: canDismiss } = usePermission("operator", "dismiss alerts");
 
   const { data: asset, isLoading: loadingAsset } = useGetAsset(assetId, {
     query: { enabled: !!assetId, queryKey: getGetAssetQueryKey(assetId) },
@@ -364,7 +362,7 @@ export default function AssetDetail() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusColor} className="text-sm">{asset.status.toUpperCase()}</Badge>
-            {canEdit ? (
+            <Permitted role="operator" action="edit assets" label="Edit" size="sm">
               <Link
                 href={`/assets/${asset.id}/edit`}
                 className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
@@ -372,50 +370,46 @@ export default function AssetDetail() {
                 <Pencil className="w-4 h-4" />
                 Edit
               </Link>
-            ) : (
-              <span
-                className="inline-flex items-center gap-2 h-8 rounded-md border border-input px-3 text-xs font-medium text-muted-foreground opacity-60 cursor-not-allowed"
-                title={
-                  currentUser
-                    ? `Editing needs the operator or admin role; you are signed in as ${currentUser.role}.`
-                    : "Sign in to edit this asset."
-                }
-              >
-                <Lock className="w-4 h-4" />
-                Edit
-              </span>
-            )}
+            </Permitted>
             {!isRetired && (
               <>
-                <Link
-                  href={`/movements/new?assetId=${asset.id}`}
-                  className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
-                >
-                  <Move className="w-4 h-4" />
-                  Move
-                </Link>
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => setGatePassOpen(true)}>
-                  <ShieldPlus className="w-4 h-4" />
-                  Request Gate Pass
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => setAssignOpen(true)}
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Assign
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"
-                  onClick={() => setDisposeOpen(true)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Dispose
-                </Button>
+                <Permitted role="viewer" action="record a movement" label="Move" size="sm">
+                  <Link
+                    href={`/movements/new?assetId=${asset.id}`}
+                    className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
+                  >
+                    <Move className="w-4 h-4" />
+                    Move
+                  </Link>
+                </Permitted>
+                <Permitted role="operator" action="request gate passes" label="Request Gate Pass" size="sm">
+                  <Button size="sm" variant="outline" className="gap-2" onClick={() => setGatePassOpen(true)}>
+                    <ShieldPlus className="w-4 h-4" />
+                    Request Gate Pass
+                  </Button>
+                </Permitted>
+                <Permitted role="operator" action="assign assets" label="Assign" size="sm">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setAssignOpen(true)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Assign
+                  </Button>
+                </Permitted>
+                <Permitted role="operator" action="dispose of assets" label="Dispose" size="sm">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"
+                    onClick={() => setDisposeOpen(true)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Dispose
+                  </Button>
+                </Permitted>
               </>
             )}
           </div>
@@ -550,15 +544,17 @@ export default function AssetDetail() {
                         <div>{alert.message}</div>
                         <div className="text-muted-foreground mt-0.5">{formatDate(alert.createdAt)}</div>
                       </div>
-                      <button
-                        type="button"
-                        className="p-1 rounded hover:bg-background/80 text-muted-foreground"
-                        title="Dismiss alert"
-                        aria-label="Dismiss alert"
-                        onClick={() => dismissInsight.mutate({ id: alert.id }, { onSuccess: () => qc.invalidateQueries() })}
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
+                      {canDismiss && (
+                        <button
+                          type="button"
+                          className="p-1 rounded hover:bg-background/80 text-muted-foreground"
+                          title="Dismiss alert"
+                          aria-label="Dismiss alert"
+                          onClick={() => dismissInsight.mutate({ id: alert.id }, { onSuccess: () => qc.invalidateQueries() })}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                   <Link href="/insights" className="text-xs text-primary hover:underline">All AI insights →</Link>

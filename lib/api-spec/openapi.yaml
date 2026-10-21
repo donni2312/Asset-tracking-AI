@@ -32,6 +32,8 @@ tags:
     description: Business Central integration
   - name: auth
     description: Authentication and roles
+  - name: reports
+    description: CSV report downloads
 
 paths:
   /healthz:
@@ -1003,6 +1005,168 @@ paths:
               schema:
                 $ref: "#/components/schemas/AIQueryResult"
 
+  # ── Reports (CSV downloads) ───────────────────────────────────────────────────
+  # Times are in the organisation time zone (named in the column header). UTF-8 with a byte-order mark;
+  # text cells starting with = + - @ are prefixed with ' so spreadsheets never run them as formulas.
+  /reports/assets.csv:
+    get:
+      operationId: downloadAssetsReport
+      tags: [reports]
+      summary: Asset register as CSV (same filters as listAssets)
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, maintenance, retired, missing]
+        - name: locationId
+          in: query
+          schema:
+            type: integer
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CSV file (Content-Disposition attachment)
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          description: Not signed in
+
+  /reports/movements.csv:
+    get:
+      operationId: downloadMovementsReport
+      tags: [reports]
+      summary: Movement log as CSV, oldest first
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ReportFrom"
+        - $ref: "#/components/parameters/ReportTo"
+        - name: assetId
+          in: query
+          schema:
+            type: integer
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: CSV file (Content-Disposition attachment)
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid date range
+        "401":
+          description: Not signed in
+
+  /reports/gate-passes.csv:
+    get:
+      operationId: downloadGatePassesReport
+      tags: [reports]
+      summary: Gate passes requested in a period as CSV, newest first
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/ReportFrom"
+        - $ref: "#/components/parameters/ReportTo"
+      responses:
+        "200":
+          description: CSV file (Content-Disposition attachment)
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid date range
+        "401":
+          description: Not signed in
+
+  /reports/insights.csv:
+    get:
+      operationId: downloadInsightsReport
+      tags: [reports]
+      summary: AI alerts as CSV, newest first
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeDismissed
+          in: query
+          description: false = open alerts only (default true)
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: CSV file (Content-Disposition attachment)
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          description: Not signed in
+
+  /reports/lifecycle.csv:
+    get:
+      operationId: downloadLifecycleReport
+      tags: [reports]
+      summary: Lifecycle events in a period as CSV, oldest first
+      description: Requires the `viewer` role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventType
+          in: query
+          schema:
+            type: string
+            enum: [deployment, return_to_it, repair_sent, repair_returned, sbu_transfer, note]
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/ReportFrom"
+        - $ref: "#/components/parameters/ReportTo"
+      responses:
+        "200":
+          description: CSV file (Content-Disposition attachment)
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid date range
+        "401":
+          description: Not signed in
+
   # ── Business Central ──────────────────────────────────────────────────────────
   /bc/sync-status:
     get:
@@ -1038,6 +1202,22 @@ paths:
                 $ref: "#/components/schemas/BCSyncStatus"
 
 components:
+  parameters:
+    ReportFrom:
+      name: from
+      in: query
+      description: First calendar day (YYYY-MM-DD, organisation time zone), inclusive
+      schema:
+        type: string
+        format: date
+    ReportTo:
+      name: to
+      in: query
+      description: Last calendar day (YYYY-MM-DD, organisation time zone), inclusive
+      schema:
+        type: string
+        format: date
+
   securitySchemes:
     bearerAuth:
       type: http

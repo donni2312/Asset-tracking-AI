@@ -61,6 +61,7 @@ builder.Services.AddScoped<RfidScanService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IntentExecutor>();
 builder.Services.AddScoped<NlQueryService>();
+builder.Services.AddScoped<ReportService>();
 builder.Services.AddHttpClient<OpenAiIntentParser>();
 
 builder.Services
@@ -76,7 +77,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<IAuthorizationHandler, MinimumRoleHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, JsonAuthorizationResultHandler>();
 
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Content-Disposition")));
 
 // One log line per request: method, path (no query string, no headers), status, duration.
 builder.Services.AddHttpLogging(options =>

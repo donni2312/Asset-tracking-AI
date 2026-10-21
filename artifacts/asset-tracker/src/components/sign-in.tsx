@@ -12,8 +12,8 @@ import { apiErrorMessage } from "@/lib/api-error";
 import { endSession, startSession, useCurrentUser } from "@/hooks/use-auth";
 
 const ROLE_LABEL: Record<UserRole, string> = {
-  viewer: "Viewer — read only",
-  operator: "Operator — movements, gate passes, asset status",
+  viewer: "Viewer — view, download reports, record movements",
+  operator: "Operator — everything except RFID simulator and BC sync",
   admin: "Administrator — full access",
 };
 
@@ -59,7 +59,7 @@ export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               Sign in
             </DialogTitle>
             <DialogDescription>
-              Anyone can read the dashboard. Signing in is needed to change asset records.
+              Anyone can read the dashboard. Sign in to make changes or download CSV reports.
             </DialogDescription>
           </DialogHeader>
 
@@ -122,7 +122,7 @@ export function AccountBadge() {
           <LogIn className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/60" />
           <span className="min-w-0 flex-1">
             <span className="block text-[10px] uppercase tracking-wider text-sidebar-foreground/40">Not signed in</span>
-            <span className="block truncate font-medium">Sign in to edit</span>
+            <span className="block truncate font-medium">Sign in to edit &amp; export</span>
           </span>
         </button>
         <SignInDialog open={open} onOpenChange={setOpen} />

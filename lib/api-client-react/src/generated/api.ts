@@ -32,6 +32,11 @@ import type {
   AssetUpdate,
   BCSyncStatus,
   DashboardSummary,
+  DownloadAssetsReportParams,
+  DownloadGatePassesReportParams,
+  DownloadInsightsReportParams,
+  DownloadLifecycleReportParams,
+  DownloadMovementsReportParams,
   GateActivityItem,
   GatePass,
   GatePassDecision,
@@ -3168,6 +3173,431 @@ export const useAiQuery = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getAiQueryMutationOptions(options));
     }
+
+export const getDownloadAssetsReportUrl = (params?: DownloadAssetsReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/assets.csv?${stringifiedParams}` : `/api/reports/assets.csv`
+}
+
+/**
+ * Requires the `viewer` role.
+ * @summary Asset register as CSV (same filters as listAssets)
+ */
+export const downloadAssetsReport = async (params?: DownloadAssetsReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getDownloadAssetsReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadAssetsReportQueryKey = (params?: DownloadAssetsReportParams,) => {
+    return [
+    `/api/reports/assets.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadAssetsReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadAssetsReport>>, TError = ErrorType<void>>(params?: DownloadAssetsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadAssetsReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadAssetsReport>>> = ({ signal }) => downloadAssetsReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadAssetsReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadAssetsReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadAssetsReport>>>
+export type DownloadAssetsReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Asset register as CSV (same filters as listAssets)
+ */
+
+export function useDownloadAssetsReport<TData = Awaited<ReturnType<typeof downloadAssetsReport>>, TError = ErrorType<void>>(
+ params?: DownloadAssetsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadAssetsReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadMovementsReportUrl = (params?: DownloadMovementsReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/movements.csv?${stringifiedParams}` : `/api/reports/movements.csv`
+}
+
+/**
+ * Requires the `viewer` role.
+ * @summary Movement log as CSV, oldest first
+ */
+export const downloadMovementsReport = async (params?: DownloadMovementsReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getDownloadMovementsReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadMovementsReportQueryKey = (params?: DownloadMovementsReportParams,) => {
+    return [
+    `/api/reports/movements.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadMovementsReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadMovementsReport>>, TError = ErrorType<void>>(params?: DownloadMovementsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMovementsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadMovementsReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadMovementsReport>>> = ({ signal }) => downloadMovementsReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadMovementsReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadMovementsReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadMovementsReport>>>
+export type DownloadMovementsReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Movement log as CSV, oldest first
+ */
+
+export function useDownloadMovementsReport<TData = Awaited<ReturnType<typeof downloadMovementsReport>>, TError = ErrorType<void>>(
+ params?: DownloadMovementsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMovementsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadMovementsReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadGatePassesReportUrl = (params?: DownloadGatePassesReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/gate-passes.csv?${stringifiedParams}` : `/api/reports/gate-passes.csv`
+}
+
+/**
+ * Requires the `viewer` role.
+ * @summary Gate passes requested in a period as CSV, newest first
+ */
+export const downloadGatePassesReport = async (params?: DownloadGatePassesReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getDownloadGatePassesReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadGatePassesReportQueryKey = (params?: DownloadGatePassesReportParams,) => {
+    return [
+    `/api/reports/gate-passes.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadGatePassesReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadGatePassesReport>>, TError = ErrorType<void>>(params?: DownloadGatePassesReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadGatePassesReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadGatePassesReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadGatePassesReport>>> = ({ signal }) => downloadGatePassesReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadGatePassesReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadGatePassesReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadGatePassesReport>>>
+export type DownloadGatePassesReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Gate passes requested in a period as CSV, newest first
+ */
+
+export function useDownloadGatePassesReport<TData = Awaited<ReturnType<typeof downloadGatePassesReport>>, TError = ErrorType<void>>(
+ params?: DownloadGatePassesReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadGatePassesReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadGatePassesReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadInsightsReportUrl = (params?: DownloadInsightsReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/insights.csv?${stringifiedParams}` : `/api/reports/insights.csv`
+}
+
+/**
+ * Requires the `viewer` role.
+ * @summary AI alerts as CSV, newest first
+ */
+export const downloadInsightsReport = async (params?: DownloadInsightsReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getDownloadInsightsReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadInsightsReportQueryKey = (params?: DownloadInsightsReportParams,) => {
+    return [
+    `/api/reports/insights.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadInsightsReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadInsightsReport>>, TError = ErrorType<void>>(params?: DownloadInsightsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadInsightsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadInsightsReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadInsightsReport>>> = ({ signal }) => downloadInsightsReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadInsightsReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadInsightsReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadInsightsReport>>>
+export type DownloadInsightsReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary AI alerts as CSV, newest first
+ */
+
+export function useDownloadInsightsReport<TData = Awaited<ReturnType<typeof downloadInsightsReport>>, TError = ErrorType<void>>(
+ params?: DownloadInsightsReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadInsightsReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadInsightsReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadLifecycleReportUrl = (params?: DownloadLifecycleReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/lifecycle.csv?${stringifiedParams}` : `/api/reports/lifecycle.csv`
+}
+
+/**
+ * Requires the `viewer` role.
+ * @summary Lifecycle events in a period as CSV, oldest first
+ */
+export const downloadLifecycleReport = async (params?: DownloadLifecycleReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getDownloadLifecycleReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadLifecycleReportQueryKey = (params?: DownloadLifecycleReportParams,) => {
+    return [
+    `/api/reports/lifecycle.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadLifecycleReportQueryOptions = <TData = Awaited<ReturnType<typeof downloadLifecycleReport>>, TError = ErrorType<void>>(params?: DownloadLifecycleReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadLifecycleReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadLifecycleReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadLifecycleReport>>> = ({ signal }) => downloadLifecycleReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadLifecycleReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadLifecycleReportQueryResult = NonNullable<Awaited<ReturnType<typeof downloadLifecycleReport>>>
+export type DownloadLifecycleReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Lifecycle events in a period as CSV, oldest first
+ */
+
+export function useDownloadLifecycleReport<TData = Awaited<ReturnType<typeof downloadLifecycleReport>>, TError = ErrorType<void>>(
+ params?: DownloadLifecycleReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadLifecycleReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadLifecycleReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetBcSyncStatusUrl = () => {
 

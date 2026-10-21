@@ -15,6 +15,7 @@ import { apiErrorMessage } from "@/lib/api-error";
 import { SELECT_CLASS, locationTypeLabel } from "@/lib/constants";
 import { SearchableSelect, type SearchableOption } from "@/components/searchable-select";
 import { personHint, usePeople } from "@/hooks/use-people";
+import { PermissionNotice, usePermission } from "@/components/permission";
 
 /** Manual movement — for moves that did not pass an RFID reader. */
 export default function NewMovement() {
@@ -22,7 +23,7 @@ export default function NewMovement() {
   const search = useSearch();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [operator, setOperator] = useOperatorName();
+  const operator = useOperatorName();
   const { data: assets } = useListAssets();
   const { data: locations } = useListLocations();
   const { people } = usePeople();
@@ -74,7 +75,8 @@ export default function NewMovement() {
   }, [locations, asset]);
 
   const crossSbu = asset?.sbuId != null && destination?.sbuId != null && asset.sbuId !== destination.sbuId;
-  const canSubmit = !!asset && !!destination && movedBy.trim() !== "" && !createMovement.isPending;
+  const { allowed: mayRecord } = usePermission("viewer", "record a movement");
+  const canSubmit = mayRecord && !!asset && !!destination && movedBy.trim() !== "" && !createMovement.isPending;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +86,6 @@ export default function NewMovement() {
       { data: { assetId: asset.id, toLocationId: destination.id, movedBy: movedBy.trim(), notes: notes.trim() || undefined } },
       {
         onSuccess: (movement) => {
-          if (!operator) setOperator(movedBy.trim());
           toast({ title: "Movement recorded", description: `${movement.assetName} → ${movement.toLocationName}` });
           qc.invalidateQueries();
           navigate(`/assets/${asset.id}`);
@@ -103,6 +104,8 @@ export default function NewMovement() {
             Log a manual move when an asset changes location without passing an RFID reader.
           </p>
         </div>
+
+        <PermissionNotice role="viewer" action="record a movement" />
 
         <Card>
           <CardHeader>

@@ -780,6 +780,16 @@ export interface BCSyncStatus {
   pendingChanges?: number;
 }
 
+/**
+ * First calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+export type ReportFromParameter = string;
+
+/**
+ * Last calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+export type ReportToParameter = string;
+
 export type ListAssetsParams = {
 status?: ListAssetsStatus;
 /**
@@ -911,4 +921,89 @@ days?: number;
 export type GetGateActivityParams = {
 limit?: number;
 };
+
+export type DownloadAssetsReportParams = {
+status?: DownloadAssetsReportStatus;
+locationId?: number;
+sbuId?: number;
+category?: string;
+q?: string;
+};
+
+export type DownloadAssetsReportStatus = typeof DownloadAssetsReportStatus[keyof typeof DownloadAssetsReportStatus];
+
+
+export const DownloadAssetsReportStatus = {
+  active: 'active',
+  maintenance: 'maintenance',
+  retired: 'retired',
+  missing: 'missing',
+} as const;
+
+export type DownloadMovementsReportParams = {
+/**
+ * First calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+from?: ReportFromParameter;
+/**
+ * Last calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+to?: ReportToParameter;
+assetId?: number;
+sbuId?: number;
+};
+
+export type DownloadGatePassesReportParams = {
+status?: DownloadGatePassesReportStatus;
+sbuId?: number;
+/**
+ * First calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+from?: ReportFromParameter;
+/**
+ * Last calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+to?: ReportToParameter;
+};
+
+export type DownloadGatePassesReportStatus = typeof DownloadGatePassesReportStatus[keyof typeof DownloadGatePassesReportStatus];
+
+
+export const DownloadGatePassesReportStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export type DownloadInsightsReportParams = {
+/**
+ * false = open alerts only (default true)
+ */
+includeDismissed?: boolean;
+};
+
+export type DownloadLifecycleReportParams = {
+eventType?: DownloadLifecycleReportEventType;
+sbuId?: number;
+/**
+ * First calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+from?: ReportFromParameter;
+/**
+ * Last calendar day (YYYY-MM-DD, organisation time zone), inclusive
+ */
+to?: ReportToParameter;
+};
+
+export type DownloadLifecycleReportEventType = typeof DownloadLifecycleReportEventType[keyof typeof DownloadLifecycleReportEventType];
+
+
+export const DownloadLifecycleReportEventType = {
+  deployment: 'deployment',
+  return_to_it: 'return_to_it',
+  repair_sent: 'repair_sent',
+  repair_returned: 'repair_returned',
+  sbu_transfer: 'sbu_transfer',
+  note: 'note',
+} as const;
 

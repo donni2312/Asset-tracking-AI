@@ -7,6 +7,7 @@ import { HardDrive, RefreshCw, CheckCircle2, AlertCircle, Clock, Hand, Info } fr
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
+import { PermissionNotice, Permitted } from "@/components/permission";
 
 /**
  * Business Central integration — MVP decision: MANUAL SYNC ONLY against a mock
@@ -41,6 +42,8 @@ export default function BcSync() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">ERP Integration</h1>
         </div>
+
+        <PermissionNotice role="admin" action="run a Business Central sync" />
 
         <div className="flex items-start gap-3 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-4 text-sm text-blue-900 dark:text-blue-100">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -119,17 +122,19 @@ export default function BcSync() {
             </div>
 
             <div className="mt-8 pt-6 border-t flex justify-end">
-              <Button onClick={handleSync} disabled={!status?.connected || isSyncing} className="w-full sm:w-auto min-w-[200px]">
-                {isSyncing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Sync in progress...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" /> Sync Now
-                  </>
-                )}
-              </Button>
+              <Permitted role="admin" action="run a Business Central sync" label="Sync Now" variant="default" className="w-full sm:w-auto min-w-[200px]">
+                <Button onClick={handleSync} disabled={!status?.connected || isSyncing} className="w-full sm:w-auto min-w-[200px]">
+                  {isSyncing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Sync in progress...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" /> Sync Now
+                    </>
+                  )}
+                </Button>
+              </Permitted>
             </div>
           </CardContent>
         </Card>

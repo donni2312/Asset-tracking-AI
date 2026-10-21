@@ -29,6 +29,8 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
         { "GET /gate-passes", "anyone" },
         { "GET /bc/sync-status", "anyone" },
         { "POST /ai/query", "anyone" },
+        { "GET /reports/assets.csv", "viewer" },
+        { "GET /reports/movements.csv", "viewer" },
         { "POST /movements", "viewer" },
         { "POST /assets", "operator" },
         { "PATCH /assets/{laptop}", "operator" },
