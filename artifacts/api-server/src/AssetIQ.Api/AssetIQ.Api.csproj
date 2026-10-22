@@ -15,4 +15,13 @@
     <InternalsVisibleTo Include="AssetIQ.Api.Tests" />
   </ItemGroup>
 
+  <!-- Azure App Service: when the dashboard has been built (`pnpm build:azure` builds it first), publishing
+       copies it into wwwroot so the API serves it. Build output (bin/) never gets it, so development is unchanged. -->
+  <PropertyGroup>
+    <DashboardDist>$(MSBuildThisFileDirectory)..\..\..\asset-tracker\dist\public\</DashboardDist>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(DashboardDist)index.html')">
+    <Content Include="$(DashboardDist)**\*" LinkBase="wwwroot" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

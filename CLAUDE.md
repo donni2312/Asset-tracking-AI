@@ -21,6 +21,7 @@ test the project locally and records everything changed in the October 2026 pass
 | `pnpm codegen` | Regenerate React Query hooks + Zod schemas after editing `openapi.yaml` |
 | Demo sign-ins | `administrator`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`; what each may do: section 17) |
 | `pnpm run build` | Typecheck + production builds (the API is published to `artifacts/api-server/dist`) |
+| `pnpm build:azure` | Build the dashboard, then publish the API with it in `dist/wwwroot` — deploy that folder to Azure App Service (section 19) |
 
 ## Local development (Windows + VS Code)
 
@@ -545,6 +546,22 @@ longer tries to parse non-JSON bodies. Checked live through the dashboard proxy:
 download all five reports (200, correct file name, BOM present); a reversed date range returns 400.
 Manually: sign in as `viewer`, open Reports and download each one. Open the files in Excel. Check that the edit,
 approve and sync buttons show as locked.
+
+### 19. One Azure App Service serves the API and the dashboard
+The dashboard calls `/api` on its own origin, so on Azure the API serves the built dashboard too (on Replit the
+platform still serves them separately).
+- `pnpm build:azure` builds the dashboard, then publishes the API; the `.csproj` copies
+  `artifacts/asset-tracker/dist/public` into `dist/wwwroot` when it exists (publish only — `bin/` never gets it).
+- `Program.cs` serves `wwwroot` (resolved next to the DLL) only when it holds `index.html`, and falls back to
+  `index.html` for every non-`/api` path so client-side routes survive a reload. Unknown `/api` paths still 404.
+  Development, tests and Replit have no `wwwroot`, so nothing changes there.
+- **Test it**: `pnpm build:azure`, then from the repo root
+  `$env:PORT="8099"; dotnet artifacts\api-server\dist\AssetIQ.Api.dll` → http://localhost:8099 shows the dashboard,
+  `/assets/12` loads it too, `/api/healthz` answers `{"status":"ok"}`, `/api/does-not-exist` is a 404.
+- **Azure**: Linux Web App, runtime .NET 8, Free F1 plan; app settings `DATABASE_URL` (Supabase session pooler
+  URL with `?sslmode=require`; `sslrootcert` is not needed by the API) and a new `AUTH_SECRET`; startup command
+  `dotnet AssetIQ.Api.dll`; deploy `artifacts/api-server/dist` (e.g. VS Code's Azure App Service extension →
+  *Deploy to Web App*). F1 sleeps when idle, so the first request after a pause takes a while.
 
 ### Other fixes found along the way
 - `POST /locations` now returns SBU name/code; `PATCH /locations/:id` sets `updatedAt` and returns 404 for unknown ids.

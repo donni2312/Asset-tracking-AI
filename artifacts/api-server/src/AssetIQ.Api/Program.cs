@@ -12,7 +12,12 @@ using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-var builder = WebApplication.CreateBuilder(args);
+// wwwroot sits next to the published DLL, whatever directory the app is started from.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+});
 
 // Local development reads the repository's .env (real environment variables win); tests configure everything themselves.
 if (!builder.Environment.IsEnvironment("Testing"))
@@ -113,13 +118,27 @@ if (!config.Auth.SecretConfigured)
     app.Logger.LogWarning("AUTH_SECRET is not set (or shorter than 16 characters): sign-ins will not survive a restart. See .env.example.");
 }
 
+// A published build (`pnpm build:azure`) ships the dashboard in wwwroot, so one App Service serves both.
+// Development, tests and Replit (which serves the dashboard itself) have no wwwroot and skip this.
+var servesDashboard = app.Environment.WebRootFileProvider.GetFileInfo("index.html").Exists;
+
 app.UseHttpLogging();
+if (servesDashboard)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 app.UseRouting();
 app.UseMiddleware<ApiErrorMiddleware>();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+if (servesDashboard)
+{
+    // Client-side routes (/assets/12, /gate-passes) load index.html; unknown /api paths still get the API's 404.
+    app.MapFallbackToFile("{*path:regex(^(?!api(/|$)).*$)}", "index.html");
+}
 
 app.Lifetime.ApplicationStarted.Register(() =>
     app.Logger.LogInformation("Server listening on {Urls} (organisation time zone {TimeZone})", string.Join(", ", app.Urls), config.Timezone));
