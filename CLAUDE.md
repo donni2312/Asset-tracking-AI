@@ -79,6 +79,41 @@ the removal down instead, and keeps it in the online Recycle Bin for 30 days.
 - **Tests**: Testing sidebar (C# extension) or Run Task → *Test: API (xUnit)* / *Test: API (watch mode)*.
 - **Inspect the DB**: PostgreSQL extension → localhost:5433, user `postgres`, password `postgres`, database `assetiq`.
 
+### Using Supabase (hosted PostgreSQL)
+Supabase is plain PostgreSQL, so no code changes are needed: both the C# API and the Node tooling (`pnpm db:push`,
+`pnpm seed`) only read `DATABASE_URL`. `pnpm test` still uses its own throwaway database and never touches Supabase.
+
+1. **Create the project** at https://supabase.com/dashboard → **New project**. Generate a database password and keep
+   it in a password manager. There is no Africa region; pick the one closest to where the API runs.
+2. **Copy the Session pooler URL**: **Connect** → **Session pooler** (port 5432), of the form
+   `postgresql://postgres.<project-ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres`.
+   - Not the **Direct connection** (`db.<ref>.supabase.co`): it is IPv6-only and fails on most networks here.
+   - Not the **Transaction pooler** (port 6543): it does not support the prepared statements Npgsql uses.
+   - URL-encode special characters in the password (`@` → `%40`, `#` → `%23`, `/` → `%2F`).
+3. **Download the SSL certificate**: Project Settings → Database → SSL Configuration → **Download certificate**, saved
+   as `certs/supabase-ca.crt`. node-postgres treats `sslmode=require` as `verify-full`, and Supabase's certificate is
+   signed by its own CA, so without this file the Node tooling fails with "self-signed certificate in certificate
+   chain". (It is a public CA certificate, not a secret.)
+4. **Point `.env` at it**, keeping the local URL commented out so you can switch back:
+   ```env
+   # DATABASE_URL=postgres://postgres:postgres@localhost:5433/assetiq
+   DATABASE_URL=postgresql://postgres.<project-ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require&sslrootcert=C:/dev/Asset-Tracking-AI/certs/supabase-ca.crt
+   ```
+   The API (`Configuration/DatabaseUrl.cs`) maps `sslmode=require` to Npgsql's `SslMode.Require` and ignores
+   `sslrootcert`. Fallback if the certificate path is not picked up: replace `&sslrootcert=...` with
+   `&uselibpqcompat=true` (still encrypted, but the certificate is not verified).
+5. **Create the tables and demo data**: `pnpm db:push`, then `pnpm seed` (no `pnpm db:local` needed). Check
+   **Table Editor** in Supabase.
+6. **Run it**: `pnpm dev:api` and `pnpm dev:web` (the *Dev: full stack* task also starts the local PostgreSQL, which
+   is harmless but unused). Sign in as `administrator`/`admin123` and check the dashboard shows the seeded assets.
+7. **Turn off Supabase's own REST API**: Project Settings → **Data API** → disable it, or remove `public` from the
+   exposed schemas. Otherwise every table in `public` is readable with the project's public key, bypassing the
+   app's sign-in. (Alternative: enable Row Level Security on every table with no policies; the API connects as the
+   table owner and is unaffected.)
+8. **Deploying**: set the same `DATABASE_URL` as a secret on the host, and ship the certificate with the app if the
+   Node tooling runs there (the API alone does not need it). The free plan pauses a project after about a week
+   without activity; unpause it from the dashboard before a demo.
+
 ## Changes made in October 2026 — and how to test them
 
 > Sections 1–14 were written for the Express (TypeScript) API that section 15 replaced with C#. The behaviour they
@@ -539,5 +574,7 @@ approve and sync buttons show as locked.
 - Replit and Azure deployments were not re-run. On Replit, run `pnpm --filter db push` (post-merge does it) to add the
   new columns before using the new features. The C# API also needs the .NET 8 SDK on the Repl (`artifact.toml` runs
   `dotnet artifacts/api-server/dist/AssetIQ.Api.dll`); that has not been tried.
+- The Supabase setup ("Using Supabase") has not been run end to end. The URL parsing it relies on is covered by
+  `PlumbingTests`; the dashboard menu names may have moved.
 - **.NET 8 support ends on 10 November 2026.** Moving to .NET 10 (LTS) is a version bump: `TargetFramework` in
   `artifacts/api-server/Directory.Build.props` plus the package versions in the two `.csproj` files.
