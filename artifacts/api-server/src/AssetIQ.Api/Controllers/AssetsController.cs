@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AssetIQ.Api.Controllers;
 
-public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQueries assets) : ApiControllerBase
+public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, AssetRegistrationService registration) : ApiControllerBase
 {
     [HttpGet("assets")]
     [FailureMessage("Failed to list assets")]
@@ -34,50 +34,44 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
         if (search is not null)
         {
             var pattern = $"%{search}%";
-            query = query.Where(a => EF.Functions.ILike(a.Name, pattern) || EF.Functions.ILike(a.SerialNumber, pattern) || EF.Functions.ILike(a.RfidTag, pattern));
+            query = query.Where(a => EF.Functions.ILike(a.Name, pattern) || EF.Functions.ILike(a.SerialNumber!, pattern) || EF.Functions.ILike(a.RfidTag!, pattern) || EF.Functions.ILike(a.AssetNumber!, pattern));
         }
         return query.OrderBy(a => a.Name).Select(AssetQueries.ToDto).ToListAsync(Aborted);
     }
 
+    /// <summary>
+    /// Registers an asset from its category template (AU-01 … AU-03): there is no generic form. The API
+    /// rejects a missing category, a missing required field or a field from another category, generates the
+    /// description, enforces Group-unique serial / MAC, and requests the Business Central asset number.
+    /// </summary>
     [HttpPost("assets")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.Viewer)]
     [FailureMessage("Failed to create asset")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
         var input = JsonBody.From(body);
-        var name = input.RequiredString("name");
-        var category = input.RequiredString("category");
-        var serialNumber = input.RequiredString("serialNumber");
-        var rfidTag = input.RequiredString("rfidTag");
-        var status = input.OptionalEnum("status", AssetStatuses.All) ?? AssetStatuses.Active;
-        var assignedTo = input.OptionalString("assignedTo");
-        var currentLocationId = input.OptionalInt("currentLocationId");
+        if (input.Has("name")) throw new ApiException(StatusCodes.Status400BadRequest, "name: the description is generated from the category fields and cannot be typed (AU-01)");
+        if (input.Has("rfidTag")) throw new ApiException(StatusCodes.Status400BadRequest, "rfidTag: an asset is tagged after Business Central issues its asset number (AU-03)");
+        var categoryId = input.RequiredInt("categoryId");
+        var subCategory = input.OptionalString("subCategory");
+        var attributes = input.OptionalValueMap("attributes");
+        var noSerialReason = input.OptionalString("noSerialReason");
         var sbuId = input.OptionalInt("sbuId");
-        var purchaseDate = input.OptionalDate("purchaseDate");
-        var purchaseValue = input.OptionalNumber("purchaseValue");
+        var locationId = input.RequiredInt("currentLocationId");
+        var custodian = input.RequiredString("assignedTo", minLength: 1);
+        var condition = input.RequiredEnum("condition", AssetConditions.All);
         var notes = input.OptionalString("notes");
+        var previousAssetNumber = input.OptionalString("previousAssetNumber");
+        var supplier = input.OptionalString("supplier");
+        var poNo = input.OptionalString("poNo");
+        var purchaseDate = input.NullableDay("purchaseDate");
+        var warrantyEnds = input.NullableDay("warrantyEnds");
         input.ThrowIfInvalid();
 
-        var now = clock.UtcNow;
-        var asset = new Asset
-        {
-            Name = name,
-            Category = category,
-            SerialNumber = serialNumber,
-            RfidTag = rfidTag,
-            Status = status,
-            AssignedTo = assignedTo,
-            CurrentLocationId = currentLocationId,
-            SbuId = sbuId,
-            PurchaseDate = purchaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            PurchaseValue = purchaseValue,
-            Notes = notes,
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-        db.Assets.Add(asset);
-        await db.SaveChangesAsync(Aborted);
-        return Status201((await assets.GetDetailedAsync(asset.Id, Aborted))!);
+        var id = await registration.RegisterAsync(Caller, new RegisterAssetInput(
+            categoryId, subCategory, attributes.Value ?? [], noSerialReason, sbuId, locationId, custodian, condition, notes,
+            previousAssetNumber, supplier, poNo, purchaseDate.Value, warrantyEnds.Value), Aborted);
+        return Status201((await assets.GetDetailedAsync(id, Aborted))!);
     }
 
     [HttpGet("assets/{id}")]
@@ -86,45 +80,46 @@ public sealed class AssetsController(AssetIqDbContext db, AppClock clock, AssetQ
         await assets.GetDetailedAsync(RequestValues.Id(id), Aborted)
         ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
 
-    /// <summary>Operators and administrators may change every field of the asset.</summary>
+    /// <summary>
+    /// Technical changes. Template values are merged with the current ones and re-validated, the description
+    /// is rebuilt, and every change is audit-logged. The description and category cannot be set here.
+    /// </summary>
     [HttpPatch("assets/{id}")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.Viewer)]
     [FailureMessage("Failed to update asset")]
     public async Task<AssetDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
         var assetId = RequestValues.Id(id);
         var input = JsonBody.From(body);
-        var name = input.OptionalString("name");
-        var category = input.OptionalString("category");
-        var status = input.OptionalEnum("status", AssetStatuses.All);
+        if (input.Has("name")) throw new ApiException(StatusCodes.Status400BadRequest, "name: the description is generated from the category fields and cannot be typed (AU-01)");
+        if (input.Has("category") || input.Has("categoryId"))
+            throw new ApiException(StatusCodes.Status400BadRequest, "category: change the category with POST /assets/{id}/category (SBU Finance only)");
+        var subCategory = input.OptionalString("subCategory");
+        var attributes = input.OptionalValueMap("attributes");
+        var noSerialReason = input.OptionalString("noSerialReason");
+        var status = input.OptionalEnum("status", AssetStatuses.Settable);
+        var condition = input.OptionalEnum("condition", AssetConditions.All);
         var assignedTo = input.NullableString("assignedTo");
         var currentLocationId = input.NullableInt("currentLocationId");
         var sbuId = input.NullableInt("sbuId");
         var notes = input.NullableString("notes");
+        var warrantyEnds = input.NullableDay("warrantyEnds");
+        var reason = input.OptionalString("reason");
         input.ThrowIfInvalid();
 
-        var asset = await db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
-            ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
-        if (name is not null) asset.Name = name;
-        if (category is not null) asset.Category = category;
-        if (status is not null) asset.Status = status;
-        if (assignedTo.IsSet) asset.AssignedTo = assignedTo.Value;
-        if (currentLocationId.IsSet) asset.CurrentLocationId = currentLocationId.Value;
-        if (sbuId.IsSet) asset.SbuId = sbuId.Value;
-        if (notes.IsSet) asset.Notes = notes.Value;
-        asset.UpdatedAt = clock.UtcNow;
-        await db.SaveChangesAsync(Aborted);
+        await registration.UpdateTechnicalAsync(Caller, assetId, new TechnicalUpdate(
+            subCategory, attributes.IsSet ? attributes.Value : null, noSerialReason, currentLocationId, assignedTo, condition, status,
+            sbuId, notes, warrantyEnds, reason), Aborted);
         return (await assets.GetDetailedAsync(assetId, Aborted))!;
     }
 
-    /// <summary>Removes the asset row. An asset that already has history cannot be deleted (the database refuses).</summary>
+    /// <summary>Removes a mistaken registration. Assets with an asset number or with history cannot be deleted.</summary>
     [HttpDelete("assets/{id}")]
     [RequireRole(Roles.Operator)]
     [FailureMessage("Failed to delete asset")]
     public async Task<IActionResult> Delete(string id)
     {
-        var assetId = RequestValues.Id(id);
-        await db.Assets.Where(a => a.Id == assetId).ExecuteDeleteAsync(Aborted);
+        await registration.DeleteAsync(Caller, RequestValues.Id(id), Aborted);
         return NoContent();
     }
 

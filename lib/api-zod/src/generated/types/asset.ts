@@ -3,19 +3,51 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
+import type { AssetNoSerialStatus } from './assetNoSerialStatus';
 import type { AssetStatus } from './assetStatus';
 
 export interface Asset {
   id: number;
+  /** The description, generated from the category template (AU-01) */
   name: string;
-  /** Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other */
+  /** The sub-category (Laptop, Desktop, Printer, Light vehicle …) */
   category: string;
-  serialNumber: string;
-  rfidTag: string;
+  categoryId: number;
+  categoryName: string;
+  /** @nullable */
+  subCategory?: string | null;
+  /**
+     * Group-unique identifier (serial, VIN or IMEI); null when recorded as "No serial"
+     * @nullable
+     */
+  serialNumber?: string | null;
+  /** @nullable */
+  noSerialReason?: string | null;
+  /** @nullable */
+  noSerialStatus?: AssetNoSerialStatus;
+  /** @nullable */
+  macAddress?: string | null;
+  /**
+     * Null until tagged (only after the asset number is issued)
+     * @nullable
+     */
+  rfidTag?: string | null;
+  /**
+     * Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.
+     * @nullable
+     */
+  assetNumber?: string | null;
+  /** @nullable */
+  previousAssetNumber?: string | null;
   status: AssetStatus;
   /** @nullable */
+  condition?: string | null;
+  /**
+     * The custodian
+     * @nullable
+     */
   assignedTo?: string | null;
   /** @nullable */
   currentLocationId?: number | null;
@@ -29,8 +61,42 @@ export interface Asset {
   sbuCode?: string | null;
   /** @nullable */
   purchaseDate?: Date | null;
-  /** @nullable */
+  /**
+     * Legacy USD value (kept equal to the original cost)
+     * @nullable
+     */
   purchaseValue?: number | null;
+  /**
+     * In the purchase currency
+     * @nullable
+     */
+  originalCost?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  /** @nullable */
+  exchangeRate?: number | null;
+  /**
+     * originalCost × exchangeRate, fixed at capitalisation
+     * @nullable
+     */
+  costUsd?: number | null;
+  /** @nullable */
+  capitalisedAt?: Date | null;
+  /** @nullable */
+  capitalisedBy?: string | null;
+  residualValue: number;
+  /** @nullable */
+  supplier?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  poNo?: string | null;
+  /** @nullable */
+  inUseDate?: Date | null;
+  /** @nullable */
+  warrantyEnds?: Date | null;
+  /** @nullable */
+  disposalDate?: Date | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

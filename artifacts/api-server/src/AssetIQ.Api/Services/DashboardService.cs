@@ -283,7 +283,7 @@ public sealed class DashboardService(AssetIqDbContext db, AppClock clock, AppCon
             SbuName = m.SbuName ?? "TSL Group",
             AssetId = m.AssetId,
             AssetName = m.AssetName,
-            RfidTag = m.RfidTag,
+            RfidTag = m.RfidTag ?? "",
             // A gate-pass exit leaves the site; a gate scan of an off-premises asset is an entry.
             Direction = m.LocationType != LocationTypes.Gate
                 ? GatePassRules.Internal

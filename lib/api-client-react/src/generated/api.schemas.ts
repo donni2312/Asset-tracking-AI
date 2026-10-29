@@ -3,10 +3,10 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
 /**
- * viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.
+ * The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.
  */
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
@@ -15,6 +15,13 @@ export const UserRole = {
   viewer: 'viewer',
   operator: 'operator',
   admin: 'admin',
+  group_finance: 'group_finance',
+  group_it: 'group_it',
+  sbu_it: 'sbu_it',
+  sbu_finance: 'sbu_finance',
+  sbu_admin: 'sbu_admin',
+  stores: 'stores',
+  auditor: 'auditor',
 } as const;
 
 export interface User {
@@ -23,6 +30,16 @@ export interface User {
   /** Display name, recorded on approvals and movements */
   name: string;
   role: UserRole;
+  /** Display name of the role, as on the sidebar */
+  roleName: string;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** The data scope shown under the role ("All SBUs", "BAK Logistics (IT assets)") */
+  scope: string;
+  /** @nullable */
+  accessExpiresAt?: string | null;
   /** @nullable */
   lastLoginAt?: string | null;
 }
@@ -70,10 +87,26 @@ export interface SBUInput {
   color?: string;
 }
 
+/**
+ * @nullable
+ */
+export type AssetNoSerialStatus = typeof AssetNoSerialStatus[keyof typeof AssetNoSerialStatus] | null;
+
+
+export const AssetNoSerialStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+/**
+ * pending_asset_number = waiting for the Business Central asset number (AU-03)
+ */
 export type AssetStatus = typeof AssetStatus[keyof typeof AssetStatus];
 
 
 export const AssetStatus = {
+  pending_asset_number: 'pending_asset_number',
   active: 'active',
   maintenance: 'maintenance',
   retired: 'retired',
@@ -82,13 +115,44 @@ export const AssetStatus = {
 
 export interface Asset {
   id: number;
+  /** The description, generated from the category template (AU-01) */
   name: string;
-  /** Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other */
+  /** The sub-category (Laptop, Desktop, Printer, Light vehicle …) */
   category: string;
-  serialNumber: string;
-  rfidTag: string;
+  categoryId: number;
+  categoryName: string;
+  /** @nullable */
+  subCategory?: string | null;
+  /**
+     * Group-unique identifier (serial, VIN or IMEI); null when recorded as "No serial"
+     * @nullable
+     */
+  serialNumber?: string | null;
+  /** @nullable */
+  noSerialReason?: string | null;
+  /** @nullable */
+  noSerialStatus?: AssetNoSerialStatus;
+  /** @nullable */
+  macAddress?: string | null;
+  /**
+     * Null until tagged (only after the asset number is issued)
+     * @nullable
+     */
+  rfidTag?: string | null;
+  /**
+     * Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.
+     * @nullable
+     */
+  assetNumber?: string | null;
+  /** @nullable */
+  previousAssetNumber?: string | null;
   status: AssetStatus;
   /** @nullable */
+  condition?: string | null;
+  /**
+     * The custodian
+     * @nullable
+     */
   assignedTo?: string | null;
   /** @nullable */
   currentLocationId?: number | null;
@@ -102,35 +166,81 @@ export interface Asset {
   sbuCode?: string | null;
   /** @nullable */
   purchaseDate?: string | null;
-  /** @nullable */
+  /**
+     * Legacy USD value (kept equal to the original cost)
+     * @nullable
+     */
   purchaseValue?: number | null;
+  /**
+     * In the purchase currency
+     * @nullable
+     */
+  originalCost?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  /** @nullable */
+  exchangeRate?: number | null;
+  /**
+     * originalCost × exchangeRate, fixed at capitalisation
+     * @nullable
+     */
+  costUsd?: number | null;
+  /** @nullable */
+  capitalisedAt?: string | null;
+  /** @nullable */
+  capitalisedBy?: string | null;
+  residualValue: number;
+  /** @nullable */
+  supplier?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  poNo?: string | null;
+  /** @nullable */
+  inUseDate?: string | null;
+  /** @nullable */
+  warrantyEnds?: string | null;
+  /** @nullable */
+  disposalDate?: string | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
 
-export type AssetInputStatus = typeof AssetInputStatus[keyof typeof AssetInputStatus];
+/**
+ * Template field key → value (string or number; null clears an optional field)
+ */
+export interface TemplateValues {[key: string]: string | number | null}
+
+export type AssetCondition = typeof AssetCondition[keyof typeof AssetCondition];
 
 
-export const AssetInputStatus = {
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+export const AssetCondition = {
+  new: 'new',
+  good: 'good',
+  fair: 'fair',
+  poor: 'poor',
+  damaged: 'damaged',
 } as const;
 
 export interface AssetInput {
-  name: string;
-  category: string;
-  serialNumber: string;
-  rfidTag: string;
-  status?: AssetInputStatus;
-  assignedTo?: string;
-  currentLocationId?: number;
+  categoryId: number;
+  subCategory?: string;
+  attributes?: TemplateValues;
+  /** Required when the item has no manufacturer serial; SBU Finance approves it */
+  noSerialReason?: string;
+  /** Default the SBU of an SBU role; required for Group roles */
   sbuId?: number;
+  currentLocationId: number;
+  /** The custodian */
+  assignedTo: string;
+  condition: AssetCondition;
+  previousAssetNumber?: string;
+  supplier?: string;
+  poNo?: string;
   purchaseDate?: string;
-  purchaseValue?: number;
+  warrantyEnds?: string;
   notes?: string;
 }
 
@@ -145,9 +255,11 @@ export const AssetUpdateStatus = {
 } as const;
 
 export interface AssetUpdate {
-  name?: string;
-  category?: string;
+  subCategory?: string;
+  attributes?: TemplateValues;
+  noSerialReason?: string;
   status?: AssetUpdateStatus;
+  condition?: AssetCondition;
   /** @nullable */
   assignedTo?: string | null;
   /** @nullable */
@@ -156,6 +268,10 @@ export interface AssetUpdate {
   sbuId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  warrantyEnds?: string | null;
+  /** Saved with the audit entries */
+  reason?: string;
 }
 
 export type AssetLifecycleEventEventType = typeof AssetLifecycleEventEventType[keyof typeof AssetLifecycleEventEventType];
@@ -780,6 +896,605 @@ export interface BCSyncStatus {
   pendingChanges?: number;
 }
 
+export type TemplateFieldType = typeof TemplateFieldType[keyof typeof TemplateFieldType];
+
+
+export const TemplateFieldType = {
+  text: 'text',
+  number: 'number',
+  integer: 'integer',
+  date: 'date',
+  list: 'list',
+} as const;
+
+export interface TemplateField {
+  id: number;
+  key: string;
+  label: string;
+  type: TemplateFieldType;
+  /** @nullable */
+  unit?: string | null;
+  required: boolean;
+  /** @nullable */
+  allowedValues?: string[] | null;
+  /** The field stored as the asset's Group-unique serial (serial, VIN, IMEI) */
+  isIdentifier: boolean;
+  sortOrder: number;
+}
+
+export type AssetCategoryDepreciationMethod = typeof AssetCategoryDepreciationMethod[keyof typeof AssetCategoryDepreciationMethod];
+
+
+export const AssetCategoryDepreciationMethod = {
+  straight_line: 'straight_line',
+  reducing_balance: 'reducing_balance',
+} as const;
+
+export interface AssetCategory {
+  id: number;
+  code: string;
+  name: string;
+  isIt: boolean;
+  subCategories: string[];
+  descriptionPattern: string;
+  /** @nullable */
+  identifierFieldKey?: string | null;
+  depreciationMethod: AssetCategoryDepreciationMethod;
+  /** @nullable */
+  usefulLifeMonths?: number | null;
+  /** @nullable */
+  annualRate?: number | null;
+  active: boolean;
+  fields: TemplateField[];
+}
+
+export type CategoryInputDepreciationMethod = typeof CategoryInputDepreciationMethod[keyof typeof CategoryInputDepreciationMethod];
+
+
+export const CategoryInputDepreciationMethod = {
+  straight_line: 'straight_line',
+  reducing_balance: 'reducing_balance',
+} as const;
+
+export interface CategoryInput {
+  code: string;
+  name: string;
+  isIt: boolean;
+  subCategories?: string[];
+  descriptionPattern?: string;
+  identifierFieldKey?: string;
+  depreciationMethod: CategoryInputDepreciationMethod;
+  usefulLifeMonths?: number;
+  annualRate?: number;
+}
+
+export type CategoryUpdateDepreciationMethod = typeof CategoryUpdateDepreciationMethod[keyof typeof CategoryUpdateDepreciationMethod];
+
+
+export const CategoryUpdateDepreciationMethod = {
+  straight_line: 'straight_line',
+  reducing_balance: 'reducing_balance',
+} as const;
+
+export interface CategoryUpdate {
+  name?: string;
+  subCategories?: string[];
+  depreciationMethod?: CategoryUpdateDepreciationMethod;
+  /** @nullable */
+  usefulLifeMonths?: number | null;
+  /** @nullable */
+  annualRate?: number | null;
+  active?: boolean;
+  descriptionPattern?: string;
+  /** @nullable */
+  identifierFieldKey?: string | null;
+  reason?: string;
+}
+
+export type TemplateFieldInputType = typeof TemplateFieldInputType[keyof typeof TemplateFieldInputType];
+
+
+export const TemplateFieldInputType = {
+  text: 'text',
+  number: 'number',
+  integer: 'integer',
+  date: 'date',
+  list: 'list',
+} as const;
+
+export interface TemplateFieldInput {
+  key: string;
+  label: string;
+  type: TemplateFieldInputType;
+  unit?: string;
+  required: boolean;
+  allowedValues?: string[];
+  sortOrder?: number;
+}
+
+export interface TemplateFieldUpdate {
+  label?: string;
+  required?: boolean;
+  /** @nullable */
+  unit?: string | null;
+  allowedValues?: string[];
+  sortOrder?: number;
+}
+
+export type GroupSettingEditableBy = typeof GroupSettingEditableBy[keyof typeof GroupSettingEditableBy];
+
+
+export const GroupSettingEditableBy = {
+  group_finance: 'group_finance',
+  group_it: 'group_it',
+} as const;
+
+export interface GroupSetting {
+  key: string;
+  /** The setting's JSON value (number, string, list or object) */
+  value: unknown;
+  description: string;
+  editableBy: GroupSettingEditableBy;
+  /** @nullable */
+  updatedBy?: string | null;
+  updatedAt: string;
+}
+
+export interface SettingUpdate {
+  /** The new value; the same kind of JSON value as before */
+  value: unknown;
+  reason?: string;
+}
+
+export interface AssetLookup {
+  assetId: number;
+}
+
+export interface AssetAttribute {
+  key: string;
+  label: string;
+  value: string;
+  /** @nullable */
+  unit?: string | null;
+}
+
+export interface AssetValue {
+  /** YYYY-MM */
+  period: string;
+  capitalised: boolean;
+  /** @nullable */
+  originalCostInCurrency?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  /** @nullable */
+  exchangeRate?: number | null;
+  /** USD */
+  originalCost: number;
+  capitalisedUpgrades: number;
+  totalCost: number;
+  depreciationMonth: number;
+  accumulatedDepreciation: number;
+  netBookValue: number;
+  residualValue: number;
+  depreciationMethod: string;
+  /** @nullable */
+  usefulLifeMonths?: number | null;
+  /** @nullable */
+  annualRate?: number | null;
+}
+
+export type AssetUpgradeStatus = typeof AssetUpgradeStatus[keyof typeof AssetUpgradeStatus];
+
+
+export const AssetUpgradeStatus = {
+  pending: 'pending',
+  capitalised: 'capitalised',
+  expensed: 'expensed',
+  rejected: 'rejected',
+} as const;
+
+export interface AssetUpgrade {
+  id: number;
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  /** @nullable */
+  assetDescription?: string | null;
+  upgradeDate: string;
+  description: string;
+  beforeText: string;
+  afterText: string;
+  fieldChanges: TemplateValues;
+  cost: number;
+  /** @nullable */
+  supplier?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  loggedBy: string;
+  loggedByRole: string;
+  status: AssetUpgradeStatus;
+  /** @nullable */
+  decidedBy?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  decisionComment?: string | null;
+  /** @nullable */
+  capitalisedPeriod?: string | null;
+  /** @nullable */
+  revisedLifeMonths?: number | null;
+  createdAt: string;
+}
+
+export interface DepreciationLine {
+  period: string;
+  openingCost: number;
+  openingAccumulated: number;
+  charge: number;
+  /** Catch-up for a change that affected locked months */
+  adjustment: number;
+  closingAccumulated: number;
+  closingNbv: number;
+  locked: boolean;
+}
+
+export interface TimelineEvent {
+  id: string;
+  at: string;
+  kind: string;
+  title: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  by?: string | null;
+}
+
+export interface AuditEntry {
+  id: number;
+  at: string;
+  action: string;
+  /** @nullable */
+  field?: string | null;
+  /** @nullable */
+  oldValue?: string | null;
+  /** @nullable */
+  newValue?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  userName: string;
+}
+
+export interface AssetCardPermissions {
+  editTechnical: boolean;
+  editFinancial: boolean;
+  logUpgrade: boolean;
+  decideUpgrades: boolean;
+  changeCategory: boolean;
+  tag: boolean;
+}
+
+export interface AssetCard {
+  asset: Asset;
+  categoryName: string;
+  isIt: boolean;
+  attributes: AssetAttribute[];
+  value: AssetValue;
+  upgrades: AssetUpgrade[];
+  /** Newest month first */
+  schedule: DepreciationLine[];
+  timeline: TimelineEvent[];
+  completenessGaps: string[];
+  can: AssetCardPermissions;
+}
+
+export interface CategoryChange {
+  categoryId: number;
+  subCategory?: string;
+  attributes?: TemplateValues;
+  noSerialReason?: string;
+  reason: string;
+}
+
+export interface FinancialUpdate {
+  /** @nullable */
+  originalCost?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  /**
+     * Currency → USD (1 for USD)
+     * @nullable
+     */
+  exchangeRate?: number | null;
+  /** @nullable */
+  residualValue?: number | null;
+  /** @nullable */
+  supplier?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  poNo?: string | null;
+  /** @nullable */
+  purchaseDate?: string | null;
+  /** @nullable */
+  inUseDate?: string | null;
+  reason: string;
+}
+
+export interface ReasonInput {
+  reason?: string;
+}
+
+export interface NoSerialDecision {
+  approve: boolean;
+  comment?: string;
+}
+
+export interface TagInput {
+  rfidTag: string;
+}
+
+export interface UpgradeInput {
+  upgradeDate: string;
+  description: string;
+  beforeText: string;
+  afterText: string;
+  cost: number;
+  supplier?: string;
+  invoiceNo?: string;
+  fieldChanges?: TemplateValues;
+}
+
+export type UpgradeDecisionTreatment = typeof UpgradeDecisionTreatment[keyof typeof UpgradeDecisionTreatment];
+
+
+export const UpgradeDecisionTreatment = {
+  capitalise: 'capitalise',
+  expense: 'expense',
+  reject: 'reject',
+} as const;
+
+export interface UpgradeDecision {
+  treatment: UpgradeDecisionTreatment;
+  comment?: string;
+  /** Capitalise only - remaining life from the effective month */
+  revisedLifeMonths?: number;
+  /** Capitalise only - YYYY-MM, default the month of approval */
+  effectivePeriod?: string;
+}
+
+export interface Totals {
+  count: number;
+  originalCost: number;
+  /** Upgrades capitalised from January to the period */
+  upgradesInPeriod: number;
+  capitalisedUpgrades: number;
+  totalCost: number;
+  depreciationMonth: number;
+  depreciationYtd: number;
+  accumulatedDepreciation: number;
+  netBookValue: number;
+  /** Assets capitalised with an in-use date in the period's year */
+  additions: number;
+}
+
+export interface ReportFilters {
+  period: string;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  locationId?: number | null;
+  /** @nullable */
+  categoryId?: number | null;
+}
+
+export interface RegisterRow {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  /** @nullable */
+  serialNumber?: string | null;
+  categoryId: number;
+  categoryName: string;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  locationName?: string | null;
+  /** @nullable */
+  custodian?: string | null;
+  status: string;
+  capitalised: boolean;
+  /** @nullable */
+  inUseDate?: string | null;
+  originalCost: number;
+  upgradesInPeriod: number;
+  capitalisedUpgrades: number;
+  totalCost: number;
+  depreciationMonth: number;
+  depreciationYtd: number;
+  accumulatedDepreciation: number;
+  netBookValue: number;
+}
+
+export interface RegisterReport {
+  filters: ReportFilters;
+  rows: RegisterRow[];
+  totals: Totals;
+}
+
+export interface CategoryLine {
+  categoryId: number;
+  categoryName: string;
+  totals: Totals;
+}
+
+export interface CategoryReport {
+  filters: ReportFilters;
+  categories: CategoryLine[];
+  totals: Totals;
+}
+
+export interface SbuValue {
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  color?: string | null;
+  netBookValue: number;
+  totalCost: number;
+}
+
+export interface FinanceDashboard {
+  filters: ReportFilters;
+  categories: CategoryLine[];
+  totals: Totals;
+  bySbu: SbuValue[];
+  percentComplete: number;
+  incompleteAssets: number;
+  pendingDecisions: number;
+}
+
+export interface CompletenessGap {
+  field: string;
+  message: string;
+  owner: string;
+}
+
+export interface CompletenessRow {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  /** @nullable */
+  sbuCode?: string | null;
+  categoryName: string;
+  gaps: CompletenessGap[];
+}
+
+export interface SbuCompleteness {
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  assets: number;
+  complete: number;
+  percentComplete: number;
+}
+
+export interface CompletenessReport {
+  assets: number;
+  complete: number;
+  percentComplete: number;
+  sbus: SbuCompleteness[];
+  incomplete: CompletenessRow[];
+}
+
+export type ApprovalItemType = typeof ApprovalItemType[keyof typeof ApprovalItemType];
+
+
+export const ApprovalItemType = {
+  upgrade: 'upgrade',
+  no_serial: 'no_serial',
+} as const;
+
+export interface ApprovalItem {
+  id: string;
+  type: ApprovalItemType;
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  assetDescription: string;
+  /** @nullable */
+  sbuCode?: string | null;
+  summary: string;
+  raisedAt: string;
+  raisedBy: string;
+  /** @nullable */
+  upgradeId?: number | null;
+}
+
+export interface DepreciationRunInput {
+  /** YYYY-MM */
+  period: string;
+  /** Default the SBU of the signed-in SBU Finance officer */
+  sbuId?: number;
+}
+
+export interface DepreciationRun {
+  period: string;
+  /** @nullable */
+  sbuId?: number | null;
+  assets: number;
+  monthsWritten: number;
+  chargeForPeriod: number;
+}
+
+export interface DepreciationLock {
+  id: number;
+  sbuId: number;
+  period: string;
+  lockedBy: string;
+  lockedAt: string;
+}
+
+export interface Account {
+  id: number;
+  username: string;
+  name: string;
+  role: UserRole;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  accessExpiresAt?: string | null;
+  active: boolean;
+  /** @nullable */
+  lastLoginAt?: string | null;
+}
+
+export interface AuditorInput {
+  username: string;
+  name: string;
+  /** @minLength 10 */
+  password: string;
+  accessExpiresAt: string;
+}
+
+export interface AuditorAccessUpdate {
+  accessExpiresAt?: string;
+  active?: boolean;
+}
+
+export type AccessLogEntryAction = typeof AccessLogEntryAction[keyof typeof AccessLogEntryAction];
+
+
+export const AccessLogEntryAction = {
+  login: 'login',
+  login_refused: 'login_refused',
+  export: 'export',
+} as const;
+
+export interface AccessLogEntry {
+  id: number;
+  at: string;
+  username: string;
+  role: string;
+  action: AccessLogEntryAction;
+  /** @nullable */
+  detail?: string | null;
+}
+
+/**
+ * Month (YYYY-MM); default the current month
+ */
+export type PeriodParameter = string;
+
+export type SbuFilterParameter = number;
+
+export type LocationFilterParameter = number;
+
+export type CategoryFilterParameter = number;
+
 /**
  * First calendar day (YYYY-MM-DD, organisation time zone), inclusive
  */
@@ -811,6 +1526,7 @@ export type ListAssetsStatus = typeof ListAssetsStatus[keyof typeof ListAssetsSt
 
 
 export const ListAssetsStatus = {
+  pending_asset_number: 'pending_asset_number',
   active: 'active',
   maintenance: 'maintenance',
   retired: 'retired',
@@ -934,6 +1650,7 @@ export type DownloadAssetsReportStatus = typeof DownloadAssetsReportStatus[keyof
 
 
 export const DownloadAssetsReportStatus = {
+  pending_asset_number: 'pending_asset_number',
   active: 'active',
   maintenance: 'maintenance',
   retired: 'retired',
@@ -1006,4 +1723,97 @@ export const DownloadLifecycleReportEventType = {
   sbu_transfer: 'sbu_transfer',
   note: 'note',
 } as const;
+
+export type ListCategoriesParams = {
+includeInactive?: ListCategoriesIncludeInactive;
+};
+
+export type ListCategoriesIncludeInactive = typeof ListCategoriesIncludeInactive[keyof typeof ListCategoriesIncludeInactive];
+
+
+export const ListCategoriesIncludeInactive = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export type LookupAssetParams = {
+code: string;
+};
+
+export type GetAssetRegisterParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadAssetRegisterExcelParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadAssetRegisterPdfParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type GetCategoryReportParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadCategoryReportExcelParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadCategoryReportPdfParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type GetFinanceDashboardParams = {
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+};
+
+export type GetCompletenessReportParams = {
+sbuId?: SbuFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type ListAccessLogParams = {
+role?: string;
+};
 

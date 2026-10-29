@@ -16,6 +16,14 @@ public sealed record UserDto
     public required string Username { get; init; }
     public required string Name { get; init; }
     public required string Role { get; init; }
+    /// <summary>"Group Finance Executive", "SBU IT Admin / Technician", …</summary>
+    public required string RoleName { get; init; }
+    /// <summary>The SBU an SBU role acts on; null for Group roles.</summary>
+    public int? SbuId { get; init; }
+    public string? SbuCode { get; init; }
+    /// <summary>"All SBUs", "BAK Logistics (IT assets)", …: the scope shown on the sidebar.</summary>
+    public required string Scope { get; init; }
+    public DateTime? AccessExpiresAt { get; init; }
     public DateTime? LastLoginAt { get; init; }
 }
 
@@ -42,11 +50,25 @@ public sealed record SbuDto
 public sealed record AssetDto
 {
     public required int Id { get; init; }
+    /// <summary>The generated description (AU-01).</summary>
     public required string Name { get; init; }
+    /// <summary>The sub-category (Laptop, Desktop, …).</summary>
     public required string Category { get; init; }
-    public required string SerialNumber { get; init; }
-    public required string RfidTag { get; init; }
+    public required int CategoryId { get; init; }
+    public required string CategoryName { get; init; }
+    public string? SubCategory { get; init; }
+    /// <summary>Null when the asset is recorded as "No serial".</summary>
+    public string? SerialNumber { get; init; }
+    public string? NoSerialReason { get; init; }
+    public string? NoSerialStatus { get; init; }
+    public string? MacAddress { get; init; }
+    /// <summary>Null until tagged.</summary>
+    public string? RfidTag { get; init; }
+    /// <summary>Business Central fixed-asset number; null while pending (AU-03).</summary>
+    public string? AssetNumber { get; init; }
+    public string? PreviousAssetNumber { get; init; }
     public required string Status { get; init; }
+    public string? Condition { get; init; }
     public string? AssignedTo { get; init; }
     public int? CurrentLocationId { get; init; }
     public string? CurrentLocationName { get; init; }
@@ -56,6 +78,19 @@ public sealed record AssetDto
     /// <summary>YYYY-MM-DD</summary>
     public string? PurchaseDate { get; init; }
     public decimal? PurchaseValue { get; init; }
+    public decimal? OriginalCost { get; init; }
+    public string? Currency { get; init; }
+    public decimal? ExchangeRate { get; init; }
+    public decimal? CostUsd { get; init; }
+    public DateTime? CapitalisedAt { get; init; }
+    public string? CapitalisedBy { get; init; }
+    public required decimal ResidualValue { get; init; }
+    public string? Supplier { get; init; }
+    public string? InvoiceNo { get; init; }
+    public string? PoNo { get; init; }
+    public string? InUseDate { get; init; }
+    public string? WarrantyEnds { get; init; }
+    public string? DisposalDate { get; init; }
     public string? Notes { get; init; }
     public required DateTime CreatedAt { get; init; }
     public required DateTime UpdatedAt { get; init; }

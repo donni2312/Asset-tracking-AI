@@ -20,6 +20,9 @@ export const SBUS: SbuSeed[] = [
   { code: "BAK", name: "Bak Logistics", description: "Warehousing, freight and distribution", headOffice: "BAK Depot, Harare", color: "#DC2626" },
   { code: "AGRI", name: "Agricura", description: "Agro-chemicals and farming inputs", headOffice: "Agricura House, Harare", color: "#16A34A" },
   { code: "PROP", name: "TSL Property Services", description: "Group head office, real estate and facilities", headOffice: "TSL Group Head Office, Harare", color: "#7C3AED" },
+  // ASSUMPTION: Propak's confirmed code "Prop" clashes with TSL Properties' PROP (codes prefix asset numbers) and
+  // green is Agricura's badge colour, so Propak is seeded as PPK in lime green until both are confirmed.
+  { code: "PPK", name: "Propak", description: "Packaging manufacture", headOffice: "Propak Plant, Harare", color: "#65A30D" },
 ];
 
 export type LocationType = "office" | "gate" | "warehouse" | "meeting_room" | "lab" | "reception" | "server_room";
@@ -54,6 +57,8 @@ export const LOCATIONS: LocationSeed[] = [
   { key: "prop-reception", sbu: "PROP", name: "TSL Group Reception", type: "reception", building: "TSL Group Head Office", floor: "G", reader: "Group Reception Reader" },
   { key: "prop-conference", sbu: "PROP", name: "TSL Head Office – Conference Centre", type: "meeting_room", building: "TSL Group Head Office", floor: "1" },
   { key: "prop-gate", sbu: "PROP", name: "TSL Head Office Gate", type: "gate", building: "TSL Group Head Office", reader: "Head Office Gate Reader" },
+  { key: "ppk-office", sbu: "PPK", name: "Propak – Plant Office", type: "office", building: "Propak Plant", reader: "Propak Office Reader" },
+  { key: "ppk-gate", sbu: "PPK", name: "Propak Plant Gate", type: "gate", building: "Propak Plant", reader: "Propak Gate Reader" },
 ];
 
 /** An extra reader that is offline, to show the simulator's inactive state. */
@@ -65,6 +70,7 @@ export interface AssetSeed {
   name: string;
   category: string;
   status: "active" | "maintenance" | "retired" | "missing";
+  /** Template category, values and finance state (Phase 1): see seed-audit.ts TEMPLATES, keyed by `key`. */
   assignedTo?: string;
   /** Where the asset sits once all seeded movements have happened (null = no location). */
   location: string | null;
@@ -117,6 +123,10 @@ export const ASSETS: AssetSeed[] = [
   { key: "aeron", sbu: "PROP", name: "Herman Miller Aeron Chair", category: "Furniture", status: "active", location: "prop-conference", lastMovedDaysAgo: 5, moves: 2, registeredDaysAgo: 1000, value: 1400 },
   { key: "x1-carbon", sbu: "PROP", name: "Lenovo ThinkPad X1 Carbon", category: "Laptop", status: "active", assignedTo: "Tapiwa Chirwa", location: "prop-conference", visits: ["prop-reception"], lastMovedDaysAgo: 2, moves: 4, registeredDaysAgo: 120, value: 2100 },
   { key: "epson-x41", sbu: "PROP", name: "Epson EB-X41 Projector", category: "Projector", status: "retired", location: null, lastMovedDaysAgo: 95, moves: 1, registeredDaysAgo: 1400, value: 450, notes: "Disposed — lamp housing cracked" },
+  // ── PPK (Propak) ──
+  { key: "ppk-laptop", sbu: "PPK", name: "Dell Latitude 5450", category: "Laptop", status: "active", assignedTo: "Kudakwashe Moyo", location: "ppk-office", lastMovedDaysAgo: 3, moves: 1, registeredDaysAgo: 75, value: 1390 },
+  { key: "ppk-genset", sbu: "PPK", name: "Cummins C150 Generator", category: "Other", status: "active", location: "ppk-office", lastMovedDaysAgo: 40, moves: 1, registeredDaysAgo: 900, value: 24600 },
+  { key: "ppk-desk", sbu: "PPK", name: "Executive desk", category: "Furniture", status: "active", assignedTo: "Plant manager", location: "ppk-office", lastMovedDaysAgo: 60, moves: 1, registeredDaysAgo: 400, value: 640 },
 ];
 
 /** People who approve gate passes in the demo. */

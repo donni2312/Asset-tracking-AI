@@ -1,6 +1,11 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Activity, Box, Building2, Database, FileDown, HardDrive, LayoutDashboard, MapPin, Radio, ShieldAlert } from "lucide-react";
+import {
+  Activity, Box, Boxes, Building2, CheckCircle2, Database, FileDown, FileText, HardDrive, Inbox, LayoutDashboard, MapPin, Radio, ScanLine,
+  Settings2, ShieldAlert, Truck, Users, Gauge,
+} from "lucide-react";
+import { useListApprovals } from "@workspace/api-client-react";
+import { useCurrentUser } from "@/hooks/use-auth";
 import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
 import { SettingsButton } from "@/components/settings-dialog";
@@ -19,19 +24,38 @@ export function Layout({ children }: LayoutProps) {
   // consistent after a switch in Settings. The sidebar (and the open Settings
   // panel) sits outside the keyed element and survives.
   const [dateFormat] = useDateFormat();
+  const user = useCurrentUser();
+  const { data: approvals } = useListApprovals({ query: { enabled: user?.role === "sbu_finance", queryKey: ["approvals"] } });
+  const pendingApprovals = approvals?.length ?? 0;
 
+  // Main entries follow the approved designs; the screens that came before them stay under "Tracking".
   const navigation = [
-    { name: "Dashboard",       href: "/",              icon: LayoutDashboard },
-    { name: "SBUs",            href: "/sbus",          icon: Building2 },
-    { name: "Assets",          href: "/assets",        icon: Box },
-    { name: "Locations",       href: "/locations",     icon: MapPin },
-    { name: "Movements",       href: "/movements",     icon: Activity },
-    { name: "Gate Passes",     href: "/gate-passes",   icon: ShieldAlert },
-    { name: "RFID Simulator",  href: "/rfid-simulator",icon: Radio },
-    { name: "AI Insights",     href: "/insights",      icon: Database },
-    { name: "Reports",         href: "/reports",       icon: FileDown },
-    { name: "BC Sync",         href: "/bc-sync",       icon: HardDrive },
+    { name: "Dashboard",           href: "/",              icon: LayoutDashboard },
+    { name: "Asset Register",      href: "/register",      icon: Boxes },
+    { name: "Reports",             href: "/reports/category", icon: FileText },
+    { name: "Approvals",           href: "/approvals",     icon: Inbox },
+    { name: "Verification",        href: "/verification",  icon: ScanLine },
+    { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2 },
+    { name: "Gate Passes",         href: "/gate-passes",   icon: ShieldAlert },
+    { name: "People & Toolboxes",  href: "/people",        icon: Users },
+    { name: "Departments",         href: "/departments",   icon: Building2 },
+    { name: "Fleet & Non-IT",      href: "/fleet",         icon: Truck },
   ];
+  const tracking = [
+    { name: "Operations",          href: "/operations",    icon: Gauge },
+    { name: "Assets (tracking)",   href: "/assets",        icon: Box },
+    { name: "SBUs",                href: "/sbus",          icon: Building2 },
+    { name: "Locations",           href: "/locations",     icon: MapPin },
+    { name: "Movements",           href: "/movements",     icon: Activity },
+    { name: "RFID Simulator",      href: "/rfid-simulator",icon: Radio },
+    { name: "AI Insights",         href: "/insights",      icon: Database },
+    { name: "CSV Reports",         href: "/reports",       icon: FileDown },
+    { name: "BC Sync",             href: "/bc-sync",       icon: HardDrive },
+    { name: "Administration",      href: "/administration", icon: Settings2 },
+  ];
+  const isActive = (href: string) =>
+    location === href || (href !== "/" && href !== "/reports" && location.startsWith(href)) ||
+    (href === "/register" && /^\/assets\/(new|\d+\/card)/.test(location));
 
   return (
     <div className="flex min-h-[100dvh] w-full bg-background text-foreground flex-col md:h-[100dvh] md:flex-row md:overflow-hidden">
@@ -55,12 +79,15 @@ export function Layout({ children }: LayoutProps) {
           </Link>
         </div>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navigation.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          {[...navigation, null, ...tracking].map((item) => {
+            if (item === null) {
+              return <div key="tracking" className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-wider text-sidebar-foreground/50">Tracking</div>;
+            }
+            const active = isActive(item.href);
             return (
               <Link key={item.name} href={item.href} className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
-                isActive
+                active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}>
@@ -73,6 +100,14 @@ export function Layout({ children }: LayoutProps) {
                     title={`${pendingGatePasses} awaiting approval`}
                   >
                     {pendingGatePasses}
+                  </span>
+                )}
+                {item.href === "/approvals" && pendingApprovals > 0 && (
+                  <span
+                    className="min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-[10px] font-bold text-slate-900 flex items-center justify-center"
+                    aria-label={`${pendingApprovals} approvals waiting on you`}
+                  >
+                    {pendingApprovals}
                   </span>
                 )}
               </Link>

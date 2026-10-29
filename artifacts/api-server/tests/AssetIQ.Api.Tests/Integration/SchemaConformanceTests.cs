@@ -8,7 +8,7 @@ namespace AssetIQ.Api.Tests.Integration;
 /// <summary>
 /// The EF Core model maps onto the existing database and nothing else: every mapped property is a real
 /// column with the same type and nullability, and every column of every table is mapped. The schema
-/// comes from Database/schema.sql (drizzle-kit's DDL for lib/db/src/schema).
+/// comes from lib/db/migrations, applied in journal order.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public sealed class SchemaConformanceTests(ApiFixture api)
@@ -49,7 +49,9 @@ public sealed class SchemaConformanceTests(ApiFixture api)
                 {
                     problems.Add($"{table}.{name}: database nullable={column.IsNullable}, model nullable={property.IsNullable}");
                 }
-                if (!string.Equals(column.DataType, property.GetColumnType(store), StringComparison.OrdinalIgnoreCase))
+                // information_schema reports "numeric" for numeric(18,2): compare the base type.
+                var modelType = property.GetColumnType(store)!.Split('(')[0];
+                if (!string.Equals(column.DataType, modelType, StringComparison.OrdinalIgnoreCase))
                 {
                     problems.Add($"{table}.{name}: database type {column.DataType}, model type {property.GetColumnType(store)}");
                 }
@@ -75,6 +77,12 @@ public sealed class SchemaConformanceTests(ApiFixture api)
         Assert.False(await db.GatePasses.AnyAsync());
         Assert.False(await db.AiInsights.AnyAsync());
         Assert.False(await db.AssetLifecycleEvents.AnyAsync());
+        Assert.False(await db.AssetUpgrades.AnyAsync());
+        Assert.False(await db.DepreciationEntries.AnyAsync());
+        Assert.False(await db.AuditLog.AnyAsync());
+        // Reference data (migration 0002) is put back by every reset.
+        Assert.Equal(8, await db.AssetCategories.CountAsync());
+        Assert.True(await db.GroupSettings.AnyAsync());
     }
 
     private async Task<List<Column>> LoadColumnsAsync()

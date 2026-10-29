@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
 import * as zod from 'zod';
 
@@ -35,7 +35,12 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.'),
+  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "roleName": zod.string().describe('Display name of the role, as on the sidebar'),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "scope": zod.string().describe('The data scope shown under the role (\"All SBUs\", \"BAK Logistics (IT assets)\")'),
+  "accessExpiresAt": zod.coerce.date().nullish(),
   "lastLoginAt": zod.coerce.date().nullish()
 })
 })
@@ -48,7 +53,12 @@ export const GetCurrentUserResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin']).describe('viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything.'),
+  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "roleName": zod.string().describe('Display name of the role, as on the sidebar'),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "scope": zod.string().describe('The data scope shown under the role (\"All SBUs\", \"BAK Logistics (IT assets)\")'),
+  "accessExpiresAt": zod.coerce.date().nullish(),
   "lastLoginAt": zod.coerce.date().nullish()
 })
 
@@ -153,19 +163,41 @@ export const GetSbuAssetsParams = zod.object({
 
 export const GetSbuAssetsResponseItem = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -177,7 +209,7 @@ export const GetSbuAssetsResponse = zod.array(GetSbuAssetsResponseItem)
  * @summary List all assets
  */
 export const ListAssetsQueryParams = zod.object({
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).optional(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).optional(),
   "locationId": zod.coerce.number().nullish(),
   "sbuId": zod.coerce.number().nullish(),
   "category": zod.coerce.string().optional(),
@@ -186,19 +218,41 @@ export const ListAssetsQueryParams = zod.object({
 
 export const ListAssetsResponseItem = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -207,40 +261,63 @@ export const ListAssetsResponse = zod.array(ListAssetsResponseItem)
 
 
 /**
- * Requires the `operator` role.
- * @summary Register a new asset
+ * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
+ * @summary Register a new asset from its category template (AU-01 … AU-03)
  */
-export const createAssetBodyStatusDefault = `active`;
-
 export const CreateAssetBody = zod.object({
-  "name": zod.string(),
-  "category": zod.string(),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).default(createAssetBodyStatusDefault),
-  "assignedTo": zod.string().optional(),
-  "currentLocationId": zod.number().optional(),
-  "sbuId": zod.number().optional(),
+  "categoryId": zod.number(),
+  "subCategory": zod.string().optional(),
+  "attributes": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)'),
+  "noSerialReason": zod.string().optional().describe('Required when the item has no manufacturer serial; SBU Finance approves it'),
+  "sbuId": zod.number().optional().describe('Default the SBU of an SBU role; required for Group roles'),
+  "currentLocationId": zod.number(),
+  "assignedTo": zod.string().describe('The custodian'),
+  "condition": zod.enum(['new', 'good', 'fair', 'poor', 'damaged']),
+  "previousAssetNumber": zod.string().optional(),
+  "supplier": zod.string().optional(),
+  "poNo": zod.string().optional(),
   "purchaseDate": zod.coerce.date().optional(),
-  "purchaseValue": zod.number().optional(),
+  "warrantyEnds": zod.coerce.date().optional(),
   "notes": zod.string().optional()
 })
 
 export const CreateAssetResponse = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -256,19 +333,41 @@ export const GetAssetParams = zod.object({
 
 export const GetAssetResponse = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -276,38 +375,64 @@ export const GetAssetResponse = zod.object({
 
 
 /**
- * Requires the `operator` role (operators and administrators may change every field).
- * @summary Update asset
+ * Template values are merged with the current ones, re-validated and the description rebuilt; every change is audit-logged. The description (name) and the category cannot be set here (400): the category changes through POST /assets/{id}/category (SBU Finance only).
+ * @summary Update the asset's technical fields
  */
 export const UpdateAssetParams = zod.object({
   "id": zod.coerce.number()
 })
 
 export const UpdateAssetBody = zod.object({
-  "name": zod.string().optional(),
-  "category": zod.string().optional(),
+  "subCategory": zod.string().optional(),
+  "attributes": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)'),
+  "noSerialReason": zod.string().optional(),
   "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).optional(),
+  "condition": zod.enum(['new', 'good', 'fair', 'poor', 'damaged']).optional(),
   "assignedTo": zod.string().nullish(),
   "currentLocationId": zod.number().nullish(),
   "sbuId": zod.number().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "reason": zod.string().optional().describe('Saved with the audit entries')
 })
 
 export const UpdateAssetResponse = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -315,8 +440,8 @@ export const UpdateAssetResponse = zod.object({
 
 
 /**
- * Requires the `operator` role.
- * @summary Retire/decommission asset
+ * Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
+ * @summary Delete a mistaken registration
  */
 export const DeleteAssetParams = zod.object({
   "id": zod.coerce.number()
@@ -574,19 +699,41 @@ export const GetLocationAssetsParams = zod.object({
 
 export const GetLocationAssetsResponseItem = zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1128,19 +1275,41 @@ export const AiQueryResponse = zod.object({
   "answer": zod.string(),
   "relatedAssets": zod.array(zod.object({
   "id": zod.number(),
-  "name": zod.string(),
-  "category": zod.string().describe('Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other'),
-  "serialNumber": zod.string(),
-  "rfidTag": zod.string(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']),
-  "assignedTo": zod.string().nullish(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
   "currentLocationName": zod.string().nullish(),
   "sbuId": zod.number().nullish(),
   "sbuName": zod.string().nullish(),
   "sbuCode": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
-  "purchaseValue": zod.number().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1178,7 +1347,7 @@ export const AiQueryResponse = zod.object({
  * @summary Asset register as CSV (same filters as listAssets)
  */
 export const DownloadAssetsReportQueryParams = zod.object({
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).optional(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).optional(),
   "locationId": zod.coerce.number().optional(),
   "sbuId": zod.coerce.number().optional(),
   "category": zod.coerce.string().optional(),
@@ -1270,5 +1439,1249 @@ export const TriggerBcSyncResponse = zod.object({
   "mode": zod.enum(['manual', 'automatic']).optional().describe('MVP decision - manual sync only'),
   "pendingChanges": zod.number().optional().describe('Movements and gate-pass decisions recorded since the last successful sync')
 })
+
+
+/**
+ * @summary Category templates with their fields and depreciation policy (AU-01, GF-03)
+ */
+export const ListCategoriesQueryParams = zod.object({
+  "includeInactive": zod.enum(['true', 'false']).optional()
+})
+
+export const ListCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * @summary Create a category (Group Finance)
+ */
+export const CreateCategoryBody = zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()).optional(),
+  "descriptionPattern": zod.string().optional(),
+  "identifierFieldKey": zod.string().optional(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().optional(),
+  "annualRate": zod.number().optional()
+})
+
+export const CreateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary One category template
+ */
+export const GetCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCategoryResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary Update a category. Group Finance: name, sub-categories, depreciation policy, active. Field owners (Group IT for IT, SBU Admin Manager for non-IT): description pattern and identifier field.
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCategoryBody = zod.object({
+  "name": zod.string().optional(),
+  "subCategories": zod.array(zod.string()).optional(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']).optional(),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean().optional(),
+  "descriptionPattern": zod.string().optional(),
+  "identifierFieldKey": zod.string().nullish(),
+  "reason": zod.string().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary Add a template field (Group IT for IT categories, SBU Admin Manager for non-IT)
+ */
+export const AddCategoryFieldParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddCategoryFieldBody = zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().optional(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const AddCategoryFieldResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary Change a template field (label, required, unit, allowed values, order)
+ */
+export const UpdateCategoryFieldParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCategoryFieldBody = zod.object({
+  "label": zod.string().optional(),
+  "required": zod.boolean().optional(),
+  "unit": zod.string().nullish(),
+  "allowedValues": zod.array(zod.string()).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateCategoryFieldResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "isIt": zod.boolean(),
+  "subCategories": zod.array(zod.string()),
+  "descriptionPattern": zod.string(),
+  "identifierFieldKey": zod.string().nullish(),
+  "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish(),
+  "active": zod.boolean(),
+  "fields": zod.array(zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "label": zod.string(),
+  "type": zod.enum(['text', 'number', 'integer', 'date', 'list']),
+  "unit": zod.string().nullish(),
+  "required": zod.boolean(),
+  "allowedValues": zod.array(zod.string()).nullish(),
+  "isIdentifier": zod.boolean().describe('The field stored as the asset\'s Group-unique serial (serial, VIN, IMEI)'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary Group settings (thresholds, alert days, depreciation convention)
+ */
+export const ListSettingsResponseItem = zod.object({
+  "key": zod.string(),
+  "value": zod.unknown().describe('The setting\'s JSON value (number, string, list or object)'),
+  "description": zod.string(),
+  "editableBy": zod.enum(['group_finance', 'group_it']),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListSettingsResponse = zod.array(ListSettingsResponseItem)
+
+
+/**
+ * @summary Change a Group setting (the role named in editableBy)
+ */
+export const UpdateSettingParams = zod.object({
+  "key": zod.coerce.string()
+})
+
+export const UpdateSettingBody = zod.object({
+  "value": zod.unknown().describe('The new value; the same kind of JSON value as before'),
+  "reason": zod.string().optional()
+})
+
+export const UpdateSettingResponse = zod.object({
+  "key": zod.string(),
+  "value": zod.unknown().describe('The setting\'s JSON value (number, string, list or object)'),
+  "description": zod.string(),
+  "editableBy": zod.enum(['group_finance', 'group_it']),
+  "updatedBy": zod.string().nullish(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Find an asset by asset number, previous number, RFID / QR tag or serial (AU-08)
+ */
+export const LookupAssetQueryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const LookupAssetResponse = zod.object({
+  "assetId": zod.number()
+})
+
+
+/**
+ * @summary The one-page asset card (AU-08)
+ */
+export const GetAssetCardParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAssetCardResponse = zod.object({
+  "asset": zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+}),
+  "categoryName": zod.string(),
+  "isIt": zod.boolean(),
+  "attributes": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "value": zod.string(),
+  "unit": zod.string().nullish()
+})),
+  "value": zod.object({
+  "period": zod.string().describe('YYYY-MM'),
+  "capitalised": zod.boolean(),
+  "originalCostInCurrency": zod.number().nullish(),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "originalCost": zod.number().describe('USD'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "residualValue": zod.number(),
+  "depreciationMethod": zod.string(),
+  "usefulLifeMonths": zod.number().nullish(),
+  "annualRate": zod.number().nullish()
+}),
+  "upgrades": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string().nullish(),
+  "upgradeDate": zod.coerce.date(),
+  "description": zod.string(),
+  "beforeText": zod.string(),
+  "afterText": zod.string(),
+  "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
+  "cost": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "loggedBy": zod.string(),
+  "loggedByRole": zod.string(),
+  "status": zod.enum(['pending', 'capitalised', 'expensed', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "decisionComment": zod.string().nullish(),
+  "capitalisedPeriod": zod.string().nullish(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "schedule": zod.array(zod.object({
+  "period": zod.string(),
+  "openingCost": zod.number(),
+  "openingAccumulated": zod.number(),
+  "charge": zod.number(),
+  "adjustment": zod.number().describe('Catch-up for a change that affected locked months'),
+  "closingAccumulated": zod.number(),
+  "closingNbv": zod.number(),
+  "locked": zod.boolean()
+})).describe('Newest month first'),
+  "timeline": zod.array(zod.object({
+  "id": zod.string(),
+  "at": zod.coerce.date(),
+  "kind": zod.string(),
+  "title": zod.string(),
+  "detail": zod.string().nullish(),
+  "by": zod.string().nullish()
+})),
+  "completenessGaps": zod.array(zod.string()),
+  "can": zod.object({
+  "editTechnical": zod.boolean(),
+  "editFinancial": zod.boolean(),
+  "logUpgrade": zod.boolean(),
+  "decideUpgrades": zod.boolean(),
+  "changeCategory": zod.boolean(),
+  "tag": zod.boolean()
+})
+})
+
+
+/**
+ * @summary The asset card as PDF (logged in the access log)
+ */
+export const DownloadAssetCardPdfParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DownloadAssetCardPdfResponse = zod.unknown()
+
+
+/**
+ * @summary The asset's monthly depreciation schedule as Excel (AU-05)
+ */
+export const DownloadDepreciationScheduleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DownloadDepreciationScheduleResponse = zod.unknown()
+
+
+/**
+ * @summary The asset's audit trail, newest first (AU-06, GF-07). There is no way to change or delete an entry.
+ */
+export const GetAssetAuditParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAssetAuditResponseItem = zod.object({
+  "id": zod.number(),
+  "at": zod.coerce.date(),
+  "action": zod.string(),
+  "field": zod.string().nullish(),
+  "oldValue": zod.string().nullish(),
+  "newValue": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "userName": zod.string()
+})
+export const GetAssetAuditResponse = zod.array(GetAssetAuditResponseItem)
+
+
+/**
+ * @summary Change the category (SBU Finance only; the new category's required fields must be filled in)
+ */
+export const ChangeAssetCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ChangeAssetCategoryBody = zod.object({
+  "categoryId": zod.number(),
+  "subCategory": zod.string().optional(),
+  "attributes": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)'),
+  "noSerialReason": zod.string().optional(),
+  "reason": zod.string()
+})
+
+export const ChangeAssetCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Cost, currency, rate, residual value and purchase details (SBU Finance of the asset's SBU; AU-04)
+ */
+export const UpdateAssetFinancialParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAssetFinancialBody = zod.object({
+  "originalCost": zod.number().nullish(),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish().describe('Currency → USD (1 for USD)'),
+  "residualValue": zod.number().nullish(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "reason": zod.string()
+})
+
+export const UpdateAssetFinancialResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Capitalise the asset; fixes the USD cost (SBU Finance; not while the asset number is pending)
+ */
+export const CapitaliseAssetParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CapitaliseAssetBody = zod.object({
+  "reason": zod.string().optional()
+})
+
+export const CapitaliseAssetResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Approve or reject a "No serial" reason (SBU Finance; AU-02)
+ */
+export const DecideNoSerialParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DecideNoSerialBody = zod.object({
+  "approve": zod.boolean(),
+  "comment": zod.string().optional()
+})
+
+export const DecideNoSerialResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Link the RFID / QR tag (only after Business Central issued the asset number)
+ */
+export const TagAssetParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TagAssetBody = zod.object({
+  "rfidTag": zod.string()
+})
+
+export const TagAssetResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary The asset's upgrades (AU-07)
+ */
+export const ListAssetUpgradesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAssetUpgradesResponseItem = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string().nullish(),
+  "upgradeDate": zod.coerce.date(),
+  "description": zod.string(),
+  "beforeText": zod.string(),
+  "afterText": zod.string(),
+  "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
+  "cost": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "loggedBy": zod.string(),
+  "loggedByRole": zod.string(),
+  "status": zod.enum(['pending', 'capitalised', 'expensed', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "decisionComment": zod.string().nullish(),
+  "capitalisedPeriod": zod.string().nullish(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAssetUpgradesResponse = zod.array(ListAssetUpgradesResponseItem)
+
+
+/**
+ * @summary Log an upgrade (SBU IT for IT assets, SBU Admin Manager for non-IT, or Stores)
+ */
+export const LogAssetUpgradeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const LogAssetUpgradeBody = zod.object({
+  "upgradeDate": zod.coerce.date(),
+  "description": zod.string(),
+  "beforeText": zod.string(),
+  "afterText": zod.string(),
+  "cost": zod.number(),
+  "supplier": zod.string().optional(),
+  "invoiceNo": zod.string().optional(),
+  "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)')
+})
+
+export const LogAssetUpgradeResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string().nullish(),
+  "upgradeDate": zod.coerce.date(),
+  "description": zod.string(),
+  "beforeText": zod.string(),
+  "afterText": zod.string(),
+  "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
+  "cost": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "loggedBy": zod.string(),
+  "loggedByRole": zod.string(),
+  "status": zod.enum(['pending', 'capitalised', 'expensed', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "decisionComment": zod.string().nullish(),
+  "capitalisedPeriod": zod.string().nullish(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Capitalise, expense or reject an upgrade (SBU Finance of the asset's SBU only)
+ */
+export const DecideUpgradeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DecideUpgradeBody = zod.object({
+  "treatment": zod.enum(['capitalise', 'expense', 'reject']),
+  "comment": zod.string().optional(),
+  "revisedLifeMonths": zod.number().optional().describe('Capitalise only - remaining life from the effective month'),
+  "effectivePeriod": zod.string().optional().describe('Capitalise only - YYYY-MM, default the month of approval')
+})
+
+export const DecideUpgradeResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string().nullish(),
+  "upgradeDate": zod.coerce.date(),
+  "description": zod.string(),
+  "beforeText": zod.string(),
+  "afterText": zod.string(),
+  "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
+  "cost": zod.number(),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "loggedBy": zod.string(),
+  "loggedByRole": zod.string(),
+  "status": zod.enum(['pending', 'capitalised', 'expensed', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "decisionComment": zod.string().nullish(),
+  "capitalisedPeriod": zod.string().nullish(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary The fixed asset register with cost, depreciation and NBV per asset (SF-02); only assets in scope
+ */
+export const GetAssetRegisterQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const GetAssetRegisterResponse = zod.object({
+  "filters": zod.object({
+  "period": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "locationId": zod.number().nullish(),
+  "categoryId": zod.number().nullish()
+}),
+  "rows": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "serialNumber": zod.string().nullish(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "sbuCode": zod.string().nullish(),
+  "locationName": zod.string().nullish(),
+  "custodian": zod.string().nullish(),
+  "status": zod.string(),
+  "capitalised": zod.boolean(),
+  "inUseDate": zod.string().nullish(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number(),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number()
+})),
+  "totals": zod.object({
+  "count": zod.number(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "additions": zod.number().describe('Assets capitalised with an in-use date in the period\'s year')
+})
+})
+
+
+/**
+ * @summary The register as Excel, with headers, subtotals and totals (logged)
+ */
+export const DownloadAssetRegisterExcelQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadAssetRegisterExcelResponse = zod.unknown()
+
+
+/**
+ * @summary The register as PDF, with headers, subtotals and totals (logged)
+ */
+export const DownloadAssetRegisterPdfQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadAssetRegisterPdfResponse = zod.unknown()
+
+
+/**
+ * @summary Assets by category with subtotals and a grand total (AU-09)
+ */
+export const GetCategoryReportQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const GetCategoryReportResponse = zod.object({
+  "filters": zod.object({
+  "period": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "locationId": zod.number().nullish(),
+  "categoryId": zod.number().nullish()
+}),
+  "categories": zod.array(zod.object({
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "totals": zod.object({
+  "count": zod.number(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "additions": zod.number().describe('Assets capitalised with an in-use date in the period\'s year')
+})
+})),
+  "totals": zod.object({
+  "count": zod.number(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "additions": zod.number().describe('Assets capitalised with an in-use date in the period\'s year')
+})
+})
+
+
+/**
+ * @summary The category report as Excel, with headers, subtotals and totals (logged)
+ */
+export const DownloadCategoryReportExcelQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadCategoryReportExcelResponse = zod.unknown()
+
+
+/**
+ * @summary The category report as PDF, with headers, subtotals and totals (logged)
+ */
+export const DownloadCategoryReportPdfQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadCategoryReportPdfResponse = zod.unknown()
+
+
+/**
+ * @summary Management dashboard by category (AU-10); same figures as the category report
+ */
+export const GetFinanceDashboardQueryParams = zod.object({
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const GetFinanceDashboardResponse = zod.object({
+  "filters": zod.object({
+  "period": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "locationId": zod.number().nullish(),
+  "categoryId": zod.number().nullish()
+}),
+  "categories": zod.array(zod.object({
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "totals": zod.object({
+  "count": zod.number(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "additions": zod.number().describe('Assets capitalised with an in-use date in the period\'s year')
+})
+})),
+  "totals": zod.object({
+  "count": zod.number(),
+  "originalCost": zod.number(),
+  "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
+  "capitalisedUpgrades": zod.number(),
+  "totalCost": zod.number(),
+  "depreciationMonth": zod.number(),
+  "depreciationYtd": zod.number(),
+  "accumulatedDepreciation": zod.number(),
+  "netBookValue": zod.number(),
+  "additions": zod.number().describe('Assets capitalised with an in-use date in the period\'s year')
+}),
+  "bySbu": zod.array(zod.object({
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "color": zod.string().nullish(),
+  "netBookValue": zod.number(),
+  "totalCost": zod.number()
+})),
+  "percentComplete": zod.number(),
+  "incompleteAssets": zod.number(),
+  "pendingDecisions": zod.number()
+})
+
+
+/**
+ * @summary Assets missing any Priority 1 field, and % complete per SBU (AU-11)
+ */
+export const GetCompletenessReportQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const GetCompletenessReportResponse = zod.object({
+  "assets": zod.number(),
+  "complete": zod.number(),
+  "percentComplete": zod.number(),
+  "sbus": zod.array(zod.object({
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "assets": zod.number(),
+  "complete": zod.number(),
+  "percentComplete": zod.number()
+})),
+  "incomplete": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "sbuCode": zod.string().nullish(),
+  "categoryName": zod.string(),
+  "gaps": zod.array(zod.object({
+  "field": zod.string(),
+  "message": zod.string(),
+  "owner": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Everything waiting on the signed-in user (Phase 1 - upgrades and "No serial" reasons for SBU Finance)
+ */
+export const ListApprovalsResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['upgrade', 'no_serial']),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "sbuCode": zod.string().nullish(),
+  "summary": zod.string(),
+  "raisedAt": zod.coerce.date(),
+  "raisedBy": zod.string(),
+  "upgradeId": zod.number().nullish()
+})
+export const ListApprovalsResponse = zod.array(ListApprovalsResponseItem)
+
+
+/**
+ * @summary Monthly depreciation run (SBU Finance for its SBU, Group Finance for any SBU or the Group)
+ */
+export const RunDepreciationBody = zod.object({
+  "period": zod.string().describe('YYYY-MM'),
+  "sbuId": zod.number().optional().describe('Default the SBU of the signed-in SBU Finance officer')
+})
+
+export const RunDepreciationResponse = zod.object({
+  "period": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "assets": zod.number(),
+  "monthsWritten": zod.number(),
+  "chargeForPeriod": zod.number()
+})
+
+
+/**
+ * @summary Locked months per SBU
+ */
+export const ListDepreciationLocksResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "period": zod.string(),
+  "lockedBy": zod.string(),
+  "lockedAt": zod.coerce.date()
+})
+export const ListDepreciationLocksResponse = zod.array(ListDepreciationLocksResponseItem)
+
+
+/**
+ * @summary Lock a reviewed month (SBU Finance); it is never recalculated afterwards
+ */
+export const LockDepreciationMonthBody = zod.object({
+  "period": zod.string().describe('YYYY-MM'),
+  "sbuId": zod.number().optional().describe('Default the SBU of the signed-in SBU Finance officer')
+})
+
+export const LockDepreciationMonthResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "period": zod.string(),
+  "lockedBy": zod.string(),
+  "lockedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Auditor accounts (Group Finance; AU-12)
+ */
+export const ListAuditorsResponseItem = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "sbuId": zod.number().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+export const ListAuditorsResponse = zod.array(ListAuditorsResponseItem)
+
+
+/**
+ * @summary Create a time-limited, read-only auditor login (Group Finance)
+ */
+export const createAuditorBodyPasswordMin = 10;
+
+
+
+export const CreateAuditorBody = zod.object({
+  "username": zod.string(),
+  "name": zod.string(),
+  "password": zod.string().min(createAuditorBodyPasswordMin),
+  "accessExpiresAt": zod.coerce.date()
+})
+
+export const CreateAuditorResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "sbuId": zod.number().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Change an auditor's expiry date or disable the account (Group Finance)
+ */
+export const UpdateAuditorAccessParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAuditorAccessBody = zod.object({
+  "accessExpiresAt": zod.coerce.date().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateAuditorAccessResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "sbuId": zod.number().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Sign-ins and exports, newest first (Group Finance; AU-12)
+ */
+export const ListAccessLogQueryParams = zod.object({
+  "role": zod.coerce.string().optional()
+})
+
+export const ListAccessLogResponseItem = zod.object({
+  "id": zod.number(),
+  "at": zod.coerce.date(),
+  "username": zod.string(),
+  "role": zod.string(),
+  "action": zod.enum(['login', 'login_refused', 'export']),
+  "detail": zod.string().nullish()
+})
+export const ListAccessLogResponse = zod.array(ListAccessLogResponseItem)
 
 

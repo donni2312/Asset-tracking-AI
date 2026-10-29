@@ -2,6 +2,7 @@ using AssetIQ.Api.Auth;
 using AssetIQ.Api.Data;
 using AssetIQ.Api.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AssetIQ.Api.Tests.Integration;
 
@@ -154,14 +155,27 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_operator_may_edit_the_asset_record_itself()
+    public async Task An_operator_may_edit_the_technical_record_of_an_it_asset()
     {
         await CreateUser("tendai", "operator");
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}",
-            new { name = "Dell Latitude 5450", category = "Laptop", sbuId = w.Bak.Id, status = "maintenance" }, await TokenFor("tendai"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id, status = "maintenance" }, await TokenFor("tendai"));
 
         Assert.Equal(200, res.Status);
-        Assert.Equal(("Dell Latitude 5450", w.Bak.Id, "maintenance"), (res.Body.Str("name"), res.Body.Int("sbuId"), res.Body.Str("status")));
+        Assert.Equal((w.Bak.Id, "maintenance"), (res.Body.Int("sbuId"), res.Body.Str("status")));
+    }
+
+    [Fact]
+    public async Task AU_01_nobody_types_the_description_or_changes_the_category_through_an_edit()
+    {
+        await CreateUser("rudo", "admin");
+        var token = await TokenFor("rudo");
+        var named = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Dell Latitude 5450" }, token);
+        var recategorised = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { category = "Desktop" }, token);
+
+        Assert.Equal(400, named.Status);
+        Assert.Contains("description is generated", named.Error());
+        Assert.Equal(400, recategorised.Status);
+        Assert.Contains("SBU Finance only", recategorised.Error());
     }
 
     [Fact]
@@ -171,20 +185,23 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "maintenance", sbuId = w.Bak.Id }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
-        Assert.Equal("This action needs the operator role; you are signed in as viewer.", res.Error());
+        Assert.Equal("Your role (Viewer) may not edit this asset's technical fields.", res.Error());
         var after = await api.CallAsync("GET", $"/assets/{w.Laptop.Id}");
         Assert.Equal(("active", w.Tsas.Id), (after.Body.Str("status"), after.Body.Int("sbuId"))); // nothing was applied
     }
 
     [Fact]
-    public async Task An_admin_may_edit_the_whole_record()
+    public async Task An_admin_edits_template_fields_and_the_description_follows()
     {
         await CreateUser("rudo", "admin");
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}",
-            new { name = "Dell Latitude 5450", category = "Laptop", sbuId = w.Bak.Id, status = "active" }, await TokenFor("rudo"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new
+        {
+            subCategory = "Laptop",
+            attributes = new { make = "Dell", model = "Latitude 5450", serial_number = "SN-DL-001", processor = "i5-1345U", ram = 16, storage = "512 GB SSD", operating_system = "Windows 11" },
+        }, await TokenFor("rudo"));
 
         Assert.Equal(200, res.Status);
-        Assert.Equal(("Dell Latitude 5450", w.Bak.Id), (res.Body.Str("name"), res.Body.Int("sbuId")));
+        Assert.Equal("Laptop – Dell Latitude 5450, i5-1345U, 16 GB, 512 GB SSD", res.Body.Str("name"));
     }
 
     [Fact]
@@ -194,11 +211,17 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
         await CreateUser("tendai", "operator");
         var viewerToken = await TokenFor("nyasha");
         var operatorToken = await TokenFor("tendai");
-        var asset = new { name = "HP EliteBook 840", category = "Laptop", serialNumber = "SN-HP-900", rfidTag = "TAG-HP-900", sbuId = w.Tsas.Id };
+        var asset = new
+        {
+            categoryId = Categories.Computers, subCategory = "Laptop", sbuId = w.Tsas.Id, currentLocationId = w.Office.Id, assignedTo = "TSAS IT store", condition = "new",
+            attributes = new { make = "HP", model = "EliteBook 840", serial_number = "SN-HP-900", processor = "i7", ram = 16, storage = "512 GB SSD", operating_system = "Windows 11" },
+        };
 
         Assert.Equal(401, (await api.CallAsync("POST", "/assets", asset, ApiFixture.Anonymous)).Status);
         Assert.Equal(403, (await api.CallAsync("POST", "/assets", asset, viewerToken)).Status);
 
+        // Business Central down: the asset stays without a number, so it can still be deleted (a numbered one never can, AU-03).
+        api.Services.GetRequiredService<AssetIQ.Api.Services.MockBcFixedAssetClient>().Available = false;
         var created = await api.CallAsync("POST", "/assets", asset, operatorToken);
         Assert.Equal(201, created.Status);
 
@@ -211,10 +234,10 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     {
         var user = await CreateUser("rudo", "admin");
         var token = await TokenFor("rudo");
-        Assert.Equal(200, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Renamed" }, token)).Status);
+        Assert.Equal(200, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { notes = "Renamed" }, token)).Status);
 
         await SetUser(user.Id, role: "viewer");
-        Assert.Equal(403, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Renamed again" }, token)).Status);
+        Assert.Equal(403, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { notes = "Renamed again" }, token)).Status);
     }
 
     [Fact]

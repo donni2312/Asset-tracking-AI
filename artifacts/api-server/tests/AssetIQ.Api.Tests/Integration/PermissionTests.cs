@@ -105,7 +105,11 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
     {
         ("POST", "/ai/query") => new { question = "How many assets in total?" },
         ("POST", "/movements") => new { assetId = w.Projector.Id, toLocationId = caller == "admin" ? w.BakWarehouse.Id : w.Gate.Id },
-        ("POST", "/assets") => new { name = "HP EliteBook", category = "Laptop", serialNumber = $"SN-{caller}", rfidTag = $"TAG-{caller}" },
+        ("POST", "/assets") => new
+        {
+            categoryId = Categories.Computers, subCategory = "Laptop", sbuId = w.Tsas.Id, currentLocationId = w.Office.Id, assignedTo = "TSAS IT store", condition = "new",
+            attributes = new { make = "HP", model = "EliteBook", serial_number = $"SN-{caller}", processor = "i5", ram = 8, storage = "256 GB SSD", operating_system = "Windows 11" },
+        },
         ("PATCH", "/assets/{laptop}") => new { notes = $"edited by {caller}" },
         ("POST", "/assets/{laptop}/lifecycle") => new { eventType = "note", performedBy = caller },
         ("POST", "/locations") => new { name = $"Room {caller}", type = "office", building = "TSAS House" },

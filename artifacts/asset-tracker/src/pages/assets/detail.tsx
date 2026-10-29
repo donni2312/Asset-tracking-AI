@@ -340,7 +340,7 @@ export default function AssetDetail() {
   if (!asset) return <Layout><p className="text-muted-foreground">Asset not found.</p></Layout>;
 
   const isRetired = asset.status === "retired";
-  const statusColor = { active: "default", missing: "destructive", maintenance: "secondary", retired: "outline" }[asset.status] as any;
+  const statusColor = { pending_asset_number: "outline", active: "default", missing: "destructive", maintenance: "secondary", retired: "outline" }[asset.status] as any;
   const latestMovement = history?.find((e: any) => e.kind === "movement") as any;
   const offPremises = !asset.currentLocationId && latestMovement?.triggeredBy === "gate_pass";
 
@@ -362,6 +362,12 @@ export default function AssetDetail() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusColor} className="text-sm">{asset.status.toUpperCase()}</Badge>
+            <Link
+              href={`/assets/${asset.id}/card`}
+              className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
+            >
+              Asset card
+            </Link>
             <Permitted role="operator" action="edit assets" label="Edit" size="sm">
               <Link
                 href={`/assets/${asset.id}/edit`}

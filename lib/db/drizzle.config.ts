@@ -16,6 +16,9 @@ if (!process.env.DATABASE_URL) {
 export default defineConfig({
   // drizzle-kit globs this path, so it must use forward slashes (path.join gives backslashes on Windows).
   schema: path.join(__dirname, "./src/schema/index.ts").split(path.sep).join("/"),
+  // Migrations (drizzle-kit generate → lib/db/migrations, applied by `pnpm db:migrate`).
+  // Relative on purpose: drizzle-kit joins it to the working directory (lib/db) and breaks on an absolute Windows path.
+  out: "./migrations",
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,

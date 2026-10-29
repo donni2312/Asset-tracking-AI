@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
 import {
   useMutation,
@@ -23,30 +23,61 @@ import type {
   AIInsight,
   AIQueryInput,
   AIQueryResult,
+  AccessLogEntry,
+  Account,
   ActivityItem,
+  ApprovalItem,
   Asset,
+  AssetCard,
+  AssetCategory,
   AssetHistoryEvent,
   AssetInput,
   AssetLifecycleEvent,
   AssetLifecycleEventInput,
+  AssetLookup,
   AssetUpdate,
+  AssetUpgrade,
+  AuditEntry,
+  AuditorAccessUpdate,
+  AuditorInput,
   BCSyncStatus,
+  CategoryChange,
+  CategoryInput,
+  CategoryReport,
+  CategoryUpdate,
+  CompletenessReport,
   DashboardSummary,
+  DepreciationLock,
+  DepreciationRun,
+  DepreciationRunInput,
+  DownloadAssetRegisterExcelParams,
+  DownloadAssetRegisterPdfParams,
   DownloadAssetsReportParams,
+  DownloadCategoryReportExcelParams,
+  DownloadCategoryReportPdfParams,
   DownloadGatePassesReportParams,
   DownloadInsightsReportParams,
   DownloadLifecycleReportParams,
   DownloadMovementsReportParams,
+  FinanceDashboard,
+  FinancialUpdate,
   GateActivityItem,
   GatePass,
   GatePassDecision,
   GatePassInput,
+  GetAssetRegisterParams,
+  GetCategoryReportParams,
+  GetCompletenessReportParams,
   GetDashboardActivityParams,
+  GetFinanceDashboardParams,
   GetGateActivityParams,
   GetLocationBreakdownParams,
   GetMovementTrendParams,
+  GroupSetting,
   HealthStatus,
+  ListAccessLogParams,
   ListAssetsParams,
+  ListCategoriesParams,
   ListGatePassesParams,
   ListLifecycleEventsParams,
   ListLocationsParams,
@@ -58,14 +89,24 @@ import type {
   LocationUpdate,
   LoginInput,
   LoginResult,
+  LookupAssetParams,
   MovementEvent,
   MovementInput,
   MovementTrendPoint,
+  NoSerialDecision,
   RFIDReader,
   RFIDScanResult,
   RFIDSimulateInput,
+  ReasonInput,
+  RegisterReport,
   SBUInput,
   Sbu,
+  SettingUpdate,
+  TagInput,
+  TemplateFieldInput,
+  TemplateFieldUpdate,
+  UpgradeDecision,
+  UpgradeInput,
   User
 } from './api.schemas';
 
@@ -790,8 +831,8 @@ export const getCreateAssetUrl = () => {
 }
 
 /**
- * Requires the `operator` role.
- * @summary Register a new asset
+ * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
+ * @summary Register a new asset from its category template (AU-01 … AU-03)
  */
 export const createAsset = async (assetInput: AssetInput, options?: RequestInit): Promise<Asset> => {
 
@@ -840,7 +881,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateAssetMutationError = ErrorType<void>
 
     /**
- * @summary Register a new asset
+ * @summary Register a new asset from its category template (AU-01 … AU-03)
  */
 export const useCreateAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{data: BodyType<AssetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -939,8 +980,8 @@ export const getUpdateAssetUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role (operators and administrators may change every field).
- * @summary Update asset
+ * Template values are merged with the current ones, re-validated and the description rebuilt; every change is audit-logged. The description (name) and the category cannot be set here (400): the category changes through POST /assets/{id}/category (SBU Finance only).
+ * @summary Update the asset's technical fields
  */
 export const updateAsset = async (id: number,
     assetUpdate: AssetUpdate, options?: RequestInit): Promise<Asset> => {
@@ -990,7 +1031,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateAssetMutationError = ErrorType<void>
 
     /**
- * @summary Update asset
+ * @summary Update the asset's technical fields
  */
 export const useUpdateAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{id: number;data: BodyType<AssetUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1012,8 +1053,8 @@ export const getDeleteAssetUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role.
- * @summary Retire/decommission asset
+ * Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
+ * @summary Delete a mistaken registration
  */
 export const deleteAsset = async (id: number, options?: RequestInit): Promise<void> => {
 
@@ -1062,7 +1103,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteAssetMutationError = ErrorType<void>
 
     /**
- * @summary Retire/decommission asset
+ * @summary Delete a mistaken registration
  */
 export const useDeleteAsset = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -3747,4 +3788,2846 @@ export const useTriggerBcSync = <TError = ErrorType<void>,
       > => {
       return useMutation(getTriggerBcSyncMutationOptions(options));
     }
+
+export const getListCategoriesUrl = (params?: ListCategoriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/categories?${stringifiedParams}` : `/api/categories`
+}
+
+/**
+ * @summary Category templates with their fields and depreciation policy (AU-01, GF-03)
+ */
+export const listCategories = async (params?: ListCategoriesParams, options?: RequestInit): Promise<AssetCategory[]> => {
+
+  return customFetch<AssetCategory[]>(getListCategoriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCategoriesQueryKey = (params?: ListCategoriesParams,) => {
+    return [
+    `/api/categories`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listCategories>>>
+export type ListCategoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Category templates with their fields and depreciation policy (AU-01, GF-03)
+ */
+
+export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
+ params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCategoriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCategoryUrl = () => {
+
+
+
+
+  return `/api/categories`
+}
+
+/**
+ * @summary Create a category (Group Finance)
+ */
+export const createCategory = async (categoryInput: CategoryInput, options?: RequestInit): Promise<AssetCategory> => {
+
+  return customFetch<AssetCategory>(getCreateCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(categoryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCategoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CategoryInput>}, TContext> => {
+
+const mutationKey = ['createCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCategory>>, {data: BodyType<CategoryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCategory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createCategory>>>
+    export type CreateCategoryMutationBody = BodyType<CategoryInput>
+    export type CreateCategoryMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a category (Group Finance)
+ */
+export const useCreateCategory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCategory>>,
+        TError,
+        {data: BodyType<CategoryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCategoryMutationOptions(options));
+    }
+
+export const getGetCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/categories/${id}`
+}
+
+/**
+ * @summary One category template
+ */
+export const getCategory = async (id: number, options?: RequestInit): Promise<AssetCategory> => {
+
+  return customFetch<AssetCategory>(getGetCategoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCategoryQueryKey = (id: number,) => {
+    return [
+    `/api/categories/${id}`
+    ] as const;
+    }
+
+
+export const getGetCategoryQueryOptions = <TData = Awaited<ReturnType<typeof getCategory>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCategory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCategoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCategory>>> = ({ signal }) => getCategory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCategory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCategoryQueryResult = NonNullable<Awaited<ReturnType<typeof getCategory>>>
+export type GetCategoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary One category template
+ */
+
+export function useGetCategory<TData = Awaited<ReturnType<typeof getCategory>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCategory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCategoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/categories/${id}`
+}
+
+/**
+ * @summary Update a category. Group Finance: name, sub-categories, depreciation policy, active. Field owners (Group IT for IT, SBU Admin Manager for non-IT): description pattern and identifier field.
+ */
+export const updateCategory = async (id: number,
+    categoryUpdate: CategoryUpdate, options?: RequestInit): Promise<AssetCategory> => {
+
+  return customFetch<AssetCategory>(getUpdateCategoryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(categoryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCategoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<CategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<CategoryUpdate>}, TContext> => {
+
+const mutationKey = ['updateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategory>>, {id: number;data: BodyType<CategoryUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof updateCategory>>>
+    export type UpdateCategoryMutationBody = BodyType<CategoryUpdate>
+    export type UpdateCategoryMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a category. Group Finance: name, sub-categories, depreciation policy, active. Field owners (Group IT for IT, SBU Admin Manager for non-IT): description pattern and identifier field.
+ */
+export const useUpdateCategory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: number;data: BodyType<CategoryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCategory>>,
+        TError,
+        {id: number;data: BodyType<CategoryUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCategoryMutationOptions(options));
+    }
+
+export const getAddCategoryFieldUrl = (id: number,) => {
+
+
+
+
+  return `/api/categories/${id}/fields`
+}
+
+/**
+ * @summary Add a template field (Group IT for IT categories, SBU Admin Manager for non-IT)
+ */
+export const addCategoryField = async (id: number,
+    templateFieldInput: TemplateFieldInput, options?: RequestInit): Promise<AssetCategory> => {
+
+  return customFetch<AssetCategory>(getAddCategoryFieldUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(templateFieldInput)
+  }
+);}
+
+
+
+
+
+export const getAddCategoryFieldMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldInput>}, TContext> => {
+
+const mutationKey = ['addCategoryField'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCategoryField>>, {id: number;data: BodyType<TemplateFieldInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addCategoryField(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCategoryFieldMutationResult = NonNullable<Awaited<ReturnType<typeof addCategoryField>>>
+    export type AddCategoryFieldMutationBody = BodyType<TemplateFieldInput>
+    export type AddCategoryFieldMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a template field (Group IT for IT categories, SBU Admin Manager for non-IT)
+ */
+export const useAddCategoryField = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCategoryField>>,
+        TError,
+        {id: number;data: BodyType<TemplateFieldInput>},
+        TContext
+      > => {
+      return useMutation(getAddCategoryFieldMutationOptions(options));
+    }
+
+export const getUpdateCategoryFieldUrl = (id: number,) => {
+
+
+
+
+  return `/api/category-fields/${id}`
+}
+
+/**
+ * @summary Change a template field (label, required, unit, allowed values, order)
+ */
+export const updateCategoryField = async (id: number,
+    templateFieldUpdate: TemplateFieldUpdate, options?: RequestInit): Promise<AssetCategory> => {
+
+  return customFetch<AssetCategory>(getUpdateCategoryFieldUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(templateFieldUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCategoryFieldMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldUpdate>}, TContext> => {
+
+const mutationKey = ['updateCategoryField'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategoryField>>, {id: number;data: BodyType<TemplateFieldUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCategoryField(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCategoryFieldMutationResult = NonNullable<Awaited<ReturnType<typeof updateCategoryField>>>
+    export type UpdateCategoryFieldMutationBody = BodyType<TemplateFieldUpdate>
+    export type UpdateCategoryFieldMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change a template field (label, required, unit, allowed values, order)
+ */
+export const useUpdateCategoryField = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategoryField>>, TError,{id: number;data: BodyType<TemplateFieldUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCategoryField>>,
+        TError,
+        {id: number;data: BodyType<TemplateFieldUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCategoryFieldMutationOptions(options));
+    }
+
+export const getListSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Group settings (thresholds, alert days, depreciation convention)
+ */
+export const listSettings = async ( options?: RequestInit): Promise<GroupSetting[]> => {
+
+  return customFetch<GroupSetting[]>(getListSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSettingsQueryKey = () => {
+    return [
+    `/api/settings`
+    ] as const;
+    }
+
+
+export const getListSettingsQueryOptions = <TData = Awaited<ReturnType<typeof listSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSettings>>> = ({ signal }) => listSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof listSettings>>>
+export type ListSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Group settings (thresholds, alert days, depreciation convention)
+ */
+
+export function useListSettings<TData = Awaited<ReturnType<typeof listSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSettingUrl = (key: string,) => {
+
+
+
+
+  return `/api/settings/${key}`
+}
+
+/**
+ * @summary Change a Group setting (the role named in editableBy)
+ */
+export const updateSetting = async (key: string,
+    settingUpdate: SettingUpdate, options?: RequestInit): Promise<GroupSetting> => {
+
+  return customFetch<GroupSetting>(getUpdateSettingUrl(key),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(settingUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSettingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSetting>>, TError,{key: string;data: BodyType<SettingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSetting>>, TError,{key: string;data: BodyType<SettingUpdate>}, TContext> => {
+
+const mutationKey = ['updateSetting'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSetting>>, {key: string;data: BodyType<SettingUpdate>}> = (props) => {
+          const {key,data} = props ?? {};
+
+          return  updateSetting(key,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSettingMutationResult = NonNullable<Awaited<ReturnType<typeof updateSetting>>>
+    export type UpdateSettingMutationBody = BodyType<SettingUpdate>
+    export type UpdateSettingMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change a Group setting (the role named in editableBy)
+ */
+export const useUpdateSetting = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSetting>>, TError,{key: string;data: BodyType<SettingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSetting>>,
+        TError,
+        {key: string;data: BodyType<SettingUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSettingMutationOptions(options));
+    }
+
+export const getLookupAssetUrl = (params: LookupAssetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/assets/lookup?${stringifiedParams}` : `/api/assets/lookup`
+}
+
+/**
+ * @summary Find an asset by asset number, previous number, RFID / QR tag or serial (AU-08)
+ */
+export const lookupAsset = async (params: LookupAssetParams, options?: RequestInit): Promise<AssetLookup> => {
+
+  return customFetch<AssetLookup>(getLookupAssetUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLookupAssetQueryKey = (params?: LookupAssetParams,) => {
+    return [
+    `/api/assets/lookup`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLookupAssetQueryOptions = <TData = Awaited<ReturnType<typeof lookupAsset>>, TError = ErrorType<void>>(params: LookupAssetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLookupAssetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof lookupAsset>>> = ({ signal }) => lookupAsset(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof lookupAsset>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type LookupAssetQueryResult = NonNullable<Awaited<ReturnType<typeof lookupAsset>>>
+export type LookupAssetQueryError = ErrorType<void>
+
+
+/**
+ * @summary Find an asset by asset number, previous number, RFID / QR tag or serial (AU-08)
+ */
+
+export function useLookupAsset<TData = Awaited<ReturnType<typeof lookupAsset>>, TError = ErrorType<void>>(
+ params: LookupAssetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getLookupAssetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAssetCardUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/card`
+}
+
+/**
+ * @summary The one-page asset card (AU-08)
+ */
+export const getAssetCard = async (id: number, options?: RequestInit): Promise<AssetCard> => {
+
+  return customFetch<AssetCard>(getGetAssetCardUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssetCardQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/card`
+    ] as const;
+    }
+
+
+export const getGetAssetCardQueryOptions = <TData = Awaited<ReturnType<typeof getAssetCard>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetCard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssetCardQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssetCard>>> = ({ signal }) => getAssetCard(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssetCard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAssetCardQueryResult = NonNullable<Awaited<ReturnType<typeof getAssetCard>>>
+export type GetAssetCardQueryError = ErrorType<void>
+
+
+/**
+ * @summary The one-page asset card (AU-08)
+ */
+
+export function useGetAssetCard<TData = Awaited<ReturnType<typeof getAssetCard>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetCard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAssetCardQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadAssetCardPdfUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/card.pdf`
+}
+
+/**
+ * @summary The asset card as PDF (logged in the access log)
+ */
+export const downloadAssetCardPdf = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadAssetCardPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadAssetCardPdfQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/card.pdf`
+    ] as const;
+    }
+
+
+export const getDownloadAssetCardPdfQueryOptions = <TData = Awaited<ReturnType<typeof downloadAssetCardPdf>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetCardPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadAssetCardPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadAssetCardPdf>>> = ({ signal }) => downloadAssetCardPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadAssetCardPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadAssetCardPdfQueryResult = NonNullable<Awaited<ReturnType<typeof downloadAssetCardPdf>>>
+export type DownloadAssetCardPdfQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The asset card as PDF (logged in the access log)
+ */
+
+export function useDownloadAssetCardPdf<TData = Awaited<ReturnType<typeof downloadAssetCardPdf>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetCardPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadAssetCardPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadDepreciationScheduleUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/depreciation.xlsx`
+}
+
+/**
+ * @summary The asset's monthly depreciation schedule as Excel (AU-05)
+ */
+export const downloadDepreciationSchedule = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadDepreciationScheduleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadDepreciationScheduleQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/depreciation.xlsx`
+    ] as const;
+    }
+
+
+export const getDownloadDepreciationScheduleQueryOptions = <TData = Awaited<ReturnType<typeof downloadDepreciationSchedule>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadDepreciationSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadDepreciationScheduleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadDepreciationSchedule>>> = ({ signal }) => downloadDepreciationSchedule(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadDepreciationSchedule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadDepreciationScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof downloadDepreciationSchedule>>>
+export type DownloadDepreciationScheduleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The asset's monthly depreciation schedule as Excel (AU-05)
+ */
+
+export function useDownloadDepreciationSchedule<TData = Awaited<ReturnType<typeof downloadDepreciationSchedule>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadDepreciationSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadDepreciationScheduleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAssetAuditUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/audit`
+}
+
+/**
+ * @summary The asset's audit trail, newest first (AU-06, GF-07). There is no way to change or delete an entry.
+ */
+export const getAssetAudit = async (id: number, options?: RequestInit): Promise<AuditEntry[]> => {
+
+  return customFetch<AuditEntry[]>(getGetAssetAuditUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssetAuditQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/audit`
+    ] as const;
+    }
+
+
+export const getGetAssetAuditQueryOptions = <TData = Awaited<ReturnType<typeof getAssetAudit>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssetAuditQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssetAudit>>> = ({ signal }) => getAssetAudit(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssetAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAssetAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getAssetAudit>>>
+export type GetAssetAuditQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The asset's audit trail, newest first (AU-06, GF-07). There is no way to change or delete an entry.
+ */
+
+export function useGetAssetAudit<TData = Awaited<ReturnType<typeof getAssetAudit>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAssetAuditQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getChangeAssetCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/category`
+}
+
+/**
+ * @summary Change the category (SBU Finance only; the new category's required fields must be filled in)
+ */
+export const changeAssetCategory = async (id: number,
+    categoryChange: CategoryChange, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getChangeAssetCategoryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(categoryChange)
+  }
+);}
+
+
+
+
+
+export const getChangeAssetCategoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAssetCategory>>, TError,{id: number;data: BodyType<CategoryChange>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeAssetCategory>>, TError,{id: number;data: BodyType<CategoryChange>}, TContext> => {
+
+const mutationKey = ['changeAssetCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeAssetCategory>>, {id: number;data: BodyType<CategoryChange>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  changeAssetCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeAssetCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof changeAssetCategory>>>
+    export type ChangeAssetCategoryMutationBody = BodyType<CategoryChange>
+    export type ChangeAssetCategoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change the category (SBU Finance only; the new category's required fields must be filled in)
+ */
+export const useChangeAssetCategory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAssetCategory>>, TError,{id: number;data: BodyType<CategoryChange>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof changeAssetCategory>>,
+        TError,
+        {id: number;data: BodyType<CategoryChange>},
+        TContext
+      > => {
+      return useMutation(getChangeAssetCategoryMutationOptions(options));
+    }
+
+export const getUpdateAssetFinancialUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/financial`
+}
+
+/**
+ * @summary Cost, currency, rate, residual value and purchase details (SBU Finance of the asset's SBU; AU-04)
+ */
+export const updateAssetFinancial = async (id: number,
+    financialUpdate: FinancialUpdate, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getUpdateAssetFinancialUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(financialUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAssetFinancialMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetFinancial>>, TError,{id: number;data: BodyType<FinancialUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAssetFinancial>>, TError,{id: number;data: BodyType<FinancialUpdate>}, TContext> => {
+
+const mutationKey = ['updateAssetFinancial'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAssetFinancial>>, {id: number;data: BodyType<FinancialUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAssetFinancial(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAssetFinancialMutationResult = NonNullable<Awaited<ReturnType<typeof updateAssetFinancial>>>
+    export type UpdateAssetFinancialMutationBody = BodyType<FinancialUpdate>
+    export type UpdateAssetFinancialMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Cost, currency, rate, residual value and purchase details (SBU Finance of the asset's SBU; AU-04)
+ */
+export const useUpdateAssetFinancial = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetFinancial>>, TError,{id: number;data: BodyType<FinancialUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAssetFinancial>>,
+        TError,
+        {id: number;data: BodyType<FinancialUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAssetFinancialMutationOptions(options));
+    }
+
+export const getCapitaliseAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/capitalise`
+}
+
+/**
+ * @summary Capitalise the asset; fixes the USD cost (SBU Finance; not while the asset number is pending)
+ */
+export const capitaliseAsset = async (id: number,
+    reasonInput?: ReasonInput, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getCapitaliseAssetUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reasonInput)
+  }
+);}
+
+
+
+
+
+export const getCapitaliseAssetMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof capitaliseAsset>>, TError,{id: number;data?: BodyType<ReasonInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof capitaliseAsset>>, TError,{id: number;data?: BodyType<ReasonInput>}, TContext> => {
+
+const mutationKey = ['capitaliseAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof capitaliseAsset>>, {id: number;data?: BodyType<ReasonInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  capitaliseAsset(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CapitaliseAssetMutationResult = NonNullable<Awaited<ReturnType<typeof capitaliseAsset>>>
+    export type CapitaliseAssetMutationBody = BodyType<ReasonInput> | undefined
+    export type CapitaliseAssetMutationError = ErrorType<void>
+
+    /**
+ * @summary Capitalise the asset; fixes the USD cost (SBU Finance; not while the asset number is pending)
+ */
+export const useCapitaliseAsset = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof capitaliseAsset>>, TError,{id: number;data?: BodyType<ReasonInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof capitaliseAsset>>,
+        TError,
+        {id: number;data?: BodyType<ReasonInput>},
+        TContext
+      > => {
+      return useMutation(getCapitaliseAssetMutationOptions(options));
+    }
+
+export const getDecideNoSerialUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/no-serial-decision`
+}
+
+/**
+ * @summary Approve or reject a "No serial" reason (SBU Finance; AU-02)
+ */
+export const decideNoSerial = async (id: number,
+    noSerialDecision: NoSerialDecision, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getDecideNoSerialUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(noSerialDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideNoSerialMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideNoSerial>>, TError,{id: number;data: BodyType<NoSerialDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideNoSerial>>, TError,{id: number;data: BodyType<NoSerialDecision>}, TContext> => {
+
+const mutationKey = ['decideNoSerial'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideNoSerial>>, {id: number;data: BodyType<NoSerialDecision>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideNoSerial(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideNoSerialMutationResult = NonNullable<Awaited<ReturnType<typeof decideNoSerial>>>
+    export type DecideNoSerialMutationBody = BodyType<NoSerialDecision>
+    export type DecideNoSerialMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve or reject a "No serial" reason (SBU Finance; AU-02)
+ */
+export const useDecideNoSerial = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideNoSerial>>, TError,{id: number;data: BodyType<NoSerialDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideNoSerial>>,
+        TError,
+        {id: number;data: BodyType<NoSerialDecision>},
+        TContext
+      > => {
+      return useMutation(getDecideNoSerialMutationOptions(options));
+    }
+
+export const getTagAssetUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/tag`
+}
+
+/**
+ * @summary Link the RFID / QR tag (only after Business Central issued the asset number)
+ */
+export const tagAsset = async (id: number,
+    tagInput: TagInput, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getTagAssetUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tagInput)
+  }
+);}
+
+
+
+
+
+export const getTagAssetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tagAsset>>, TError,{id: number;data: BodyType<TagInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof tagAsset>>, TError,{id: number;data: BodyType<TagInput>}, TContext> => {
+
+const mutationKey = ['tagAsset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tagAsset>>, {id: number;data: BodyType<TagInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  tagAsset(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TagAssetMutationResult = NonNullable<Awaited<ReturnType<typeof tagAsset>>>
+    export type TagAssetMutationBody = BodyType<TagInput>
+    export type TagAssetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Link the RFID / QR tag (only after Business Central issued the asset number)
+ */
+export const useTagAsset = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tagAsset>>, TError,{id: number;data: BodyType<TagInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof tagAsset>>,
+        TError,
+        {id: number;data: BodyType<TagInput>},
+        TContext
+      > => {
+      return useMutation(getTagAssetMutationOptions(options));
+    }
+
+export const getListAssetUpgradesUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/upgrades`
+}
+
+/**
+ * @summary The asset's upgrades (AU-07)
+ */
+export const listAssetUpgrades = async (id: number, options?: RequestInit): Promise<AssetUpgrade[]> => {
+
+  return customFetch<AssetUpgrade[]>(getListAssetUpgradesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAssetUpgradesQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/upgrades`
+    ] as const;
+    }
+
+
+export const getListAssetUpgradesQueryOptions = <TData = Awaited<ReturnType<typeof listAssetUpgrades>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetUpgrades>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAssetUpgradesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetUpgrades>>> = ({ signal }) => listAssetUpgrades(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetUpgrades>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAssetUpgradesQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetUpgrades>>>
+export type ListAssetUpgradesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The asset's upgrades (AU-07)
+ */
+
+export function useListAssetUpgrades<TData = Awaited<ReturnType<typeof listAssetUpgrades>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetUpgrades>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAssetUpgradesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLogAssetUpgradeUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/upgrades`
+}
+
+/**
+ * @summary Log an upgrade (SBU IT for IT assets, SBU Admin Manager for non-IT, or Stores)
+ */
+export const logAssetUpgrade = async (id: number,
+    upgradeInput: UpgradeInput, options?: RequestInit): Promise<AssetUpgrade> => {
+
+  return customFetch<AssetUpgrade>(getLogAssetUpgradeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(upgradeInput)
+  }
+);}
+
+
+
+
+
+export const getLogAssetUpgradeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logAssetUpgrade>>, TError,{id: number;data: BodyType<UpgradeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logAssetUpgrade>>, TError,{id: number;data: BodyType<UpgradeInput>}, TContext> => {
+
+const mutationKey = ['logAssetUpgrade'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logAssetUpgrade>>, {id: number;data: BodyType<UpgradeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  logAssetUpgrade(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogAssetUpgradeMutationResult = NonNullable<Awaited<ReturnType<typeof logAssetUpgrade>>>
+    export type LogAssetUpgradeMutationBody = BodyType<UpgradeInput>
+    export type LogAssetUpgradeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Log an upgrade (SBU IT for IT assets, SBU Admin Manager for non-IT, or Stores)
+ */
+export const useLogAssetUpgrade = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logAssetUpgrade>>, TError,{id: number;data: BodyType<UpgradeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logAssetUpgrade>>,
+        TError,
+        {id: number;data: BodyType<UpgradeInput>},
+        TContext
+      > => {
+      return useMutation(getLogAssetUpgradeMutationOptions(options));
+    }
+
+export const getDecideUpgradeUrl = (id: number,) => {
+
+
+
+
+  return `/api/upgrades/${id}/decision`
+}
+
+/**
+ * @summary Capitalise, expense or reject an upgrade (SBU Finance of the asset's SBU only)
+ */
+export const decideUpgrade = async (id: number,
+    upgradeDecision: UpgradeDecision, options?: RequestInit): Promise<AssetUpgrade> => {
+
+  return customFetch<AssetUpgrade>(getDecideUpgradeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(upgradeDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideUpgradeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideUpgrade>>, TError,{id: number;data: BodyType<UpgradeDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideUpgrade>>, TError,{id: number;data: BodyType<UpgradeDecision>}, TContext> => {
+
+const mutationKey = ['decideUpgrade'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideUpgrade>>, {id: number;data: BodyType<UpgradeDecision>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideUpgrade(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideUpgradeMutationResult = NonNullable<Awaited<ReturnType<typeof decideUpgrade>>>
+    export type DecideUpgradeMutationBody = BodyType<UpgradeDecision>
+    export type DecideUpgradeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Capitalise, expense or reject an upgrade (SBU Finance of the asset's SBU only)
+ */
+export const useDecideUpgrade = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideUpgrade>>, TError,{id: number;data: BodyType<UpgradeDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideUpgrade>>,
+        TError,
+        {id: number;data: BodyType<UpgradeDecision>},
+        TContext
+      > => {
+      return useMutation(getDecideUpgradeMutationOptions(options));
+    }
+
+export const getGetAssetRegisterUrl = (params?: GetAssetRegisterParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/register?${stringifiedParams}` : `/api/finance/register`
+}
+
+/**
+ * @summary The fixed asset register with cost, depreciation and NBV per asset (SF-02); only assets in scope
+ */
+export const getAssetRegister = async (params?: GetAssetRegisterParams, options?: RequestInit): Promise<RegisterReport> => {
+
+  return customFetch<RegisterReport>(getGetAssetRegisterUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssetRegisterQueryKey = (params?: GetAssetRegisterParams,) => {
+    return [
+    `/api/finance/register`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAssetRegisterQueryOptions = <TData = Awaited<ReturnType<typeof getAssetRegister>>, TError = ErrorType<unknown>>(params?: GetAssetRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssetRegisterQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssetRegister>>> = ({ signal }) => getAssetRegister(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssetRegister>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAssetRegisterQueryResult = NonNullable<Awaited<ReturnType<typeof getAssetRegister>>>
+export type GetAssetRegisterQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The fixed asset register with cost, depreciation and NBV per asset (SF-02); only assets in scope
+ */
+
+export function useGetAssetRegister<TData = Awaited<ReturnType<typeof getAssetRegister>>, TError = ErrorType<unknown>>(
+ params?: GetAssetRegisterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAssetRegister>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAssetRegisterQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadAssetRegisterExcelUrl = (params?: DownloadAssetRegisterExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/register.xlsx?${stringifiedParams}` : `/api/finance/register.xlsx`
+}
+
+/**
+ * @summary The register as Excel, with headers, subtotals and totals (logged)
+ */
+export const downloadAssetRegisterExcel = async (params?: DownloadAssetRegisterExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadAssetRegisterExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadAssetRegisterExcelQueryKey = (params?: DownloadAssetRegisterExcelParams,) => {
+    return [
+    `/api/finance/register.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadAssetRegisterExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadAssetRegisterExcel>>, TError = ErrorType<unknown>>(params?: DownloadAssetRegisterExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadAssetRegisterExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadAssetRegisterExcel>>> = ({ signal }) => downloadAssetRegisterExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadAssetRegisterExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadAssetRegisterExcel>>>
+export type DownloadAssetRegisterExcelQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The register as Excel, with headers, subtotals and totals (logged)
+ */
+
+export function useDownloadAssetRegisterExcel<TData = Awaited<ReturnType<typeof downloadAssetRegisterExcel>>, TError = ErrorType<unknown>>(
+ params?: DownloadAssetRegisterExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadAssetRegisterExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadAssetRegisterPdfUrl = (params?: DownloadAssetRegisterPdfParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/register.pdf?${stringifiedParams}` : `/api/finance/register.pdf`
+}
+
+/**
+ * @summary The register as PDF, with headers, subtotals and totals (logged)
+ */
+export const downloadAssetRegisterPdf = async (params?: DownloadAssetRegisterPdfParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadAssetRegisterPdfUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadAssetRegisterPdfQueryKey = (params?: DownloadAssetRegisterPdfParams,) => {
+    return [
+    `/api/finance/register.pdf`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadAssetRegisterPdfQueryOptions = <TData = Awaited<ReturnType<typeof downloadAssetRegisterPdf>>, TError = ErrorType<unknown>>(params?: DownloadAssetRegisterPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadAssetRegisterPdfQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadAssetRegisterPdf>>> = ({ signal }) => downloadAssetRegisterPdf(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadAssetRegisterPdfQueryResult = NonNullable<Awaited<ReturnType<typeof downloadAssetRegisterPdf>>>
+export type DownloadAssetRegisterPdfQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The register as PDF, with headers, subtotals and totals (logged)
+ */
+
+export function useDownloadAssetRegisterPdf<TData = Awaited<ReturnType<typeof downloadAssetRegisterPdf>>, TError = ErrorType<unknown>>(
+ params?: DownloadAssetRegisterPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAssetRegisterPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadAssetRegisterPdfQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCategoryReportUrl = (params?: GetCategoryReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/category-report?${stringifiedParams}` : `/api/finance/category-report`
+}
+
+/**
+ * @summary Assets by category with subtotals and a grand total (AU-09)
+ */
+export const getCategoryReport = async (params?: GetCategoryReportParams, options?: RequestInit): Promise<CategoryReport> => {
+
+  return customFetch<CategoryReport>(getGetCategoryReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCategoryReportQueryKey = (params?: GetCategoryReportParams,) => {
+    return [
+    `/api/finance/category-report`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCategoryReportQueryOptions = <TData = Awaited<ReturnType<typeof getCategoryReport>>, TError = ErrorType<unknown>>(params?: GetCategoryReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCategoryReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCategoryReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCategoryReport>>> = ({ signal }) => getCategoryReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCategoryReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCategoryReportQueryResult = NonNullable<Awaited<ReturnType<typeof getCategoryReport>>>
+export type GetCategoryReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Assets by category with subtotals and a grand total (AU-09)
+ */
+
+export function useGetCategoryReport<TData = Awaited<ReturnType<typeof getCategoryReport>>, TError = ErrorType<unknown>>(
+ params?: GetCategoryReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCategoryReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCategoryReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadCategoryReportExcelUrl = (params?: DownloadCategoryReportExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/category-report.xlsx?${stringifiedParams}` : `/api/finance/category-report.xlsx`
+}
+
+/**
+ * @summary The category report as Excel, with headers, subtotals and totals (logged)
+ */
+export const downloadCategoryReportExcel = async (params?: DownloadCategoryReportExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadCategoryReportExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadCategoryReportExcelQueryKey = (params?: DownloadCategoryReportExcelParams,) => {
+    return [
+    `/api/finance/category-report.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadCategoryReportExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadCategoryReportExcel>>, TError = ErrorType<unknown>>(params?: DownloadCategoryReportExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadCategoryReportExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadCategoryReportExcel>>> = ({ signal }) => downloadCategoryReportExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadCategoryReportExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadCategoryReportExcel>>>
+export type DownloadCategoryReportExcelQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The category report as Excel, with headers, subtotals and totals (logged)
+ */
+
+export function useDownloadCategoryReportExcel<TData = Awaited<ReturnType<typeof downloadCategoryReportExcel>>, TError = ErrorType<unknown>>(
+ params?: DownloadCategoryReportExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadCategoryReportExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadCategoryReportPdfUrl = (params?: DownloadCategoryReportPdfParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/category-report.pdf?${stringifiedParams}` : `/api/finance/category-report.pdf`
+}
+
+/**
+ * @summary The category report as PDF, with headers, subtotals and totals (logged)
+ */
+export const downloadCategoryReportPdf = async (params?: DownloadCategoryReportPdfParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadCategoryReportPdfUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadCategoryReportPdfQueryKey = (params?: DownloadCategoryReportPdfParams,) => {
+    return [
+    `/api/finance/category-report.pdf`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadCategoryReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof downloadCategoryReportPdf>>, TError = ErrorType<unknown>>(params?: DownloadCategoryReportPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadCategoryReportPdfQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadCategoryReportPdf>>> = ({ signal }) => downloadCategoryReportPdf(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadCategoryReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof downloadCategoryReportPdf>>>
+export type DownloadCategoryReportPdfQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The category report as PDF, with headers, subtotals and totals (logged)
+ */
+
+export function useDownloadCategoryReportPdf<TData = Awaited<ReturnType<typeof downloadCategoryReportPdf>>, TError = ErrorType<unknown>>(
+ params?: DownloadCategoryReportPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadCategoryReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadCategoryReportPdfQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFinanceDashboardUrl = (params?: GetFinanceDashboardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/dashboard?${stringifiedParams}` : `/api/finance/dashboard`
+}
+
+/**
+ * @summary Management dashboard by category (AU-10); same figures as the category report
+ */
+export const getFinanceDashboard = async (params?: GetFinanceDashboardParams, options?: RequestInit): Promise<FinanceDashboard> => {
+
+  return customFetch<FinanceDashboard>(getGetFinanceDashboardUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFinanceDashboardQueryKey = (params?: GetFinanceDashboardParams,) => {
+    return [
+    `/api/finance/dashboard`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetFinanceDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getFinanceDashboard>>, TError = ErrorType<unknown>>(params?: GetFinanceDashboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFinanceDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFinanceDashboardQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFinanceDashboard>>> = ({ signal }) => getFinanceDashboard(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFinanceDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFinanceDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getFinanceDashboard>>>
+export type GetFinanceDashboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Management dashboard by category (AU-10); same figures as the category report
+ */
+
+export function useGetFinanceDashboard<TData = Awaited<ReturnType<typeof getFinanceDashboard>>, TError = ErrorType<unknown>>(
+ params?: GetFinanceDashboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFinanceDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFinanceDashboardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCompletenessReportUrl = (params?: GetCompletenessReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/completeness?${stringifiedParams}` : `/api/finance/completeness`
+}
+
+/**
+ * @summary Assets missing any Priority 1 field, and % complete per SBU (AU-11)
+ */
+export const getCompletenessReport = async (params?: GetCompletenessReportParams, options?: RequestInit): Promise<CompletenessReport> => {
+
+  return customFetch<CompletenessReport>(getGetCompletenessReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCompletenessReportQueryKey = (params?: GetCompletenessReportParams,) => {
+    return [
+    `/api/finance/completeness`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCompletenessReportQueryOptions = <TData = Awaited<ReturnType<typeof getCompletenessReport>>, TError = ErrorType<unknown>>(params?: GetCompletenessReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompletenessReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompletenessReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompletenessReport>>> = ({ signal }) => getCompletenessReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompletenessReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCompletenessReportQueryResult = NonNullable<Awaited<ReturnType<typeof getCompletenessReport>>>
+export type GetCompletenessReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Assets missing any Priority 1 field, and % complete per SBU (AU-11)
+ */
+
+export function useGetCompletenessReport<TData = Awaited<ReturnType<typeof getCompletenessReport>>, TError = ErrorType<unknown>>(
+ params?: GetCompletenessReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompletenessReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCompletenessReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListApprovalsUrl = () => {
+
+
+
+
+  return `/api/approvals`
+}
+
+/**
+ * @summary Everything waiting on the signed-in user (Phase 1 - upgrades and "No serial" reasons for SBU Finance)
+ */
+export const listApprovals = async ( options?: RequestInit): Promise<ApprovalItem[]> => {
+
+  return customFetch<ApprovalItem[]>(getListApprovalsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApprovalsQueryKey = () => {
+    return [
+    `/api/approvals`
+    ] as const;
+    }
+
+
+export const getListApprovalsQueryOptions = <TData = Awaited<ReturnType<typeof listApprovals>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApprovalsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApprovals>>> = ({ signal }) => listApprovals({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApprovals>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApprovalsQueryResult = NonNullable<Awaited<ReturnType<typeof listApprovals>>>
+export type ListApprovalsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Everything waiting on the signed-in user (Phase 1 - upgrades and "No serial" reasons for SBU Finance)
+ */
+
+export function useListApprovals<TData = Awaited<ReturnType<typeof listApprovals>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApprovals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApprovalsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRunDepreciationUrl = () => {
+
+
+
+
+  return `/api/depreciation/run`
+}
+
+/**
+ * @summary Monthly depreciation run (SBU Finance for its SBU, Group Finance for any SBU or the Group)
+ */
+export const runDepreciation = async (depreciationRunInput: DepreciationRunInput, options?: RequestInit): Promise<DepreciationRun> => {
+
+  return customFetch<DepreciationRun>(getRunDepreciationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(depreciationRunInput)
+  }
+);}
+
+
+
+
+
+export const getRunDepreciationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runDepreciation>>, TError,{data: BodyType<DepreciationRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runDepreciation>>, TError,{data: BodyType<DepreciationRunInput>}, TContext> => {
+
+const mutationKey = ['runDepreciation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runDepreciation>>, {data: BodyType<DepreciationRunInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runDepreciation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunDepreciationMutationResult = NonNullable<Awaited<ReturnType<typeof runDepreciation>>>
+    export type RunDepreciationMutationBody = BodyType<DepreciationRunInput>
+    export type RunDepreciationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Monthly depreciation run (SBU Finance for its SBU, Group Finance for any SBU or the Group)
+ */
+export const useRunDepreciation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runDepreciation>>, TError,{data: BodyType<DepreciationRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runDepreciation>>,
+        TError,
+        {data: BodyType<DepreciationRunInput>},
+        TContext
+      > => {
+      return useMutation(getRunDepreciationMutationOptions(options));
+    }
+
+export const getListDepreciationLocksUrl = () => {
+
+
+
+
+  return `/api/depreciation/locks`
+}
+
+/**
+ * @summary Locked months per SBU
+ */
+export const listDepreciationLocks = async ( options?: RequestInit): Promise<DepreciationLock[]> => {
+
+  return customFetch<DepreciationLock[]>(getListDepreciationLocksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDepreciationLocksQueryKey = () => {
+    return [
+    `/api/depreciation/locks`
+    ] as const;
+    }
+
+
+export const getListDepreciationLocksQueryOptions = <TData = Awaited<ReturnType<typeof listDepreciationLocks>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDepreciationLocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDepreciationLocksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDepreciationLocks>>> = ({ signal }) => listDepreciationLocks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDepreciationLocks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDepreciationLocksQueryResult = NonNullable<Awaited<ReturnType<typeof listDepreciationLocks>>>
+export type ListDepreciationLocksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Locked months per SBU
+ */
+
+export function useListDepreciationLocks<TData = Awaited<ReturnType<typeof listDepreciationLocks>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDepreciationLocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDepreciationLocksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLockDepreciationMonthUrl = () => {
+
+
+
+
+  return `/api/depreciation/locks`
+}
+
+/**
+ * @summary Lock a reviewed month (SBU Finance); it is never recalculated afterwards
+ */
+export const lockDepreciationMonth = async (depreciationRunInput: DepreciationRunInput, options?: RequestInit): Promise<DepreciationLock> => {
+
+  return customFetch<DepreciationLock>(getLockDepreciationMonthUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(depreciationRunInput)
+  }
+);}
+
+
+
+
+
+export const getLockDepreciationMonthMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof lockDepreciationMonth>>, TError,{data: BodyType<DepreciationRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof lockDepreciationMonth>>, TError,{data: BodyType<DepreciationRunInput>}, TContext> => {
+
+const mutationKey = ['lockDepreciationMonth'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof lockDepreciationMonth>>, {data: BodyType<DepreciationRunInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  lockDepreciationMonth(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LockDepreciationMonthMutationResult = NonNullable<Awaited<ReturnType<typeof lockDepreciationMonth>>>
+    export type LockDepreciationMonthMutationBody = BodyType<DepreciationRunInput>
+    export type LockDepreciationMonthMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Lock a reviewed month (SBU Finance); it is never recalculated afterwards
+ */
+export const useLockDepreciationMonth = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof lockDepreciationMonth>>, TError,{data: BodyType<DepreciationRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof lockDepreciationMonth>>,
+        TError,
+        {data: BodyType<DepreciationRunInput>},
+        TContext
+      > => {
+      return useMutation(getLockDepreciationMonthMutationOptions(options));
+    }
+
+export const getListAuditorsUrl = () => {
+
+
+
+
+  return `/api/users/auditors`
+}
+
+/**
+ * @summary Auditor accounts (Group Finance; AU-12)
+ */
+export const listAuditors = async ( options?: RequestInit): Promise<Account[]> => {
+
+  return customFetch<Account[]>(getListAuditorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAuditorsQueryKey = () => {
+    return [
+    `/api/users/auditors`
+    ] as const;
+    }
+
+
+export const getListAuditorsQueryOptions = <TData = Awaited<ReturnType<typeof listAuditors>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuditors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAuditorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAuditors>>> = ({ signal }) => listAuditors({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAuditors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAuditorsQueryResult = NonNullable<Awaited<ReturnType<typeof listAuditors>>>
+export type ListAuditorsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Auditor accounts (Group Finance; AU-12)
+ */
+
+export function useListAuditors<TData = Awaited<ReturnType<typeof listAuditors>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAuditors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAuditorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAuditorUrl = () => {
+
+
+
+
+  return `/api/users/auditors`
+}
+
+/**
+ * @summary Create a time-limited, read-only auditor login (Group Finance)
+ */
+export const createAuditor = async (auditorInput: AuditorInput, options?: RequestInit): Promise<Account> => {
+
+  return customFetch<Account>(getCreateAuditorUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(auditorInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAuditorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAuditor>>, TError,{data: BodyType<AuditorInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAuditor>>, TError,{data: BodyType<AuditorInput>}, TContext> => {
+
+const mutationKey = ['createAuditor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAuditor>>, {data: BodyType<AuditorInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAuditor(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAuditorMutationResult = NonNullable<Awaited<ReturnType<typeof createAuditor>>>
+    export type CreateAuditorMutationBody = BodyType<AuditorInput>
+    export type CreateAuditorMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a time-limited, read-only auditor login (Group Finance)
+ */
+export const useCreateAuditor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAuditor>>, TError,{data: BodyType<AuditorInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAuditor>>,
+        TError,
+        {data: BodyType<AuditorInput>},
+        TContext
+      > => {
+      return useMutation(getCreateAuditorMutationOptions(options));
+    }
+
+export const getUpdateAuditorAccessUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}/access`
+}
+
+/**
+ * @summary Change an auditor's expiry date or disable the account (Group Finance)
+ */
+export const updateAuditorAccess = async (id: number,
+    auditorAccessUpdate: AuditorAccessUpdate, options?: RequestInit): Promise<Account> => {
+
+  return customFetch<Account>(getUpdateAuditorAccessUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(auditorAccessUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAuditorAccessMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAuditorAccess>>, TError,{id: number;data: BodyType<AuditorAccessUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAuditorAccess>>, TError,{id: number;data: BodyType<AuditorAccessUpdate>}, TContext> => {
+
+const mutationKey = ['updateAuditorAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAuditorAccess>>, {id: number;data: BodyType<AuditorAccessUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAuditorAccess(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAuditorAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updateAuditorAccess>>>
+    export type UpdateAuditorAccessMutationBody = BodyType<AuditorAccessUpdate>
+    export type UpdateAuditorAccessMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change an auditor's expiry date or disable the account (Group Finance)
+ */
+export const useUpdateAuditorAccess = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAuditorAccess>>, TError,{id: number;data: BodyType<AuditorAccessUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAuditorAccess>>,
+        TError,
+        {id: number;data: BodyType<AuditorAccessUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAuditorAccessMutationOptions(options));
+    }
+
+export const getListAccessLogUrl = (params?: ListAccessLogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/access-log?${stringifiedParams}` : `/api/access-log`
+}
+
+/**
+ * @summary Sign-ins and exports, newest first (Group Finance; AU-12)
+ */
+export const listAccessLog = async (params?: ListAccessLogParams, options?: RequestInit): Promise<AccessLogEntry[]> => {
+
+  return customFetch<AccessLogEntry[]>(getListAccessLogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAccessLogQueryKey = (params?: ListAccessLogParams,) => {
+    return [
+    `/api/access-log`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAccessLogQueryOptions = <TData = Awaited<ReturnType<typeof listAccessLog>>, TError = ErrorType<unknown>>(params?: ListAccessLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAccessLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAccessLogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAccessLog>>> = ({ signal }) => listAccessLog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAccessLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAccessLogQueryResult = NonNullable<Awaited<ReturnType<typeof listAccessLog>>>
+export type ListAccessLogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Sign-ins and exports, newest first (Group Finance; AU-12)
+ */
+
+export function useListAccessLog<TData = Awaited<ReturnType<typeof listAccessLog>>, TError = ErrorType<unknown>>(
+ params?: ListAccessLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAccessLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAccessLogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

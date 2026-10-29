@@ -20,9 +20,10 @@ const isTheme = (v: unknown): v is Theme => THEMES.includes(v as Theme);
 function read(): Theme {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    return isTheme(stored) ? stored : "system";
+    // Dark by default, as in the approved designs; a saved choice wins.
+    return isTheme(stored) ? stored : "dark";
   } catch {
-    return "system";
+    return "dark";
   }
 }
 
@@ -75,9 +76,9 @@ export function setTheme(theme: Theme) {
   listeners.forEach((l) => l());
 }
 
-/** The stored preference ("system" by default) and a setter. */
+/** The stored preference ("dark" by default) and a setter. */
 export function useTheme(): [Theme, (theme: Theme) => void] {
-  const theme = useSyncExternalStore(subscribe, read, () => "system" as Theme);
+  const theme = useSyncExternalStore(subscribe, read, () => "dark" as Theme);
   return [theme, setTheme];
 }
 

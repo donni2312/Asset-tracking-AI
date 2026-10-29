@@ -12,7 +12,18 @@ import { cn } from "@/lib/utils";
  *   administrator  everything
  * These helpers only decide what the UI offers; the API is what enforces it.
  */
-export const ROLE_NAME: Record<UserRole, string> = { viewer: "viewer", operator: "operator", admin: "administrator" };
+export const ROLE_NAME: Record<UserRole, string> = {
+  viewer: "viewer",
+  operator: "operator",
+  admin: "administrator",
+  group_finance: "Group Finance",
+  group_it: "Group IT",
+  sbu_it: "SBU IT",
+  sbu_finance: "SBU Finance",
+  sbu_admin: "SBU Admin Manager",
+  stores: "Stores",
+  auditor: "auditor",
+};
 
 /** Whether the signed-in user may `action` ("record a movement"), and if not, why. */
 export function usePermission(required: UserRole, action: string): { allowed: boolean; reason: string } {

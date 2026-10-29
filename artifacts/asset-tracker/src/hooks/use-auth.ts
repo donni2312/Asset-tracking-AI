@@ -92,7 +92,12 @@ export function endSession() {
 /** Registered once: the generated client sends this as `Authorization: Bearer …`. */
 setAuthTokenGetter(() => read()?.token ?? null);
 
-const RANK: Record<UserRole, number> = { viewer: 0, operator: 1, admin: 2 };
+// Mirrors Roles.Rank in the API. Auditors read and export (rank 0 here); the API refuses all their writes.
+const RANK: Record<UserRole, number> = {
+  viewer: 0, sbu_finance: 0, group_finance: 0, auditor: 0,
+  operator: 1, sbu_it: 1, sbu_admin: 1, stores: 1,
+  admin: 2, group_it: 2,
+};
 
 export function useSession(): Session | null {
   return useSyncExternalStore(subscribe, read, () => null);

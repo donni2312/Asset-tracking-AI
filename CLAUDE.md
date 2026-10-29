@@ -11,7 +11,8 @@ test the project locally and records everything changed in the October 2026 pass
 |---|---|
 | `pnpm install` | Install all workspace dependencies |
 | `pnpm db:local` | Run a local PostgreSQL 16 in this terminal (port 5433, Ctrl+C stops it). `pnpm db:local status` / `stop` manage a leftover server |
-| `pnpm db:push` | Create / update tables from `lib/db/src/schema` (drizzle-kit) |
+| `pnpm db:migrate` | Apply `lib/db/migrations` in order (Phase 1 onwards). A database created earlier with `db:push` gets its baseline recorded first, then only the new migrations run |
+| `pnpm db:push` | Throwaway local databases only: sync tables straight from `lib/db/src/schema` (no migration history, no triggers) |
 | `pnpm seed` / `pnpm seed --reset` | Load demo data into an empty DB / wipe every AssetIQ table first |
 | `pnpm dev:api` | C# API on http://localhost:8080/api with hot reload (`dotnet watch`, reads `.env`) |
 | `pnpm dev:web` | Dashboard on http://localhost:5173 (Vite hot reload, proxies `/api` to 8080) |
@@ -103,7 +104,7 @@ Supabase is plain PostgreSQL, so no code changes are needed: both the C# API and
    The API (`Configuration/DatabaseUrl.cs`) maps `sslmode=require` to Npgsql's `SslMode.Require` and ignores
    `sslrootcert`. Fallback if the certificate path is not picked up: replace `&sslrootcert=...` with
    `&uselibpqcompat=true` (still encrypted, but the certificate is not verified).
-5. **Create the tables and demo data**: `pnpm db:push`, then `pnpm seed` (no `pnpm db:local` needed). Check
+5. **Create the tables and demo data**: `pnpm db:migrate`, then `pnpm seed` (no `pnpm db:local` needed). Check
    **Table Editor** in Supabase.
 6. **Run it**: `pnpm dev:api` and `pnpm dev:web` (the *Dev: full stack* task also starts the local PostgreSQL, which
    is harmless but unused). Sign in as `administrator`/`admin123` and check the dashboard shows the seeded assets.
@@ -576,8 +577,10 @@ platform still serves them separately).
   by the API; codegen still produces it.)
 - **Controllers stay thin**; business logic goes in `artifacts/api-server/src/AssetIQ.Api/Services`, with rules as pure
   static methods so they can be unit tested. Throw `ApiException` for 4xx; give every action a `[FailureMessage]`.
-- **Schema changes** happen in `lib/db/src/schema` (`pnpm db:push`), stay additive for Replit, and then need the EF
-  entity + `tests/AssetIQ.Api.Tests/Database/schema.sql` updated (regenerate it with the command in its header);
+- **Schema changes** happen in `lib/db/src/schema`, then `pnpm --filter @workspace/db exec drizzle-kit generate
+  --config ./drizzle.config.ts --name <what>` writes the migration (`--custom` for hand-written SQL: triggers,
+  backfills). Never edit an applied migration. Update the EF entity too; the tests build their database from the
+  migrations (`Database/schema.sql` is gone);
   `SchemaConformanceTests` catches a mismatch.
 - **Time**: columns are `timestamp without time zone` holding UTC, written from the API's clock (`AppClock`, never
   `DateTime.Now` or the database's `now()`). "Today", "this week" and working hours use `ZonedTime` with
@@ -595,3 +598,22 @@ platform still serves them separately).
   `PlumbingTests`; the dashboard menu names may have moved.
 - **.NET 8 support ends on 10 November 2026.** Moving to .NET 10 (LTS) is a version bump: `TargetFramework` in
   `artifacts/api-server/Directory.Build.props` plus the package versions in the two `.csproj` files.
+
+## Phase 1 — audit and management essentials (AU-01 … AU-12), October 2026
+
+The plan, story status, assumptions and open questions are in `docs/implementation-plan.md` (Phase 1 report).
+
+- **Database**: migrations in `lib/db/migrations` (`0000_baseline` = the schema as pushed before, `0001` new
+  tables/columns, `0002` reference data, backfill of existing assets and the triggers that make `audit_log` /
+  `access_log` append-only and asset numbers permanent). Run `pnpm db:migrate` on this PC's cluster and on Supabase
+  before starting the new API; existing assets are backfilled into template categories and queued for asset numbers.
+- **API**: `Auth/AccessPolicy.cs` (who may see / change what), `Services/AssetRegistrationService.cs`,
+  `Services/Templates/TemplateRules.cs`, `Services/Depreciation/*` (engine + ledger + run/lock), `ValuationService`
+  (one calculation behind card, register, category report and dashboard), `UpgradeService`, `CompletenessService`,
+  `BcNumbers.cs` (mock Business Central numbers, queue + retry worker), exports in `Infrastructure/TableExport.cs`.
+- **Dashboard**: Asset Register (`/register`), asset card (`/assets/:id/card`), category report (`/reports/category`),
+  Asset Position dashboard (home for finance roles; `/operations` keeps the previous dashboard), Approvals,
+  Verification (AU-11), Administration. Dark theme is the default.
+- **Sign-ins** (`pnpm seed --reset`): the three original ones plus scoped accounts, password = username + `-2026`
+  (`group.finance`, `tsas.finance`, `tsas.it`, `bak.finance`, `ext.auditor`, … listed by the seed).
+- **Tests**: `pnpm test` — 300 tests (78 new; names start with the story ID).

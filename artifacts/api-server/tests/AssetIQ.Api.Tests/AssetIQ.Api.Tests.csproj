@@ -22,7 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Database\schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The test database is built from the real migrations (lib/db/migrations), triggers included. -->
+    <None Include="..\..\..\..\lib\db\migrations\**\*" LinkBase="Database\migrations" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

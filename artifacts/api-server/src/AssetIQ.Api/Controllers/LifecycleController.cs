@@ -28,7 +28,7 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
         Id = e.Id,
         AssetId = e.AssetId,
         AssetName = e.Asset.Name,
-        RfidTag = e.Asset.RfidTag,
+        RfidTag = e.Asset.RfidTag ?? "",
         EventType = e.EventType,
         PerformedBy = e.PerformedBy,
         FromSbuId = e.FromSbuId,

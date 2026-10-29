@@ -140,7 +140,7 @@ public sealed class RfidScanService(
 
         // 4. Anomaly rules.
         var drafts = AnomalyRules.EvaluateScan(new ScanContext(
-            new ScanAsset(asset.Id, asset.Name, asset.RfidTag, asset.SbuId, assetSbuCode),
+            new ScanAsset(asset.Id, asset.Name, asset.RfidTag!, asset.SbuId, assetSbuCode),
             new ScanLocation(location.Id, location.Name, location.Type, location.SbuId, location.SbuCode),
             reader.Name,
             scannedAt,
@@ -160,7 +160,7 @@ public sealed class RfidScanService(
                 Id = movement.Id,
                 AssetId = movement.AssetId,
                 AssetName = asset.Name,
-                RfidTag = asset.RfidTag,
+                RfidTag = asset.RfidTag!,
                 FromLocationId = movement.FromLocationId,
                 FromLocationName = fromLocationName,
                 ToLocationId = movement.ToLocationId,

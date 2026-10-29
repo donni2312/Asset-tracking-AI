@@ -3,13 +3,17 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
 
+/**
+ * pending_asset_number = waiting for the Business Central asset number (AU-03)
+ */
 export type AssetStatus = typeof AssetStatus[keyof typeof AssetStatus];
 
 
 export const AssetStatus = {
+  pending_asset_number: 'pending_asset_number',
   active: 'active',
   maintenance: 'maintenance',
   retired: 'retired',

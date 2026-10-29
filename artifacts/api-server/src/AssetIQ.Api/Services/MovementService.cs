@@ -14,7 +14,7 @@ public sealed class MovementService(AssetIqDbContext db, AppClock clock)
         Id = m.Id,
         AssetId = m.AssetId,
         AssetName = m.Asset.Name,
-        RfidTag = m.Asset.RfidTag,
+        RfidTag = m.Asset.RfidTag ?? "",
         FromLocationId = m.FromLocationId,
         FromLocationName = m.FromLocation!.Name,
         ToLocationId = m.ToLocationId,

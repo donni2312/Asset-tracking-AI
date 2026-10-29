@@ -15,6 +15,13 @@ const ROLE_LABEL: Record<UserRole, string> = {
   viewer: "Viewer — view, download reports, record movements",
   operator: "Operator — everything except RFID simulator and BC sync",
   admin: "Administrator — full access",
+  group_finance: "Group Finance — all SBUs, categories and depreciation policy",
+  group_it: "Group IT — IT assets of every SBU",
+  sbu_it: "SBU IT — IT assets of your SBU",
+  sbu_finance: "SBU Finance — cost, capitalisation and upgrades of your SBU",
+  sbu_admin: "SBU Admin Manager — non-IT assets of your SBU",
+  stores: "Stores — receiving and tagging for your SBU",
+  auditor: "Auditor — read only, all SBUs, until your access expires",
 };
 
 export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -135,10 +142,11 @@ export function AccountBadge() {
       <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs">
         <ShieldCheck className="h-4 w-4 flex-shrink-0 text-emerald-400" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] uppercase tracking-wider text-sidebar-foreground/40">
-            {user.role}
-          </span>
-          <span className="block truncate font-medium">{user.name}</span>
+          <span className="block text-[10px] uppercase tracking-wider text-sidebar-foreground/40">Viewing as</span>
+          <span className="block truncate font-semibold">{user.roleName ?? user.role}</span>
+          <span className="block truncate text-sidebar-foreground/60">{user.name}</span>
+          {/* Sessions saved before Phase 1 carry no scope; they get it at the next sign-in. */}
+          <span className="block truncate text-sidebar-foreground/60">Scope: {user.scope ?? "All SBUs"}</span>
         </span>
       </div>
       <button

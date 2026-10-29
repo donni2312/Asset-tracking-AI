@@ -16,8 +16,8 @@ namespace AssetIQ.Api.Tests.Infrastructure;
 public sealed record ApiResponse(int Status, JsonElement Body);
 
 /// <summary>
-/// The real API (WebApplicationFactory) against a throwaway PostgreSQL database built from
-/// Database/schema.sql, with a fake clock. Shared by every integration test class; each test resets
+/// The real API (WebApplicationFactory) against a throwaway PostgreSQL database built by applying
+/// lib/db/migrations in journal order (exactly what `pnpm db:migrate` does), with a fake clock. Shared by every integration test class; each test resets
 /// the tables first, so tests never see each other's rows.
 /// </summary>
 public sealed class ApiFixture : IAsyncLifetime
@@ -27,9 +27,15 @@ public sealed class ApiFixture : IAsyncLifetime
     /// <summary>Wednesday 14 Oct 2026, 10:00 in Harare (inside working hours).</summary>
     public static readonly DateTimeOffset Wednesday10Am = new(2026, 10, 14, 8, 0, 0, TimeSpan.Zero);
 
+    // TRUNCATE bypasses the append-only triggers on audit_log / access_log, which only reject UPDATE and DELETE.
     private const string TruncateAll =
-        "TRUNCATE \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", \"assets\", " +
-        "\"rfid_readers\", \"locations\", \"sbus\" RESTART IDENTITY CASCADE";
+        "TRUNCATE \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", " +
+        "\"asset_attribute_values\", \"asset_upgrades\", \"depreciation_entries\", \"depreciation_locks\", \"bc_number_requests\", " +
+        "\"bc_mock_number_series\", \"assets\", \"category_template_fields\", \"asset_categories\", \"group_settings\", " +
+        "\"audit_log\", \"access_log\", \"rfid_readers\", \"locations\", \"sbus\" RESTART IDENTITY CASCADE";
+
+    /// <summary>The reference data (category templates, Group settings) of migration 0002, re-inserted after every reset.</summary>
+    private string _referenceData = "";
 
     private TestPostgres? _server;
     private string _databaseName = "";
@@ -61,10 +67,13 @@ public sealed class ApiFixture : IAsyncLifetime
         await using (var connection = new NpgsqlConnection(ConnectionString))
         {
             await connection.OpenAsync();
-            var schema = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Database", "schema.sql"));
-            await using var command = new NpgsqlCommand(schema, connection);
-            await command.ExecuteNonQueryAsync();
+            foreach (var sql in Migrations.Load())
+            {
+                await using var command = new NpgsqlCommand(sql, connection);
+                await command.ExecuteNonQueryAsync();
+            }
         }
+        _referenceData = Migrations.ReferenceData();
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -124,8 +133,13 @@ public sealed class ApiFixture : IAsyncLifetime
         DefaultToken = null;
         Services.GetRequiredService<BcSyncService>().Reset();
         Services.GetRequiredService<BcSyncService>().SyncDuration = BcSyncService.DefaultSyncDuration;
+        Services.GetRequiredService<MockBcFixedAssetClient>().Available = true;
         await using var db = NewDbContext();
         await db.Database.ExecuteSqlRawAsync(TruncateAll);
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var reference = new NpgsqlCommand(_referenceData, connection);
+        await reference.ExecuteNonQueryAsync();
     }
 
     /// <summary>A DbContext on the test database, for arranging rows and checking what the API wrote.</summary>
@@ -161,6 +175,31 @@ public sealed class ApiFixture : IAsyncLifetime
         var isJson = response.Content.Headers.ContentType?.MediaType?.Contains("json") ?? true;
         var json = text.Length == 0 || !isJson ? default : JsonDocument.Parse(text).RootElement.Clone();
         return new ApiResponse((int)response.StatusCode, json);
+    }
+}
+
+/// <summary>The SQL migrations copied next to the tests from lib/db/migrations.</summary>
+public static class Migrations
+{
+    private static string Folder => Path.Combine(AppContext.BaseDirectory, "Database", "migrations");
+
+    /// <summary>Every migration's SQL, in journal order.</summary>
+    public static IEnumerable<string> Load()
+    {
+        using var journal = JsonDocument.Parse(File.ReadAllText(Path.Combine(Folder, "meta", "_journal.json")));
+        foreach (var entry in journal.RootElement.GetProperty("entries").EnumerateArray())
+        {
+            yield return File.ReadAllText(Path.Combine(Folder, entry.GetProperty("tag").GetString() + ".sql"));
+        }
+    }
+
+    /// <summary>The block between "-- reference-data:begin" and "-- reference-data:end" (category templates, settings).</summary>
+    public static string ReferenceData()
+    {
+        var sql = File.ReadAllText(Path.Combine(Folder, "0002_reference_data_and_guards.sql"));
+        var start = sql.IndexOf("-- reference-data:begin", StringComparison.Ordinal);
+        var end = sql.IndexOf("-- reference-data:end", StringComparison.Ordinal);
+        return sql[start..end];
     }
 }
 

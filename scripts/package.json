@@ -7,15 +7,18 @@
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx --env-file-if-exists=../.env ./src/seed.ts",
     "db:local": "tsx --env-file-if-exists=../.env ./src/local-db.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "tsx --env-file-if-exists=../.env ./src/migrate.ts"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "embedded-postgres": "16.14.0-beta.17",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "@types/pg": "^8.20.0"
   }
 }

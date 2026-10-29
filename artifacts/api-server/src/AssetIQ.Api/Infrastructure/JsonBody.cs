@@ -131,6 +131,67 @@ public sealed partial class JsonBody
         return null;
     }
 
+    // ── booleans and maps ──────────────────────────────────────────────────────
+
+    public bool RequiredBool(string name)
+    {
+        if (!TryGet(name, out var value))
+        {
+            Issue(name, "Required");
+            return false;
+        }
+        if (value.ValueKind is JsonValueKind.True or JsonValueKind.False) return value.GetBoolean();
+        Issue(name, $"Expected boolean, received {Describe(value)}");
+        return false;
+    }
+
+    /// <summary>
+    /// An object of template values (<c>{ "ram": 16, "make": "Dell", "mac_address": null }</c>): strings and
+    /// numbers are read as text, null means "clear". Absent → not set.
+    /// </summary>
+    public Optional<Dictionary<string, string?>> OptionalValueMap(string name)
+    {
+        if (!TryGet(name, out var value)) return default;
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            Issue(name, $"Expected object, received {Describe(value)}");
+            return new(true, []);
+        }
+        var map = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var property in value.EnumerateObject())
+        {
+            switch (property.Value.ValueKind)
+            {
+                case JsonValueKind.String: map[property.Name] = property.Value.GetString(); break;
+                case JsonValueKind.Number: map[property.Name] = property.Value.GetRawText(); break;
+                case JsonValueKind.Null: map[property.Name] = null; break;
+                default: Issue($"{name}.{property.Name}", $"Expected string or number, received {Describe(property.Value)}"); break;
+            }
+        }
+        return new(true, map);
+    }
+
+    /// <summary>A calendar date as YYYY-MM-DD text (the text-typed date columns); absent → null.</summary>
+    public Optional<string?> NullableDay(string name)
+    {
+        if (!TryGet(name, out var value)) return default;
+        if (value.ValueKind == JsonValueKind.Null) return new(true, null);
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString()!.Trim() : null;
+        if (text is null || !DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+        {
+            Issue(name, "Expected a date (YYYY-MM-DD)");
+            return new(true, null);
+        }
+        return new(true, text);
+    }
+
+    public Optional<decimal?> NullableNumber(string name)
+    {
+        if (!TryGet(name, out var value)) return default;
+        if (value.ValueKind == JsonValueKind.Null) return new(true, null);
+        return new(true, OptionalNumber(name));
+    }
+
     // ── dates ──────────────────────────────────────────────────────────────────
 
     /// <summary>

@@ -43,7 +43,7 @@ public sealed class GatePassService(
         Id = p.Id,
         AssetId = p.AssetId,
         AssetName = p.Asset.Name,
-        RfidTag = p.Asset.RfidTag,
+        RfidTag = p.Asset.RfidTag ?? "",
         SbuId = p.Asset.SbuId,
         SbuName = p.Asset.Sbu!.Name,
         RequestedBy = p.RequestedBy,

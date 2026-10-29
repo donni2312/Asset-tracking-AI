@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.3.0
+  version: 0.4.0
   description: TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
 servers:
   - url: /api
@@ -34,6 +34,18 @@ tags:
     description: Authentication and roles
   - name: reports
     description: CSV report downloads
+  - name: categories
+    description: Category templates and depreciation policy (AU-01, GI-02, AM-01, GF-03)
+  - name: settings
+    description: Group settings
+  - name: asset-card
+    description: Asset card, lookup, audit trail and exports (AU-06, AU-08)
+  - name: asset-record
+    description: Financial fields, capitalisation, category changes, "No serial" decisions, tagging (AU-02 … AU-04)
+  - name: upgrades
+    description: Upgrades and Finance's capitalise / expense decision (AU-07)
+  - name: finance
+    description: Register, category report, dashboard, completeness, approvals, depreciation runs (AU-05, AU-09 … AU-11)
 
 paths:
   /healthz:
@@ -211,7 +223,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, maintenance, retired, missing]
+            enum: [pending_asset_number, active, maintenance, retired, missing]
         - name: locationId
           in: query
           schema:
@@ -241,8 +253,15 @@ paths:
     post:
       operationId: createAsset
       tags: [assets]
-      summary: Register a new asset
-      description: Requires the `operator` role.
+      summary: Register a new asset from its category template (AU-01 … AU-03)
+      description: >-
+        There is no generic form: the category's template decides the fields. The API rejects a missing
+        category, a missing required field or a field of another category (400), a serial / MAC used anywhere
+        in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not
+        register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original
+        operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated
+        and the Business Central asset number is requested; until it is issued the status is
+        pending_asset_number.
       security:
         - bearerAuth: []
       requestBody:
@@ -286,10 +305,11 @@ paths:
     patch:
       operationId: updateAsset
       tags: [assets]
-      summary: Update asset
+      summary: Update the asset's technical fields
       description: >-
-        Requires the `operator` role (operators and administrators may change
-        every field).
+        Template values are merged with the current ones, re-validated and the description rebuilt; every
+        change is audit-logged. The description (name) and the category cannot be set here (400): the
+        category changes through POST /assets/{id}/category (SBU Finance only).
       security:
         - bearerAuth: []
       parameters:
@@ -320,8 +340,10 @@ paths:
     delete:
       operationId: deleteAsset
       tags: [assets]
-      summary: Retire/decommission asset
-      description: Requires the `operator` role.
+      summary: Delete a mistaken registration
+      description: >-
+        Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset
+        number can never be deleted (409), so its number is never reused; nor can one with history.
       security:
         - bearerAuth: []
       parameters:
@@ -1021,7 +1043,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, maintenance, retired, missing]
+            enum: [pending_asset_number, active, maintenance, retired, missing]
         - name: locationId
           in: query
           schema:
@@ -1201,8 +1223,801 @@ paths:
               schema:
                 $ref: "#/components/schemas/BCSyncStatus"
 
+  # ── Priority 1: audit and management essentials (AU-01 … AU-12) ──────────────
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: Category templates with their fields and depreciation policy (AU-01, GF-03)
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetCategory"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category (Group Finance)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCategory"
+        "403":
+          description: Only Group Finance sets the categories
+
+  /categories/{id}:
+    get:
+      operationId: getCategory
+      tags: [categories]
+      summary: One category template
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCategory"
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: >-
+        Update a category. Group Finance: name, sub-categories, depreciation policy, active. Field owners
+        (Group IT for IT, SBU Admin Manager for non-IT): description pattern and identifier field.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCategory"
+        "403":
+          description: The signed-in role may not make this change
+
+  /categories/{id}/fields:
+    post:
+      operationId: addCategoryField
+      tags: [categories]
+      summary: Add a template field (Group IT for IT categories, SBU Admin Manager for non-IT)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateFieldInput"
+      responses:
+        "201":
+          description: The category with the new field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCategory"
+
+  /category-fields/{id}:
+    patch:
+      operationId: updateCategoryField
+      tags: [categories]
+      summary: Change a template field (label, required, unit, allowed values, order)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateFieldUpdate"
+      responses:
+        "200":
+          description: The category with the changed field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCategory"
+
+  /settings:
+    get:
+      operationId: listSettings
+      tags: [settings]
+      summary: Group settings (thresholds, alert days, depreciation convention)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroupSetting"
+
+  /settings/{key}:
+    patch:
+      operationId: updateSetting
+      tags: [settings]
+      summary: Change a Group setting (the role named in editableBy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupSetting"
+
+  /assets/lookup:
+    get:
+      operationId: lookupAsset
+      tags: [asset-card]
+      summary: Find an asset by asset number, previous number, RFID / QR tag or serial (AU-08)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The asset's id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetLookup"
+        "403":
+          description: The asset is outside the signed-in user's scope
+        "404":
+          description: No such asset
+
+  /assets/{id}/card:
+    get:
+      operationId: getAssetCard
+      tags: [asset-card]
+      summary: The one-page asset card (AU-08)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Asset card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetCard"
+        "403":
+          description: The asset is outside the signed-in user's scope
+
+  /assets/{id}/card.pdf:
+    get:
+      operationId: downloadAssetCardPdf
+      tags: [asset-card]
+      summary: The asset card as PDF (logged in the access log)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /assets/{id}/depreciation.xlsx:
+    get:
+      operationId: downloadDepreciationSchedule
+      tags: [asset-card]
+      summary: The asset's monthly depreciation schedule as Excel (AU-05)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Excel workbook
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /assets/{id}/audit:
+    get:
+      operationId: getAssetAudit
+      tags: [asset-card]
+      summary: The asset's audit trail, newest first (AU-06, GF-07). There is no way to change or delete an entry.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+
+  /assets/{id}/category:
+    post:
+      operationId: changeAssetCategory
+      tags: [asset-record]
+      summary: Change the category (SBU Finance only; the new category's required fields must be filled in)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryChange"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}/financial:
+    patch:
+      operationId: updateAssetFinancial
+      tags: [asset-record]
+      summary: Cost, currency, rate, residual value and purchase details (SBU Finance of the asset's SBU; AU-04)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinancialUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}/capitalise:
+    post:
+      operationId: capitaliseAsset
+      tags: [asset-record]
+      summary: Capitalise the asset; fixes the USD cost (SBU Finance; not while the asset number is pending)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonInput"
+      responses:
+        "200":
+          description: Capitalised
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "409":
+          description: Pending asset number, or already capitalised
+
+  /assets/{id}/no-serial-decision:
+    post:
+      operationId: decideNoSerial
+      tags: [asset-record]
+      summary: Approve or reject a "No serial" reason (SBU Finance; AU-02)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoSerialDecision"
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}/tag:
+    post:
+      operationId: tagAsset
+      tags: [asset-record]
+      summary: Link the RFID / QR tag (only after Business Central issued the asset number)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagInput"
+      responses:
+        "200":
+          description: Tagged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /assets/{id}/upgrades:
+    get:
+      operationId: listAssetUpgrades
+      tags: [upgrades]
+      summary: The asset's upgrades (AU-07)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Upgrades, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetUpgrade"
+    post:
+      operationId: logAssetUpgrade
+      tags: [upgrades]
+      summary: Log an upgrade (SBU IT for IT assets, SBU Admin Manager for non-IT, or Stores)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeInput"
+      responses:
+        "201":
+          description: Logged, waiting for SBU Finance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetUpgrade"
+
+  /upgrades/{id}/decision:
+    post:
+      operationId: decideUpgrade
+      tags: [upgrades]
+      summary: Capitalise, expense or reject an upgrade (SBU Finance of the asset's SBU only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradeDecision"
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetUpgrade"
+
+  /finance/register:
+    get:
+      operationId: getAssetRegister
+      tags: [finance]
+      summary: The fixed asset register with cost, depreciation and NBV per asset (SF-02); only assets in scope
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: Register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterReport"
+
+  /finance/register.xlsx:
+    get:
+      operationId: downloadAssetRegisterExcel
+      tags: [finance]
+      summary: The register as Excel, with headers, subtotals and totals (logged)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: File
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /finance/register.pdf:
+    get:
+      operationId: downloadAssetRegisterPdf
+      tags: [finance]
+      summary: The register as PDF, with headers, subtotals and totals (logged)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: File
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /finance/category-report:
+    get:
+      operationId: getCategoryReport
+      tags: [finance]
+      summary: Assets by category with subtotals and a grand total (AU-09)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: Category report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryReport"
+
+  /finance/category-report.xlsx:
+    get:
+      operationId: downloadCategoryReportExcel
+      tags: [finance]
+      summary: The category report as Excel, with headers, subtotals and totals (logged)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: File
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /finance/category-report.pdf:
+    get:
+      operationId: downloadCategoryReportPdf
+      tags: [finance]
+      summary: The category report as PDF, with headers, subtotals and totals (logged)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: File
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /finance/dashboard:
+    get:
+      operationId: getFinanceDashboard
+      tags: [finance]
+      summary: Management dashboard by category (AU-10); same figures as the category report
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceDashboard"
+
+  /finance/completeness:
+    get:
+      operationId: getCompletenessReport
+      tags: [finance]
+      summary: Assets missing any Priority 1 field, and % complete per SBU (AU-11)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "200":
+          description: Completeness report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletenessReport"
+
+  /approvals:
+    get:
+      operationId: listApprovals
+      tags: [finance]
+      summary: Everything waiting on the signed-in user (Phase 1 - upgrades and "No serial" reasons for SBU Finance)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pending items, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalItem"
+
+  /depreciation/run:
+    post:
+      operationId: runDepreciation
+      tags: [finance]
+      summary: Monthly depreciation run (SBU Finance for its SBU, Group Finance for any SBU or the Group)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepreciationRunInput"
+      responses:
+        "200":
+          description: Run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepreciationRun"
+
+  /depreciation/locks:
+    get:
+      operationId: listDepreciationLocks
+      tags: [finance]
+      summary: Locked months per SBU
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Locks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DepreciationLock"
+    post:
+      operationId: lockDepreciationMonth
+      tags: [finance]
+      summary: Lock a reviewed month (SBU Finance); it is never recalculated afterwards
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepreciationRunInput"
+      responses:
+        "201":
+          description: Locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepreciationLock"
+
+  /users/auditors:
+    get:
+      operationId: listAuditors
+      tags: [auth]
+      summary: Auditor accounts (Group Finance; AU-12)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Auditors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      operationId: createAuditor
+      tags: [auth]
+      summary: Create a time-limited, read-only auditor login (Group Finance)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /users/{id}/access:
+    patch:
+      operationId: updateAuditorAccess
+      tags: [auth]
+      summary: Change an auditor's expiry date or disable the account (Group Finance)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditorAccessUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /access-log:
+    get:
+      operationId: listAccessLog
+      tags: [auth]
+      summary: Sign-ins and exports, newest first (Group Finance; AU-12)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Up to 500 entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccessLogEntry"
+
 components:
   parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    Period:
+      name: period
+      in: query
+      description: Month (YYYY-MM); default the current month
+      schema:
+        type: string
+    SbuFilter:
+      name: sbuId
+      in: query
+      schema:
+        type: integer
+    LocationFilter:
+      name: locationId
+      in: query
+      schema:
+        type: integer
+    CategoryFilter:
+      name: categoryId
+      in: query
+      schema:
+        type: integer
     ReportFrom:
       name: from
       in: query
@@ -1229,15 +2044,16 @@ components:
     # ── Auth schemas ─────────────────────────────────────────────────────────
     UserRole:
       type: string
-      enum: [viewer, operator, admin]
+      enum: [viewer, operator, admin, group_finance, group_it, sbu_it, sbu_finance, sbu_admin, stores, auditor]
       description: >-
-        viewer = read everything and record asset movements; operator = every
-        change except the RFID simulator and the Business Central sync; admin =
-        everything.
+        The original roles - viewer = read everything and record asset movements; operator = every change
+        except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of
+        docs/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU
+        until its expiry date.
 
     User:
       type: object
-      required: [id, username, name, role]
+      required: [id, username, name, role, roleName, scope]
       properties:
         id:
           type: integer
@@ -1248,6 +2064,19 @@ components:
           description: Display name, recorded on approvals and movements
         role:
           $ref: "#/components/schemas/UserRole"
+        roleName:
+          type: string
+          description: Display name of the role, as on the sidebar
+        sbuId:
+          type: ["integer", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        scope:
+          type: string
+          description: The data scope shown under the role ("All SBUs", "BAK Logistics (IT assets)")
+        accessExpiresAt:
+          type: ["string", "null"]
+          format: date-time
         lastLoginAt:
           type: ["string", "null"]
           format: date-time
@@ -1330,24 +2159,47 @@ components:
     # ── Asset schemas ────────────────────────────────────────────────────────
     Asset:
       type: object
-      required: [id, name, category, serialNumber, rfidTag, status, createdAt]
+      required: [id, name, category, categoryId, categoryName, status, residualValue, createdAt]
       properties:
         id:
           type: integer
         name:
           type: string
+          description: The description, generated from the category template (AU-01)
         category:
           type: string
-          description: Laptop | Desktop | Projector | Phone | Printer | Network Equipment | UPS | Furniture | Vehicle | Other
+          description: The sub-category (Laptop, Desktop, Printer, Light vehicle …)
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        subCategory:
+          type: ["string", "null"]
         serialNumber:
-          type: string
+          type: ["string", "null"]
+          description: Group-unique identifier (serial, VIN or IMEI); null when recorded as "No serial"
+        noSerialReason:
+          type: ["string", "null"]
+        noSerialStatus:
+          type: ["string", "null"]
+          enum: [pending, approved, rejected, null]
+        macAddress:
+          type: ["string", "null"]
         rfidTag:
-          type: string
+          type: ["string", "null"]
+          description: Null until tagged (only after the asset number is issued)
+        assetNumber:
+          type: ["string", "null"]
+          description: Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.
+        previousAssetNumber:
+          type: ["string", "null"]
         status:
-          type: string
-          enum: [active, maintenance, retired, missing]
+          $ref: "#/components/schemas/AssetStatus"
+        condition:
+          type: ["string", "null"]
         assignedTo:
           type: ["string", "null"]
+          description: The custodian
         currentLocationId:
           type: ["integer", "null"]
         currentLocationName:
@@ -1363,6 +2215,39 @@ components:
           format: date
         purchaseValue:
           type: ["number", "null"]
+          description: Legacy USD value (kept equal to the original cost)
+        originalCost:
+          type: ["number", "null"]
+          description: In the purchase currency
+        currency:
+          type: ["string", "null"]
+        exchangeRate:
+          type: ["number", "null"]
+        costUsd:
+          type: ["number", "null"]
+          description: originalCost × exchangeRate, fixed at capitalisation
+        capitalisedAt:
+          type: ["string", "null"]
+          format: date-time
+        capitalisedBy:
+          type: ["string", "null"]
+        residualValue:
+          type: number
+        supplier:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        poNo:
+          type: ["string", "null"]
+        inUseDate:
+          type: ["string", "null"]
+          format: date
+        warrantyEnds:
+          type: ["string", "null"]
+          format: date
+        disposalDate:
+          type: ["string", "null"]
+          format: date
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1374,44 +2259,56 @@ components:
 
     AssetInput:
       type: object
-      required: [name, category, serialNumber, rfidTag]
+      required: [categoryId, currentLocationId, assignedTo, condition]
       properties:
-        name:
-          type: string
-        category:
-          type: string
-        serialNumber:
-          type: string
-        rfidTag:
-          type: string
-        status:
-          type: string
-          enum: [active, maintenance, retired, missing]
-          default: active
-        assignedTo:
-          type: string
-        currentLocationId:
+        categoryId:
           type: integer
+        subCategory:
+          type: string
+        attributes:
+          $ref: "#/components/schemas/TemplateValues"
+        noSerialReason:
+          type: string
+          description: Required when the item has no manufacturer serial; SBU Finance approves it
         sbuId:
           type: integer
+          description: Default the SBU of an SBU role; required for Group roles
+        currentLocationId:
+          type: integer
+        assignedTo:
+          type: string
+          description: The custodian
+        condition:
+          $ref: "#/components/schemas/AssetCondition"
+        previousAssetNumber:
+          type: string
+        supplier:
+          type: string
+        poNo:
+          type: string
         purchaseDate:
           type: string
           format: date
-        purchaseValue:
-          type: number
+        warrantyEnds:
+          type: string
+          format: date
         notes:
           type: string
 
     AssetUpdate:
       type: object
       properties:
-        name:
+        subCategory:
           type: string
-        category:
+        attributes:
+          $ref: "#/components/schemas/TemplateValues"
+        noSerialReason:
           type: string
         status:
           type: string
           enum: [active, maintenance, retired, missing]
+        condition:
+          $ref: "#/components/schemas/AssetCondition"
         assignedTo:
           type: ["string", "null"]
         currentLocationId:
@@ -1420,6 +2317,12 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        warrantyEnds:
+          type: ["string", "null"]
+          format: date
+        reason:
+          type: string
+          description: Saved with the audit entries
 
     # ── Asset lifecycle schemas ───────────────────────────────────────────────
     AssetLifecycleEvent:
@@ -2032,3 +2935,882 @@ components:
         pendingChanges:
           type: integer
           description: Movements and gate-pass decisions recorded since the last successful sync
+
+    # ── Priority 1 schemas (AU-01 … AU-12) ────────────────────────────────────
+    AssetStatus:
+      type: string
+      enum: [pending_asset_number, active, maintenance, retired, missing]
+      description: pending_asset_number = waiting for the Business Central asset number (AU-03)
+
+    AssetCondition:
+      type: string
+      enum: [new, good, fair, poor, damaged]
+
+    TemplateValues:
+      type: object
+      description: Template field key → value (string or number; null clears an optional field)
+      additionalProperties:
+        type: ["string", "number", "null"]
+
+    TemplateField:
+      type: object
+      required: [id, key, label, type, required, isIdentifier, sortOrder]
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, integer, date, list]
+        unit:
+          type: ["string", "null"]
+        required:
+          type: boolean
+        allowedValues:
+          type: ["array", "null"]
+          items:
+            type: string
+        isIdentifier:
+          type: boolean
+          description: The field stored as the asset's Group-unique serial (serial, VIN, IMEI)
+        sortOrder:
+          type: integer
+
+    AssetCategory:
+      type: object
+      required: [id, code, name, isIt, subCategories, descriptionPattern, depreciationMethod, active, fields]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        isIt:
+          type: boolean
+        subCategories:
+          type: array
+          items:
+            type: string
+        descriptionPattern:
+          type: string
+        identifierFieldKey:
+          type: ["string", "null"]
+        depreciationMethod:
+          type: string
+          enum: [straight_line, reducing_balance]
+        usefulLifeMonths:
+          type: ["integer", "null"]
+        annualRate:
+          type: ["number", "null"]
+        active:
+          type: boolean
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateField"
+
+    CategoryInput:
+      type: object
+      required: [code, name, isIt, depreciationMethod]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        isIt:
+          type: boolean
+        subCategories:
+          type: array
+          items:
+            type: string
+        descriptionPattern:
+          type: string
+        identifierFieldKey:
+          type: string
+        depreciationMethod:
+          type: string
+          enum: [straight_line, reducing_balance]
+        usefulLifeMonths:
+          type: integer
+        annualRate:
+          type: number
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        subCategories:
+          type: array
+          items:
+            type: string
+        depreciationMethod:
+          type: string
+          enum: [straight_line, reducing_balance]
+        usefulLifeMonths:
+          type: ["integer", "null"]
+        annualRate:
+          type: ["number", "null"]
+        active:
+          type: boolean
+        descriptionPattern:
+          type: string
+        identifierFieldKey:
+          type: ["string", "null"]
+        reason:
+          type: string
+
+    TemplateFieldInput:
+      type: object
+      required: [key, label, type, required]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, number, integer, date, list]
+        unit:
+          type: string
+        required:
+          type: boolean
+        allowedValues:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+
+    TemplateFieldUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+        required:
+          type: boolean
+        unit:
+          type: ["string", "null"]
+        allowedValues:
+          type: array
+          items:
+            type: string
+        sortOrder:
+          type: integer
+
+    GroupSetting:
+      type: object
+      required: [key, value, description, editableBy, updatedAt]
+      properties:
+        key:
+          type: string
+        value:
+          description: The setting's JSON value (number, string, list or object)
+        description:
+          type: string
+        editableBy:
+          type: string
+          enum: [group_finance, group_it]
+        updatedBy:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    SettingUpdate:
+      type: object
+      required: [value]
+      properties:
+        value:
+          description: The new value; the same kind of JSON value as before
+        reason:
+          type: string
+
+    AssetLookup:
+      type: object
+      required: [assetId]
+      properties:
+        assetId:
+          type: integer
+
+    AssetAttribute:
+      type: object
+      required: [key, label, value]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        value:
+          type: string
+        unit:
+          type: ["string", "null"]
+
+    AssetValue:
+      type: object
+      required: [period, capitalised, originalCost, capitalisedUpgrades, totalCost, depreciationMonth, accumulatedDepreciation, netBookValue, residualValue, depreciationMethod]
+      properties:
+        period:
+          type: string
+          description: YYYY-MM
+        capitalised:
+          type: boolean
+        originalCostInCurrency:
+          type: ["number", "null"]
+        currency:
+          type: ["string", "null"]
+        exchangeRate:
+          type: ["number", "null"]
+        originalCost:
+          type: number
+          description: USD
+        capitalisedUpgrades:
+          type: number
+        totalCost:
+          type: number
+        depreciationMonth:
+          type: number
+        accumulatedDepreciation:
+          type: number
+        netBookValue:
+          type: number
+        residualValue:
+          type: number
+        depreciationMethod:
+          type: string
+        usefulLifeMonths:
+          type: ["integer", "null"]
+        annualRate:
+          type: ["number", "null"]
+
+    AssetUpgrade:
+      type: object
+      required: [id, assetId, upgradeDate, description, beforeText, afterText, fieldChanges, cost, loggedBy, loggedByRole, status, createdAt]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        assetDescription:
+          type: ["string", "null"]
+        upgradeDate:
+          type: string
+          format: date
+        description:
+          type: string
+        beforeText:
+          type: string
+        afterText:
+          type: string
+        fieldChanges:
+          $ref: "#/components/schemas/TemplateValues"
+        cost:
+          type: number
+        supplier:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        loggedBy:
+          type: string
+        loggedByRole:
+          type: string
+        status:
+          type: string
+          enum: [pending, capitalised, expensed, rejected]
+        decidedBy:
+          type: ["string", "null"]
+        decidedAt:
+          type: ["string", "null"]
+          format: date-time
+        decisionComment:
+          type: ["string", "null"]
+        capitalisedPeriod:
+          type: ["string", "null"]
+        revisedLifeMonths:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DepreciationLine:
+      type: object
+      required: [period, openingCost, openingAccumulated, charge, adjustment, closingAccumulated, closingNbv, locked]
+      properties:
+        period:
+          type: string
+        openingCost:
+          type: number
+        openingAccumulated:
+          type: number
+        charge:
+          type: number
+        adjustment:
+          type: number
+          description: Catch-up for a change that affected locked months
+        closingAccumulated:
+          type: number
+        closingNbv:
+          type: number
+        locked:
+          type: boolean
+
+    TimelineEvent:
+      type: object
+      required: [id, at, kind, title]
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+          format: date-time
+        kind:
+          type: string
+        title:
+          type: string
+        detail:
+          type: ["string", "null"]
+        by:
+          type: ["string", "null"]
+
+    AuditEntry:
+      type: object
+      required: [id, at, action, userName]
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          format: date-time
+        action:
+          type: string
+        field:
+          type: ["string", "null"]
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        userName:
+          type: string
+
+    AssetCardPermissions:
+      type: object
+      required: [editTechnical, editFinancial, logUpgrade, decideUpgrades, changeCategory, tag]
+      properties:
+        editTechnical:
+          type: boolean
+        editFinancial:
+          type: boolean
+        logUpgrade:
+          type: boolean
+        decideUpgrades:
+          type: boolean
+        changeCategory:
+          type: boolean
+        tag:
+          type: boolean
+
+    AssetCard:
+      type: object
+      required: [asset, categoryName, isIt, attributes, value, upgrades, schedule, timeline, completenessGaps, can]
+      properties:
+        asset:
+          $ref: "#/components/schemas/Asset"
+        categoryName:
+          type: string
+        isIt:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetAttribute"
+        value:
+          $ref: "#/components/schemas/AssetValue"
+        upgrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetUpgrade"
+        schedule:
+          type: array
+          description: Newest month first
+          items:
+            $ref: "#/components/schemas/DepreciationLine"
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        completenessGaps:
+          type: array
+          items:
+            type: string
+        can:
+          $ref: "#/components/schemas/AssetCardPermissions"
+
+    CategoryChange:
+      type: object
+      required: [categoryId, reason]
+      properties:
+        categoryId:
+          type: integer
+        subCategory:
+          type: string
+        attributes:
+          $ref: "#/components/schemas/TemplateValues"
+        noSerialReason:
+          type: string
+        reason:
+          type: string
+
+    FinancialUpdate:
+      type: object
+      required: [reason]
+      properties:
+        originalCost:
+          type: ["number", "null"]
+        currency:
+          type: ["string", "null"]
+        exchangeRate:
+          type: ["number", "null"]
+          description: Currency → USD (1 for USD)
+        residualValue:
+          type: ["number", "null"]
+        supplier:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        poNo:
+          type: ["string", "null"]
+        purchaseDate:
+          type: ["string", "null"]
+          format: date
+        inUseDate:
+          type: ["string", "null"]
+          format: date
+        reason:
+          type: string
+
+    ReasonInput:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    NoSerialDecision:
+      type: object
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+        comment:
+          type: string
+
+    TagInput:
+      type: object
+      required: [rfidTag]
+      properties:
+        rfidTag:
+          type: string
+
+    UpgradeInput:
+      type: object
+      required: [upgradeDate, description, beforeText, afterText, cost]
+      properties:
+        upgradeDate:
+          type: string
+          format: date
+        description:
+          type: string
+        beforeText:
+          type: string
+        afterText:
+          type: string
+        cost:
+          type: number
+        supplier:
+          type: string
+        invoiceNo:
+          type: string
+        fieldChanges:
+          $ref: "#/components/schemas/TemplateValues"
+
+    UpgradeDecision:
+      type: object
+      required: [treatment]
+      properties:
+        treatment:
+          type: string
+          enum: [capitalise, expense, reject]
+        comment:
+          type: string
+        revisedLifeMonths:
+          type: integer
+          description: Capitalise only - remaining life from the effective month
+        effectivePeriod:
+          type: string
+          description: Capitalise only - YYYY-MM, default the month of approval
+
+    Totals:
+      type: object
+      required: [count, originalCost, upgradesInPeriod, capitalisedUpgrades, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue, additions]
+      properties:
+        count:
+          type: integer
+        originalCost:
+          type: number
+        upgradesInPeriod:
+          type: number
+          description: Upgrades capitalised from January to the period
+        capitalisedUpgrades:
+          type: number
+        totalCost:
+          type: number
+        depreciationMonth:
+          type: number
+        depreciationYtd:
+          type: number
+        accumulatedDepreciation:
+          type: number
+        netBookValue:
+          type: number
+        additions:
+          type: integer
+          description: Assets capitalised with an in-use date in the period's year
+
+    ReportFilters:
+      type: object
+      required: [period]
+      properties:
+        period:
+          type: string
+        sbuId:
+          type: ["integer", "null"]
+        locationId:
+          type: ["integer", "null"]
+        categoryId:
+          type: ["integer", "null"]
+
+    RegisterRow:
+      type: object
+      required: [assetId, description, categoryId, categoryName, status, capitalised, originalCost, upgradesInPeriod, capitalisedUpgrades, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        serialNumber:
+          type: ["string", "null"]
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        sbuCode:
+          type: ["string", "null"]
+        locationName:
+          type: ["string", "null"]
+        custodian:
+          type: ["string", "null"]
+        status:
+          type: string
+        capitalised:
+          type: boolean
+        inUseDate:
+          type: ["string", "null"]
+        originalCost:
+          type: number
+        upgradesInPeriod:
+          type: number
+        capitalisedUpgrades:
+          type: number
+        totalCost:
+          type: number
+        depreciationMonth:
+          type: number
+        depreciationYtd:
+          type: number
+        accumulatedDepreciation:
+          type: number
+        netBookValue:
+          type: number
+
+    RegisterReport:
+      type: object
+      required: [filters, rows, totals]
+      properties:
+        filters:
+          $ref: "#/components/schemas/ReportFilters"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegisterRow"
+        totals:
+          $ref: "#/components/schemas/Totals"
+
+    CategoryLine:
+      type: object
+      required: [categoryId, categoryName, totals]
+      properties:
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        totals:
+          $ref: "#/components/schemas/Totals"
+
+    CategoryReport:
+      type: object
+      required: [filters, categories, totals]
+      properties:
+        filters:
+          $ref: "#/components/schemas/ReportFilters"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryLine"
+        totals:
+          $ref: "#/components/schemas/Totals"
+
+    SbuValue:
+      type: object
+      required: [netBookValue, totalCost]
+      properties:
+        sbuId:
+          type: ["integer", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        color:
+          type: ["string", "null"]
+        netBookValue:
+          type: number
+        totalCost:
+          type: number
+
+    FinanceDashboard:
+      type: object
+      required: [filters, categories, totals, bySbu, percentComplete, incompleteAssets, pendingDecisions]
+      properties:
+        filters:
+          $ref: "#/components/schemas/ReportFilters"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryLine"
+        totals:
+          $ref: "#/components/schemas/Totals"
+        bySbu:
+          type: array
+          items:
+            $ref: "#/components/schemas/SbuValue"
+        percentComplete:
+          type: number
+        incompleteAssets:
+          type: integer
+        pendingDecisions:
+          type: integer
+
+    CompletenessGap:
+      type: object
+      required: [field, message, owner]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        owner:
+          type: string
+
+    CompletenessRow:
+      type: object
+      required: [assetId, description, categoryName, gaps]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        sbuCode:
+          type: ["string", "null"]
+        categoryName:
+          type: string
+        gaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletenessGap"
+
+    SbuCompleteness:
+      type: object
+      required: [assets, complete, percentComplete]
+      properties:
+        sbuId:
+          type: ["integer", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        assets:
+          type: integer
+        complete:
+          type: integer
+        percentComplete:
+          type: number
+
+    CompletenessReport:
+      type: object
+      required: [assets, complete, percentComplete, sbus, incomplete]
+      properties:
+        assets:
+          type: integer
+        complete:
+          type: integer
+        percentComplete:
+          type: number
+        sbus:
+          type: array
+          items:
+            $ref: "#/components/schemas/SbuCompleteness"
+        incomplete:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompletenessRow"
+
+    ApprovalItem:
+      type: object
+      required: [id, type, assetId, assetDescription, summary, raisedAt, raisedBy]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [upgrade, no_serial]
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        assetDescription:
+          type: string
+        sbuCode:
+          type: ["string", "null"]
+        summary:
+          type: string
+        raisedAt:
+          type: string
+          format: date-time
+        raisedBy:
+          type: string
+        upgradeId:
+          type: ["integer", "null"]
+
+    DepreciationRunInput:
+      type: object
+      required: [period]
+      properties:
+        period:
+          type: string
+          description: YYYY-MM
+        sbuId:
+          type: integer
+          description: Default the SBU of the signed-in SBU Finance officer
+
+    DepreciationRun:
+      type: object
+      required: [period, assets, monthsWritten, chargeForPeriod]
+      properties:
+        period:
+          type: string
+        sbuId:
+          type: ["integer", "null"]
+        assets:
+          type: integer
+        monthsWritten:
+          type: integer
+        chargeForPeriod:
+          type: number
+
+    DepreciationLock:
+      type: object
+      required: [id, sbuId, period, lockedBy, lockedAt]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        period:
+          type: string
+        lockedBy:
+          type: string
+        lockedAt:
+          type: string
+          format: date-time
+
+    Account:
+      type: object
+      required: [id, username, name, role, active]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        sbuId:
+          type: ["integer", "null"]
+        accessExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        active:
+          type: boolean
+        lastLoginAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AuditorInput:
+      type: object
+      required: [username, name, password, accessExpiresAt]
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        password:
+          type: string
+          minLength: 10
+        accessExpiresAt:
+          type: string
+          format: date-time
+
+    AuditorAccessUpdate:
+      type: object
+      properties:
+        accessExpiresAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+
+    AccessLogEntry:
+      type: object
+      required: [id, at, username, role, action]
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          format: date-time
+        username:
+          type: string
+        role:
+          type: string
+        action:
+          type: string
+          enum: [login, login_refused, export]
+        detail:
+          type: ["string", "null"]

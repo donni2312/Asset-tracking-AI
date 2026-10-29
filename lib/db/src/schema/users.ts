@@ -1,4 +1,5 @@
-import { boolean, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { sbusTable } from "./sbus";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -20,7 +21,10 @@ export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   name: text("name").notNull(),                       // display name, recorded on decisions
-  role: text("role").notNull().default("viewer"),     // viewer | operator | admin
+  // viewer | operator | admin (original roles) or one of the scoped roles in Domain/Values.cs (Roles)
+  role: text("role").notNull().default("viewer"),
+  sbuId: integer("sbu_id").references(() => sbusTable.id),   // SBU roles act on this SBU only
+  accessExpiresAt: timestamp("access_expires_at"),           // auditors: set by Group Finance; refused afterwards
   passwordHash: text("password_hash").notNull(),      // scrypt, never the password itself
   active: boolean("active").notNull().default(true),  // disabled accounts cannot sign in
   lastLoginAt: timestamp("last_login_at"),

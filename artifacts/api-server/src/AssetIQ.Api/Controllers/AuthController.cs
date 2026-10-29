@@ -5,6 +5,7 @@ using AssetIQ.Api.Contracts;
 using AssetIQ.Api.Data;
 using AssetIQ.Api.Domain;
 using AssetIQ.Api.Infrastructure;
+using AssetIQ.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,8 @@ public sealed class AuthController(
     PasswordHasher passwords,
     TokenService tokens,
     AppConfig config,
-    AppClock clock) : ApiControllerBase
+    AppClock clock,
+    AccessLog accessLog) : ApiControllerBase
 {
     /// <summary>
     /// A wrong username and a wrong password give the same answer, so the endpoint cannot be used to
@@ -40,13 +42,20 @@ public sealed class AuthController(
         if (user is null || !ok || !user.Active) throw BadCredentials();
 
         var now = clock.UtcNow;
+        // AU-12: time-limited access (auditors) is refused after its expiry date; the attempt is logged.
+        if (user.AccessExpiresAt is { } expiry && expiry <= now)
+        {
+            await accessLog.RecordAsync(user.Id, user.Username, user.Role, "login_refused", $"access expired {expiry:yyyy-MM-dd}", Aborted);
+            throw new ApiException(StatusCodes.Status403Forbidden, $"Your access expired on {expiry:dd MMM yyyy}. Ask Group Finance to extend it.");
+        }
         var expiresAt = now.AddHours(config.Auth.TokenTtlHours);
         var token = tokens.Sign(new TokenPayload(user.Id, user.Username, user.Role, new DateTimeOffset(expiresAt).ToUnixTimeSeconds()));
 
         await db.Users.Where(u => u.Id == user.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.LastLoginAt, (DateTime?)now).SetProperty(u => u.UpdatedAt, now), Aborted);
+        await accessLog.RecordAsync(user.Id, user.Username, user.Role, "login", null, Aborted);
 
-        return new LoginResultDto(token, expiresAt, ToDto(user));
+        return new LoginResultDto(token, expiresAt, await ToDtoAsync(user));
     }
 
     /// <summary>Who the bearer token belongs to (used to restore a session).</summary>
@@ -58,15 +67,36 @@ public sealed class AuthController(
         var id = User.GetAuthUser()!.Id;
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, Aborted)
             ?? throw new ApiException(StatusCodes.Status401Unauthorized, "Sign in to continue");
-        return ToDto(user);
+        return await ToDtoAsync(user);
     }
 
-    private static UserDto ToDto(UserAccount user) => new()
+    private async Task<UserDto> ToDtoAsync(UserAccount user)
     {
-        Id = user.Id,
-        Username = user.Username,
-        Name = user.Name,
-        Role = user.Role,
-        LastLoginAt = user.LastLoginAt,
+        var sbu = user.SbuId is { } id ? await db.Sbus.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, Aborted) : null;
+        return new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Name = user.Name,
+            Role = user.Role,
+            RoleName = Roles.DisplayName(user.Role),
+            SbuId = user.SbuId,
+            SbuCode = sbu?.Code,
+            Scope = ScopeOf(user.Role, sbu?.Name),
+            AccessExpiresAt = user.AccessExpiresAt,
+            LastLoginAt = user.LastLoginAt,
+        };
+    }
+
+    /// <summary>The data scope shown under the role on the sidebar (Permissions matrix, "View assets").</summary>
+    private static string ScopeOf(string role, string? sbuName) => role switch
+    {
+        Roles.GroupIt => "All SBUs (IT assets)",
+        Roles.SbuIt => $"{sbuName ?? "No SBU set"} (IT assets)",
+        Roles.SbuFinance => $"{sbuName ?? "No SBU set"} (all assets)",
+        Roles.SbuAdmin => $"{sbuName ?? "No SBU set"} (non-IT assets)",
+        Roles.Stores => $"{sbuName ?? "No SBU set"} (items in store)",
+        Roles.Auditor => "All SBUs (read only)",
+        _ => "All SBUs",
     };
 }

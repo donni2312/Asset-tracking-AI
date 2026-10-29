@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  getGetAssetQueryKey, useGetAsset, useListLocations, useListSbus, useUpdateAsset,
+  getGetAssetCardQueryKey, getGetAssetQueryKey, useGetAsset, useGetAssetCard, useListCategories, useListLocations, useListSbus, useUpdateAsset,
   type AssetUpdate,
 } from "@workspace/api-client-react";
+import { TemplateFields, describe, type TemplateDraft } from "@/components/template-fields";
 import { ShieldAlert } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,18 +20,13 @@ import { SELECT_CLASS } from "@/lib/constants";
 import { personHint, usePeople } from "@/hooks/use-people";
 import { useCurrentUser, useHasRole } from "@/hooks/use-auth";
 
-const CATEGORIES = [
-  "Laptop", "Desktop", "Projector", "Phone", "Printer",
-  "Network Equipment", "UPS", "Furniture", "Vehicle", "Other",
-];
 const STATUSES = ["active", "maintenance", "missing", "retired"] as const;
 
 /**
- * Edit an asset record.
- *
- * Operators and administrators may change every field (PATCH /assets/:id needs
- * the operator role). The API is what enforces that; this page only decides
- * whether the form is offered.
+ * Edit an asset's technical record (AU-01). The category's template fields are edited here and the
+ * description is rebuilt from them by the API; the description cannot be typed and the category is
+ * changed only by SBU Finance (on the asset card). Who may edit which asset (IT assets: IT roles of the
+ * SBU; non-IT: the SBU Admin Manager) is enforced by the API.
  */
 export default function EditAsset() {
   const { id } = useParams();
@@ -48,9 +44,17 @@ export default function EditAsset() {
   const { data: sbus } = useListSbus();
   const { people } = usePeople();
   const updateAsset = useUpdateAsset();
+  const { data: card } = useGetAssetCard(assetId, {
+    query: { enabled: !!user && Number.isInteger(assetId) && assetId > 0, queryKey: getGetAssetCardQueryKey(assetId) },
+  });
+  const { data: categories } = useListCategories({ includeInactive: "true" });
+  const category = categories?.find((c) => c.id === asset?.categoryId);
+  const [attrs, setAttrs] = useState<TemplateDraft>({});
+  const [original, setOriginal] = useState<TemplateDraft>({});
+  const [reason, setReason] = useState("");
 
   const [form, setForm] = useState({
-    name: "", category: "", status: "active" as (typeof STATUSES)[number],
+    status: "active" as string,
     assignedTo: "", currentLocationId: "", sbuId: "", notes: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +62,6 @@ export default function EditAsset() {
   useEffect(() => {
     if (!asset) return;
     setForm({
-      name: asset.name,
-      category: asset.category,
       status: asset.status,
       assignedTo: asset.assignedTo ?? "",
       currentLocationId: asset.currentLocationId != null ? String(asset.currentLocationId) : "",
@@ -67,6 +69,13 @@ export default function EditAsset() {
       notes: asset.notes ?? "",
     });
   }, [asset]);
+
+  useEffect(() => {
+    if (!card) return;
+    const values = Object.fromEntries(card.attributes.map((a) => [a.key, a.value]));
+    setAttrs(values);
+    setOriginal(values);
+  }, [card]);
 
   const peopleOptions: SearchableOption[] = useMemo(
     () => people.map((p) => ({ value: p.name, label: p.name, hint: personHint(p) || undefined })),
@@ -98,8 +107,12 @@ export default function EditAsset() {
       data.currentLocationId = form.currentLocationId ? Number(form.currentLocationId) : null;
     }
     if (form.notes.trim() !== (asset.notes ?? "")) data.notes = form.notes.trim() || null;
-    if (form.name.trim() !== asset.name) data.name = form.name.trim();
-    if (form.category !== asset.category) data.category = form.category;
+    const changed: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      if ((value ?? "").trim() !== (original[key] ?? "")) changed[key] = value.trim() === "" ? null : value.trim();
+    }
+    if (Object.keys(changed).length > 0) data.attributes = changed;
+    if (reason.trim()) data.reason = reason.trim();
     if (form.sbuId !== (asset.sbuId != null ? String(asset.sbuId) : "")) {
       data.sbuId = form.sbuId ? Number(form.sbuId) : null;
     }
@@ -170,47 +183,30 @@ export default function EditAsset() {
               <p className="text-sm text-muted-foreground">Asset not found.</p>
             ) : (
               <form onSubmit={submit} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="as-name">Name</Label>
-                    <Input
-                      id="as-name"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      required
-                    />
+                <div className="rounded-md border border-dashed p-3">
+                  <div className="text-xs text-muted-foreground">
+                    Description — built from the {category?.name ?? asset.categoryName} fields, rebuilt when you save
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="as-category">Category</Label>
-                    <select
-                      id="as-category"
-                      className={SELECT_CLASS}
-                      value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    >
-                      {!CATEGORIES.includes(form.category) && form.category && (
-                        <option value={form.category}>{form.category}</option>
-                      )}
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
+                  <div className="mt-1 text-sm font-medium">{category && Object.keys(attrs).length > 0 ? describe(category, asset.subCategory ?? "", attrs) || asset.name : asset.name}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">Category {asset.categoryName}{asset.subCategory ? ` · ${asset.subCategory}` : ""} — only SBU Finance changes the category (asset card).</div>
                 </div>
+                {category && <TemplateFields category={category} values={attrs} onChange={setAttrs} noSerial={!asset.serialNumber && !!asset.noSerialReason} />}
 
                 {/* Identity: fixed for the life of the asset, so the registry and
                     the physical tag can never disagree. */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Serial number</Label>
-                    <Input value={asset.serialNumber} disabled readOnly className="font-mono" />
+                    <Input value={asset.serialNumber ?? "No serial"} disabled readOnly className="font-mono" />
                   </div>
                   <div className="space-y-2">
                     <Label>RFID tag</Label>
-                    <Input value={asset.rfidTag} disabled readOnly className="font-mono" />
+                    <Input value={asset.rfidTag ?? "Not tagged"} disabled readOnly className="font-mono" />
                   </div>
                 </div>
                 <p className="-mt-2 text-[11px] text-muted-foreground">
-                  Serial number and RFID tag identify the asset and cannot be changed here — re-tagging is a
-                  lifecycle event, so the history stays honest.
+                  The serial is edited with the template fields above (it must stay unique across the Group); the
+                  tag is linked from the asset card once Business Central has issued the asset number.
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -275,6 +271,11 @@ export default function EditAsset() {
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="as-reason">Reason for the change (saved to the audit trail)</Label>
+                  <Input id="as-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
 
                 {error && (

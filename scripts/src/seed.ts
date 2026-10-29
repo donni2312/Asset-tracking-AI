@@ -13,8 +13,15 @@ import {
   db,
   pool,
   aiInsightsTable,
+  assetAttributeValuesTable,
+  assetCategoriesTable,
   assetLifecycleEventsTable,
+  assetUpgradesTable,
   assetsTable,
+  auditLogTable,
+  bcMockNumberSeriesTable,
+  bcNumberRequestsTable,
+  categoryTemplateFieldsTable,
   gatePassesTable,
   locationsTable,
   movementsTable,
@@ -26,6 +33,7 @@ import { randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
 import { count, eq, max, sql } from "drizzle-orm";
 import { APPROVERS, ASSETS, DEMO_USERS, INACTIVE_READER, LOCATIONS, SBUS, type AssetSeed } from "./seed-data";
+import { SCOPED_USERS, TEMPLATES, UPGRADES, describe } from "./seed-audit";
 
 // Same scrypt format the API verifies (api-server/src/lib/auth.ts).
 const scrypt = promisify(scryptCallback) as (p: string, s: Buffer, k: number) => Promise<Buffer>;
@@ -102,7 +110,11 @@ async function main() {
   await db.transaction(async (tx) => {
     if (reset) {
       await tx.execute(
-        sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, assets, rfid_readers, locations, sbus, users RESTART IDENTITY CASCADE`,
+        // Category templates and Group settings are reference data owned by the migrations: they are kept.
+        // TRUNCATE is not stopped by the append-only / asset-number triggers (they guard UPDATE and DELETE).
+        sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
+            depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
+            assets, rfid_readers, locations, sbus, users RESTART IDENTITY CASCADE`,
       );
     }
 
@@ -121,6 +133,37 @@ async function main() {
     // SBUs, locations, readers
     const sbuRows = await tx.insert(sbusTable).values(SBUS).returning();
     const sbuId = (code: string) => sbuRows.find((s) => s.code === code)!.id;
+
+    // Phase 1 sign-ins for the scoped roles (password = username + "-2026").
+    await tx.insert(usersTable).values(
+      await Promise.all(
+        SCOPED_USERS.map(async (u) => ({
+          username: u.username,
+          name: u.name,
+          role: u.role,
+          sbuId: u.sbu ? sbuId(u.sbu) : null,
+          accessExpiresAt: u.role === "auditor" ? new Date(NOW.getTime() + 60 * DAY) : null,
+          passwordHash: await hashPassword(`${u.username}-2026`),
+        })),
+      ),
+    );
+
+    // Category templates (inserted by migration 0002).
+    const categories = await tx.select().from(assetCategoriesTable);
+    const fields = await tx.select().from(categoryTemplateFieldsTable);
+    const categoryOf = (code: string) => categories.find((c) => c.code === code)!;
+    const fieldsOf = (categoryId: number) => fields.filter((f) => f.categoryId === categoryId);
+    // Mock Business Central number series: {SBU}-{IT | category code}-{year}-{00001}
+    const series = new Map<string, number>();
+    const nextNumber = (prefix: string) => {
+      const n = (series.get(prefix) ?? 0) + 1;
+      series.set(prefix, n);
+      return `${prefix}-${String(n).padStart(5, "0")}`;
+    };
+    const identifier = (code: string, i: number) =>
+      code === "MV" ? `AHTFR22G40${String(6012345 + i * 7).padStart(7, "0")}`
+      : code === "MOB" ? `35${String(1234567890123 + i * 104729).padStart(13, "0")}`
+      : `SN${String(10231 + i * 37).padStart(6, "0")}${String.fromCharCode(65 + (i % 26))}`;
 
     const locRows = await tx
       .insert(locationsTable)
@@ -148,23 +191,98 @@ async function main() {
     const assetRows = await tx
       .insert(assetsTable)
       .values(
-        ASSETS.map((a, i) => ({
-          name: a.name,
-          category: a.category,
-          serialNumber: `${a.sbu}-SN-${String(10231 + i * 37).padStart(6, "0")}`,
-          rfidTag: `RFID-${a.sbu}-${String(i + 1).padStart(4, "0")}`,
-          status: a.status,
-          assignedTo: a.assignedTo ?? null,
-          currentLocationId: a.location ? loc(a.location).id : null,
-          sbuId: sbuId(a.sbu),
-          purchaseDate: dateKey(at(a.registeredDaysAgo + 3, 9)),
-          purchaseValue: String(a.value),
-          notes: a.notes ?? null,
-          createdAt: at(a.registeredDaysAgo, 9),
-          updatedAt: at(Math.min(a.lastMovedDaysAgo, a.registeredDaysAgo), 9),
-        })),
+        ASSETS.map((a, i) => {
+          const t = TEMPLATES[a.key];
+          const category = categoryOf(t.code);
+          const values: Record<string, string> = { ...t.attrs };
+          const serial = t.noSerialReason ? null : identifier(t.code, i);
+          if (serial && category.identifierFieldKey) values[category.identifierFieldKey] = serial;
+          const purchased = at(a.registeredDaysAgo + 3, 9);
+          const capitalised = !t.notCapitalised;
+          const rate = t.currency?.rate ?? 1;
+          const original = t.currency ? Math.round((a.value / rate) * 100) / 100 : a.value;
+          const usd = Math.round(original * rate * 100) / 100;
+          return {
+            name: describe(category.descriptionPattern, t.sub, category.name, fieldsOf(category.id), values),
+            category: t.sub,
+            categoryId: category.id,
+            subCategory: t.sub,
+            serialNumber: serial,
+            noSerialReason: t.noSerialReason ?? null,
+            noSerialStatus: t.noSerialReason ? (t.noSerialApproved ? "approved" : "pending") : null,
+            noSerialDecidedBy: t.noSerialApproved ? "SBU Finance" : null,
+            macAddress: t.attrs.mac_address ?? null,
+            rfidTag: `RFID-${a.sbu}-${String(i + 1).padStart(4, "0")}`,
+            assetNumber: nextNumber(`${a.sbu}-${category.isIt ? "IT" : category.code}-${parts(purchased).y}`),
+            status: a.status,
+            condition: a.status === "maintenance" ? "poor" : a.registeredDaysAgo > 700 ? "fair" : "good",
+            assignedTo: a.assignedTo ?? (category.isIt ? `${a.sbu} IT store` : `${a.sbu} Admin store`),
+            currentLocationId: a.location ? loc(a.location).id : null,
+            sbuId: sbuId(a.sbu),
+            originalCost: t.missing?.includes("cost") ? null : original.toFixed(2),
+            currency: t.currency?.code ?? "USD",
+            exchangeRate: String(rate),
+            costUsd: capitalised ? usd.toFixed(2) : null,
+            capitalisedAt: capitalised ? at(a.registeredDaysAgo, 15) : null,
+            capitalisedBy: capitalised ? "SBU Finance" : null,
+            supplier: category.isIt ? "Axis Solutions (Pvt) Ltd" : "Harare Commercial Supplies",
+            invoiceNo: t.missing?.includes("invoice") ? null : `INV-${20000 + i * 13}`,
+            poNo: t.missing?.includes("po") ? null : `PO-${a.sbu}-${parts(purchased).y}-${String(100 + i).padStart(4, "0")}`,
+            purchaseDate: dateKey(purchased),
+            inUseDate: dateKey(at(a.registeredDaysAgo, 9)),
+            warrantyEnds: category.isIt ? dateKey(at(a.registeredDaysAgo - 3 * 365, 9)) : null,
+            disposalDate: a.status === "retired" ? dateKey(at(a.lastMovedDaysAgo, 9)) : null,
+            purchaseValue: usd.toFixed(2),
+            notes: a.notes ?? null,
+            createdAt: at(a.registeredDaysAgo, 9),
+            updatedAt: at(Math.min(a.lastMovedDaysAgo, a.registeredDaysAgo), 9),
+          };
+        }),
       )
       .returning();
+
+    // Template values, Business Central bookkeeping and the "registered / capitalised" audit entries.
+    await tx.insert(assetAttributeValuesTable).values(
+      assetRows.flatMap((row, i) => {
+        const t = TEMPLATES[ASSETS[i].key];
+        return fieldsOf(row.categoryId)
+          .filter((f) => t.attrs[f.key] !== undefined && f.key !== "mac_address")
+          .map((f) => ({
+            assetId: row.id, fieldId: f.id, valueText: t.attrs[f.key],
+            valueNumber: f.type === "integer" || f.type === "number" ? t.attrs[f.key] : null,
+          }));
+      }),
+    );
+    await tx.insert(bcNumberRequestsTable).values(assetRows.map((r) => ({ assetId: r.id, status: "done", attempts: 1, assetNumber: r.assetNumber, createdAt: r.createdAt, updatedAt: r.createdAt })));
+    await tx.insert(bcMockNumberSeriesTable).values([...series.entries()].map(([prefix, lastNumber]) => ({ prefix, lastNumber })));
+    await tx.insert(auditLogTable).values(
+      assetRows.flatMap((r) => [
+        { entity: "asset", entityId: r.id, assetId: r.id, action: "created", field: "description", newValue: r.name, userName: "Seed (demo data)", at: r.createdAt },
+        { entity: "asset", entityId: r.id, assetId: r.id, action: "asset_number_issued", field: "assetNumber", newValue: r.assetNumber, reason: "Issued by Business Central", userName: "system", at: r.createdAt },
+        ...(r.capitalisedAt ? [{ entity: "asset", entityId: r.id, assetId: r.id, action: "capitalised", field: "costUsd", newValue: r.costUsd, userName: "SBU Finance", at: r.capitalisedAt }] : []),
+      ]),
+    );
+
+    // Upgrades (AU-07): capitalised, expensed and two waiting for SBU Finance.
+    const periodMonthsAgo = (months: number) => {
+      const p = parts(NOW);
+      const d = new Date(Date.UTC(p.y, p.m - 1 - months, 1));
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    };
+    await tx.insert(assetUpgradesTable).values(
+      UPGRADES.map((u) => {
+        const row = assetRows[ASSETS.findIndex((a) => a.key === u.key)];
+        const decided = u.status !== "pending";
+        return {
+          assetId: row.id, upgradeDate: dateKey(at(u.daysAgo + 1, 10)), description: u.description, beforeText: u.before, afterText: u.after,
+          fieldChanges: u.changes, cost: u.cost, supplier: "Axis Solutions (Pvt) Ltd", invoiceNo: `INV-U${row.id}${u.daysAgo}`,
+          loggedBy: u.by, loggedByRole: u.role, status: u.status, decidedBy: decided ? "SBU Finance" : null, decidedAt: decided ? at(u.daysAgo, 15) : null,
+          decisionComment: u.status === "expensed" ? "Ordinary repair" : decided ? "Adds capacity / extends life" : null,
+          capitalisedPeriod: u.status === "capitalised" ? periodMonthsAgo(u.monthsAgo) : null,
+          createdAt: at(u.daysAgo, 10),
+        };
+      }),
+    );
     const asset = (key: string) => assetRows[ASSETS.findIndex((a) => a.key === key)];
     const seedOf = (key: string) => ASSETS.find((a) => a.key === key)!;
 
@@ -398,6 +516,8 @@ async function main() {
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);
     console.log(`  ${movements.length} movements, 6 gate passes (2 pending, 3 approved, 1 rejected), 5 insights`);
     console.log(`  ${DEMO_USERS.length} sign-ins: ${DEMO_USERS.map((u) => `${u.username}/${u.password} (${u.role})`).join(", ")}`);
+    console.log(`  ${SCOPED_USERS.length} scoped sign-ins (password = username + "-2026"): ${SCOPED_USERS.map((u) => u.username).join(", ")}`);
+    console.log(`  ${UPGRADES.length} upgrades (2 waiting for SBU Finance), ${series.size} mock Business Central number series`);
     console.log("\nDemo pointers:");
     console.log(`  • Gate pass #${gp6.id} (auto-raised at TSL Head Office Gate) is waiting for approval.`);
     console.log(`  • Gate pass #${gp5.id} (manual request for ${epson.name}) is waiting for approval.`);

@@ -49,6 +49,9 @@ builder.WebHost.ConfigureKestrel((context, kestrel) =>
 
 // Configuration is resolved from the built host, so test hosts can override any value.
 builder.Services.AddSingleton(sp => AppConfig.Load(sp.GetRequiredService<IConfiguration>()));
+// ASSUMPTION: QuestPDF's Community licence (free below USD 1M annual gross revenue) was approved for now;
+// TSL must confirm it qualifies, or buy a commercial licence, before production use.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AppClock>();
 builder.Services.AddSingleton<PasswordHasher>();
@@ -67,6 +70,20 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IntentExecutor>();
 builder.Services.AddScoped<NlQueryService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<AuditTrail>();
+builder.Services.AddScoped<AccessLog>();
+builder.Services.AddScoped<AssetRegistrationService>();
+builder.Services.AddScoped<BcNumberService>();
+builder.Services.AddSingleton<MockBcFixedAssetClient>();
+builder.Services.AddSingleton<IBcFixedAssetClient>(sp => sp.GetRequiredService<MockBcFixedAssetClient>());
+builder.Services.AddScoped<AssetIQ.Api.Services.Depreciation.DepreciationService>();
+builder.Services.AddScoped<ValuationService>();
+builder.Services.AddScoped<UpgradeService>();
+builder.Services.AddScoped<CompletenessService>();
+builder.Services.AddScoped<AssetCardService>();
+builder.Services.AddScoped<FinanceReportService>();
+// AU-03: retries Business Central number requests; the tests drive the queue themselves.
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<BcNumberWorker>();
 builder.Services.AddHttpClient<OpenAiIntentParser>();
 
 builder.Services
@@ -79,6 +96,7 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(RequireRoleAttribute.PolicyFor(role), policy => policy.AddRequirements(new MinimumRoleRequirement(role)));
     }
 });
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IAuthorizationHandler, MinimumRoleHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, JsonAuthorizationResultHandler>();
 

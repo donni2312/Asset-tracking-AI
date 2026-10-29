@@ -19,17 +19,44 @@ import RfidSimulator from './pages/rfid-simulator';
 import Insights from './pages/insights';
 import BcSync from './pages/bc-sync';
 import Reports from './pages/reports';
+import AssetCardPage from './pages/assets/card';
+import AssetRegister from './pages/finance/register';
+import CategoryReport from './pages/finance/category-report';
+import AssetPosition from './pages/finance/asset-position';
+import Approvals from './pages/finance/approvals';
+import Verification from './pages/finance/verification';
+import Administration from './pages/finance/administration';
+import Planned from './pages/planned';
+import { useCurrentUser } from './hooks/use-auth';
+
+/** Finance roles and auditors land on the asset position (AU-10); everyone else on the operations dashboard. */
+function Home() {
+  const user = useCurrentUser();
+  return user && ['group_finance', 'sbu_finance', 'auditor'].includes(user.role) ? <AssetPosition /> : <Dashboard />;
+}
 
 const queryClient = new QueryClient();
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={Home} />
+      <Route path="/operations" component={Dashboard} />
+      <Route path="/asset-position" component={AssetPosition} />
+      <Route path="/register" component={AssetRegister} />
+      <Route path="/reports/category" component={CategoryReport} />
+      <Route path="/approvals" component={Approvals} />
+      <Route path="/verification" component={Verification} />
+      <Route path="/administration" component={Administration} />
+      <Route path="/stores">{() => <Planned screen="stores" />}</Route>
+      <Route path="/people">{() => <Planned screen="people" />}</Route>
+      <Route path="/departments">{() => <Planned screen="departments" />}</Route>
+      <Route path="/fleet">{() => <Planned screen="fleet" />}</Route>
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />
       <Route path="/assets/new" component={NewAsset} />
       <Route path="/assets/:id/edit" component={EditAsset} />
+      <Route path="/assets/:id/card" component={AssetCardPage} />
       <Route path="/assets/:id" component={AssetDetail} />
       <Route path="/locations" component={LocationList} />
       <Route path="/locations/new" component={NewLocation} />

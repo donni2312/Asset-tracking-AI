@@ -87,7 +87,7 @@ public sealed class InsightService(
             var now = clock.UtcNow;
             var all = await db.Assets.AsNoTracking()
                 .OrderBy(a => a.Id)
-                .Select(a => new PeriodicAsset(a.Id, a.Name, a.Status, a.SerialNumber, a.CreatedAt))
+                .Select(a => new PeriodicAsset(a.Id, a.Name, a.Status, a.SerialNumber ?? "no serial", a.CreatedAt))
                 .ToListAsync(ct);
             var lastMoved = await assets.LastMovedAtAsync(ct);
             var open = (await db.AiInsights.AsNoTracking()

@@ -23,7 +23,7 @@
       // flashes white. Mirrors src/hooks/use-theme.ts (same storage key).
       (function () {
         try {
-          var saved = window.localStorage.getItem('assetiq.theme') || 'system';
+          var saved = window.localStorage.getItem('assetiq.theme') || 'dark';
           var dark = saved === 'dark' ||
             (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) document.documentElement.classList.add('dark');

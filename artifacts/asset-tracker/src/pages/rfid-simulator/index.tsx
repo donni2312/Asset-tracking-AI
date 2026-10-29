@@ -147,7 +147,7 @@ export default function RfidSimulator() {
                     ) : filteredAssets?.filter((a) => a.rfidTag).map((asset) => (
                       <button
                         key={asset.id}
-                        onClick={() => setSelectedTag(asset.rfidTag)}
+                        onClick={() => setSelectedTag(asset.rfidTag ?? null)}
                         className={cn(
                           "text-left p-2.5 rounded-md border text-sm transition-all",
                           selectedTag === asset.rfidTag

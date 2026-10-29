@@ -54,18 +54,54 @@ public sealed class RfidReader
 public sealed class Asset
 {
     public int Id { get; set; }
+    /// <summary>The description (AU-01), generated from the category template; never typed by a user.</summary>
     public string Name { get; set; } = "";
+    /// <summary>The sub-category (Laptop, Desktop, …): the fine-grained type the RFID, AI and CSV code reads.</summary>
     public string Category { get; set; } = "";
-    public string SerialNumber { get; set; } = "";
-    public string RfidTag { get; set; } = "";
-    /// <summary>active | maintenance | retired | missing</summary>
+    public int CategoryId { get; set; }
+    public string? SubCategory { get; set; }
+    /// <summary>Group-unique identifier: the template's identifier field. Null only with a "No serial" reason.</summary>
+    public string? SerialNumber { get; set; }
+    public string? NoSerialReason { get; set; }
+    /// <summary>pending | approved | rejected</summary>
+    public string? NoSerialStatus { get; set; }
+    public string? NoSerialDecidedBy { get; set; }
+    public DateTime? NoSerialDecidedAt { get; set; }
+    public string? MacAddress { get; set; }
+    /// <summary>Null until tagged; an asset cannot be tagged before it has an asset number.</summary>
+    public string? RfidTag { get; set; }
+    /// <summary>Business Central fixed-asset number; null while pending. A trigger forbids changing it once set.</summary>
+    public string? AssetNumber { get; set; }
+    public string? PreviousAssetNumber { get; set; }
+    /// <summary>pending_asset_number | active | maintenance | retired | missing</summary>
     public string Status { get; set; } = "active";
+    /// <summary>new | good | fair | poor | damaged</summary>
+    public string? Condition { get; set; }
+    /// <summary>The custodian.</summary>
     public string? AssignedTo { get; set; }
     public int? CurrentLocationId { get; set; }
     public int? SbuId { get; set; }
+    public decimal? OriginalCost { get; set; }
+    /// <summary>ISO 4217 code.</summary>
+    public string? Currency { get; set; }
+    /// <summary>Currency → USD.</summary>
+    public decimal? ExchangeRate { get; set; }
+    /// <summary>OriginalCost × ExchangeRate, fixed when the asset is capitalised.</summary>
+    public decimal? CostUsd { get; set; }
+    public DateTime? CapitalisedAt { get; set; }
+    public string? CapitalisedBy { get; set; }
+    public decimal ResidualValue { get; set; }
+    public string? Supplier { get; set; }
+    public string? InvoiceNo { get; set; }
+    public string? PoNo { get; set; }
     /// <summary>ISO date string (YYYY-MM-DD) — the column is `text`.</summary>
     public string? PurchaseDate { get; set; }
-    /// <summary>USD value.</summary>
+    /// <summary>YYYY-MM-DD; depreciation starts in this month.</summary>
+    public string? InUseDate { get; set; }
+    public string? WarrantyEnds { get; set; }
+    /// <summary>YYYY-MM-DD; no depreciation from this month on.</summary>
+    public string? DisposalDate { get; set; }
+    /// <summary>Legacy USD value, kept equal to the original cost.</summary>
     public decimal? PurchaseValue { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -73,6 +109,8 @@ public sealed class Asset
 
     public Location? CurrentLocation { get; set; }
     public Sbu? Sbu { get; set; }
+    public AssetCategory AssetCategory { get; set; } = null!;
+    public List<AssetAttributeValue> Attributes { get; set; } = [];
 }
 
 /// <summary>`movements` — one row per RFID read, manual move or gate-pass exit.</summary>
@@ -177,12 +215,190 @@ public sealed class UserAccount
     public string Username { get; set; } = "";
     /// <summary>Display name, recorded on decisions.</summary>
     public string Name { get; set; } = "";
-    /// <summary>viewer | operator | admin</summary>
+    /// <summary>One of <see cref="Domain.Roles.All"/>.</summary>
     public string Role { get; set; } = "viewer";
+    /// <summary>The SBU an SBU role acts on.</summary>
+    public int? SbuId { get; set; }
+    /// <summary>Auditors: refused after this instant (set by Group Finance).</summary>
+    public DateTime? AccessExpiresAt { get; set; }
     public string PasswordHash { get; set; } = "";
     /// <summary>Disabled accounts cannot sign in.</summary>
     public bool Active { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>`asset_categories`: a category, its template (AU-01) and its depreciation policy (GF-03).</summary>
+public sealed class AssetCategory
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public bool IsIt { get; set; }
+    /// <summary>JSON array of sub-category names.</summary>
+    public string SubCategories { get; set; } = "[]";
+    public string DescriptionPattern { get; set; } = "";
+    public string? IdentifierFieldKey { get; set; }
+    /// <summary>straight_line | reducing_balance</summary>
+    public string DepreciationMethod { get; set; } = "";
+    public int? UsefulLifeMonths { get; set; }
+    public decimal? AnnualRate { get; set; }
+    public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public List<CategoryTemplateField> Fields { get; set; } = [];
+}
+
+/// <summary>`category_template_fields`</summary>
+public sealed class CategoryTemplateField
+{
+    public int Id { get; set; }
+    public int CategoryId { get; set; }
+    public string Key { get; set; } = "";
+    public string Label { get; set; } = "";
+    /// <summary>text | number | integer | date | list</summary>
+    public string Type { get; set; } = "text";
+    public string? Unit { get; set; }
+    public bool Required { get; set; }
+    /// <summary>JSON array of allowed values (list fields).</summary>
+    public string? AllowedValues { get; set; }
+    public int SortOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>`asset_attribute_values`: one typed template value per asset.</summary>
+public sealed class AssetAttributeValue
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public int FieldId { get; set; }
+    public string ValueText { get; set; } = "";
+    public decimal? ValueNumber { get; set; }
+
+    public CategoryTemplateField Field { get; set; } = null!;
+}
+
+/// <summary>`group_settings`</summary>
+public sealed class GroupSetting
+{
+    public string Key { get; set; } = "";
+    /// <summary>JSON value.</summary>
+    public string Value { get; set; } = "null";
+    public string Description { get; set; } = "";
+    /// <summary>group_finance | group_it</summary>
+    public string EditableBy { get; set; } = "";
+    public string? UpdatedBy { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>`asset_upgrades` (AU-07)</summary>
+public sealed class AssetUpgrade
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>YYYY-MM-DD</summary>
+    public string UpgradeDate { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string BeforeText { get; set; } = "";
+    public string AfterText { get; set; } = "";
+    /// <summary>JSON object: template field key → value after the upgrade.</summary>
+    public string FieldChanges { get; set; } = "{}";
+    public decimal Cost { get; set; }
+    public string? Supplier { get; set; }
+    public string? InvoiceNo { get; set; }
+    public string LoggedBy { get; set; } = "";
+    public string LoggedByRole { get; set; } = "";
+    /// <summary>pending | capitalised | expensed | rejected</summary>
+    public string Status { get; set; } = "pending";
+    public string? DecidedBy { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public string? DecisionComment { get; set; }
+    /// <summary>YYYY-MM</summary>
+    public string? CapitalisedPeriod { get; set; }
+    public int? RevisedLifeMonths { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public Asset Asset { get; set; } = null!;
+}
+
+/// <summary>`depreciation_entries`: one row per asset per month (AU-05).</summary>
+public sealed class DepreciationEntry
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>YYYY-MM</summary>
+    public string Period { get; set; } = "";
+    public decimal OpeningCost { get; set; }
+    public decimal OpeningAccumulated { get; set; }
+    public decimal Charge { get; set; }
+    public decimal Adjustment { get; set; }
+    public decimal ClosingAccumulated { get; set; }
+    public decimal ClosingNbv { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>`depreciation_locks`: a month SBU Finance has locked; it and every earlier month are final.</summary>
+public sealed class DepreciationLock
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public string Period { get; set; } = "";
+    public string LockedBy { get; set; } = "";
+    public DateTime LockedAt { get; set; }
+}
+
+/// <summary>`audit_log`: append-only (a trigger rejects UPDATE and DELETE).</summary>
+public sealed class AuditEntry
+{
+    public int Id { get; set; }
+    public string Entity { get; set; } = "";
+    public int? EntityId { get; set; }
+    public int? AssetId { get; set; }
+    public string Action { get; set; } = "";
+    public string? Field { get; set; }
+    public string? OldValue { get; set; }
+    public string? NewValue { get; set; }
+    public string? Reason { get; set; }
+    public int? UserId { get; set; }
+    public string UserName { get; set; } = "";
+    public DateTime At { get; set; }
+}
+
+/// <summary>`access_log`: sign-ins and exports.</summary>
+public sealed class AccessLogEntry
+{
+    public int Id { get; set; }
+    public int? UserId { get; set; }
+    public string Username { get; set; } = "";
+    public string Role { get; set; } = "";
+    /// <summary>login | login_refused | export</summary>
+    public string Action { get; set; } = "";
+    public string? Detail { get; set; }
+    public DateTime At { get; set; }
+}
+
+/// <summary>`bc_number_requests`: a queued request for a Business Central fixed-asset number.</summary>
+public sealed class BcNumberRequest
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>queued | done</summary>
+    public string Status { get; set; } = "queued";
+    public int Attempts { get; set; }
+    public DateTime NextAttemptAt { get; set; }
+    public string? LastError { get; set; }
+    public string? AssetNumber { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>`bc_mock_number_series`: counters of the mock Business Central.</summary>
+public sealed class BcMockNumberSeries
+{
+    public int Id { get; set; }
+    public string Prefix { get; set; } = "";
+    public int LastNumber { get; set; }
 }

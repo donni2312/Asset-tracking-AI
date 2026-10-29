@@ -73,14 +73,17 @@ public sealed class TestWorld
         db.RfidReaders.AddRange(officeReader, gateReader, bakGateReader, inactiveReader);
         await db.SaveChangesAsync();
 
+        // Category ids follow migration 0002's insert order: 1 Computers & Laptops … 4 Printers, Projectors & UPS.
         var laptop = new Asset
         {
-            Name = "Dell Latitude 5440", Category = "Laptop", SerialNumber = "SN-DL-001", RfidTag = "TAG-DL-001",
+            Name = "Dell Latitude 5440", Category = "Laptop", CategoryId = Categories.Computers, SubCategory = "Laptop", SerialNumber = "SN-DL-001", RfidTag = "TAG-DL-001",
+            AssetNumber = "TSAS-IT-2026-00001",
             SbuId = tsas.Id, CurrentLocationId = office.Id, AssignedTo = "John Doe", CreatedAt = now, UpdatedAt = now,
         };
         var projector = new Asset
         {
-            Name = "Epson EB-X51 Projector", Category = "Projector", SerialNumber = "SN-EP-001", RfidTag = "TAG-EP-001",
+            Name = "Epson EB-X51 Projector", Category = "Projector", CategoryId = Categories.Peripherals, SubCategory = "Projector", SerialNumber = "SN-EP-001", RfidTag = "TAG-EP-001",
+            AssetNumber = "TSAS-IT-2026-00002",
             SbuId = tsas.Id, CurrentLocationId = office.Id, CreatedAt = now, UpdatedAt = now,
         };
         db.Assets.AddRange(laptop, projector);
@@ -94,6 +97,40 @@ public sealed class TestWorld
             Laptop = laptop, Projector = projector,
             AdminToken = adminToken, OperatorToken = Token(accounts[1]), ViewerToken = Token(accounts[2]),
         };
+    }
+}
+
+/// <summary>Ids of the category templates inserted by migration 0002 (in its insert order).</summary>
+public static class Categories
+{
+    public const int Computers = 1;
+    public const int Mobiles = 2;
+    public const int Network = 3;
+    public const int Peripherals = 4;
+    public const int Vehicles = 5;
+    public const int Plant = 6;
+    public const int Furniture = 7;
+    public const int Equipment = 8;
+}
+
+/// <summary>Accounts for the scoped roles (Phase 1), created directly with a token.</summary>
+public static class Accounts
+{
+    private static int _counter;
+
+    /// <summary>A new user with <paramref name="role"/> (and <paramref name="sbu"/> for SBU roles), and a bearer token for it.</summary>
+    public static async Task<string> TokenAsync(ApiFixture api, string role, Sbu? sbu = null, DateTime? accessExpiresAt = null, string? name = null)
+    {
+        await using var db = api.NewDbContext();
+        var n = Interlocked.Increment(ref _counter);
+        var user = new UserAccount
+        {
+            Username = $"{role}-{sbu?.Code.ToLowerInvariant() ?? "group"}-{n}", Name = name ?? $"{Roles.DisplayName(role)} {sbu?.Code}".Trim(),
+            Role = role, SbuId = sbu?.Id, AccessExpiresAt = accessExpiresAt, PasswordHash = "scrypt$00$00", CreatedAt = api.Now, UpdatedAt = api.Now,
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return TokenService.Sign(new TokenPayload(user.Id, user.Username, user.Role, new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()), ApiFixture.AuthSecret);
     }
 }
 

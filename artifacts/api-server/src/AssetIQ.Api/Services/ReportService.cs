@@ -94,7 +94,7 @@ public sealed class ReportService(AssetIqDbContext db, AppClock clock, AppConfig
         if (search is not null)
         {
             var pattern = $"%{search}%";
-            query = query.Where(a => EF.Functions.ILike(a.Name, pattern) || EF.Functions.ILike(a.SerialNumber, pattern) || EF.Functions.ILike(a.RfidTag, pattern));
+            query = query.Where(a => EF.Functions.ILike(a.Name, pattern) || EF.Functions.ILike(a.SerialNumber!, pattern) || EF.Functions.ILike(a.RfidTag!, pattern));
         }
         var rows = await query.OrderBy(a => a.Name).Select(AssetQueries.ToDto).ToListAsync(ct);
 

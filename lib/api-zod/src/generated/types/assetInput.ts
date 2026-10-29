@@ -3,20 +3,27 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.3.0
+ * OpenAPI spec version: 0.4.0
  */
-import type { AssetInputStatus } from './assetInputStatus';
+import type { AssetCondition } from './assetCondition';
+import type { TemplateValues } from './templateValues';
 
 export interface AssetInput {
-  name: string;
-  category: string;
-  serialNumber: string;
-  rfidTag: string;
-  status?: AssetInputStatus;
-  assignedTo?: string;
-  currentLocationId?: number;
+  categoryId: number;
+  subCategory?: string;
+  attributes?: TemplateValues;
+  /** Required when the item has no manufacturer serial; SBU Finance approves it */
+  noSerialReason?: string;
+  /** Default the SBU of an SBU role; required for Group roles */
   sbuId?: number;
+  currentLocationId: number;
+  /** The custodian */
+  assignedTo: string;
+  condition: AssetCondition;
+  previousAssetNumber?: string;
+  supplier?: string;
+  poNo?: string;
   purchaseDate?: Date;
-  purchaseValue?: number;
+  warrantyEnds?: Date;
   notes?: string;
 }
