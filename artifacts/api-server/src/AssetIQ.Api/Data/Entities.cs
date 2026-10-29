@@ -73,8 +73,12 @@ public sealed class Asset
     /// <summary>Business Central fixed-asset number; null while pending. A trigger forbids changing it once set.</summary>
     public string? AssetNumber { get; set; }
     public string? PreviousAssetNumber { get; set; }
-    /// <summary>pending_asset_number | active | maintenance | retired | missing</summary>
-    public string Status { get; set; } = "active";
+    /// <summary>One of <see cref="Domain.AssetStatuses.All"/>; changed only through <see cref="Domain.AssetStatusMachine"/>.</summary>
+    public string Status { get; set; } = Domain.AssetStatuses.PendingAssetNumber;
+    /// <summary>GI-07: when lost / stolen (YYYY-MM-DD), who reported it, and what happened.</summary>
+    public string? LostDate { get; set; }
+    public string? LostReportedBy { get; set; }
+    public string? LostNotes { get; set; }
     /// <summary>new | good | fair | poor | damaged</summary>
     public string? Condition { get; set; }
     /// <summary>The custodian (the employee's name when <see cref="CustodianEmployeeId"/> is set).</summary>

@@ -2,6 +2,7 @@ import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { STATUS_LABEL, STATUS_TONE } from "@/lib/finance";
 import { Badge } from "@/components/ui/badge";
 import { useListAssets, useListSbus, ListAssetsStatus, type ListAssetsStatus as AssetStatus } from "@workspace/api-client-react";
 import { Link, useSearch } from "wouter";
@@ -32,13 +33,7 @@ function SbuFilterTab({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case "active":      return <Badge className="bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-900 border text-[10px]">Active</Badge>;
-    case "maintenance": return <Badge className="bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900 border text-[10px]">Maintenance</Badge>;
-    case "missing":     return <Badge className="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900 border text-[10px]">Missing</Badge>;
-    case "retired":     return <Badge variant="secondary" className="text-[10px]">Retired</Badge>;
-    default:            return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
-  }
+  return <Badge className={`${STATUS_TONE[status] ?? ""} border-0 text-[10px]`}>{STATUS_LABEL[status] ?? status}</Badge>;
 }
 
 export default function AssetList() {
@@ -142,7 +137,7 @@ export default function AssetList() {
                 </TableHeader>
                 <TableBody>
                   {assets?.map((asset) => (
-                    <TableRow key={asset.id} className={asset.status === "missing" ? "bg-red-50/50 dark:bg-red-950/40" : ""}>
+                    <TableRow key={asset.id} className={asset.status === "lost_stolen" ? "bg-red-50/50 dark:bg-red-950/40" : ""}>
                       <TableCell>
                         <Link href={`/assets/${asset.id}`} className="font-medium hover:underline text-primary block">
                           {asset.name}

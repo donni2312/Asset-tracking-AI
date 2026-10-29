@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 /**
  * The roles of the docs/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer / operator / admin roles were retired by migration 0004.
@@ -110,17 +110,21 @@ export const AssetNoSerialStatus = {
 } as const;
 
 /**
- * pending_asset_number = waiting for the Business Central asset number (AU-03)
+ * Phase 3 state machine (docs/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.
  */
 export type AssetStatus = typeof AssetStatus[keyof typeof AssetStatus];
 
 
 export const AssetStatus = {
   pending_asset_number: 'pending_asset_number',
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+  in_store: 'in_store',
+  in_use: 'in_use',
+  out_on_gate_pass: 'out_on_gate_pass',
+  in_repair: 'in_repair',
+  transfer_pending: 'transfer_pending',
+  pending_disposal: 'pending_disposal',
+  lost_stolen: 'lost_stolen',
+  disposed: 'disposed',
 } as const;
 
 export interface Asset {
@@ -199,7 +203,11 @@ export interface Asset {
   capitalisedAt?: string | null;
   /** @nullable */
   capitalisedBy?: string | null;
-  residualValue: number;
+  /**
+     * Null, like every cost and value field, for roles without financial access
+     * @nullable
+     */
+  residualValue?: number | null;
   /** @nullable */
   supplier?: string | null;
   /** @nullable */
@@ -212,6 +220,12 @@ export interface Asset {
   warrantyEnds?: string | null;
   /** @nullable */
   disposalDate?: string | null;
+  /** @nullable */
+  lostDate?: string | null;
+  /** @nullable */
+  lostReportedBy?: string | null;
+  /** @nullable */
+  lostNotes?: string | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -254,20 +268,28 @@ export interface AssetInput {
   notes?: string;
 }
 
+/**
+ * Through the state machine (409 when not allowed); lost_stolen needs POST /assets/{id}/status (GI-07)
+ */
 export type AssetUpdateStatus = typeof AssetUpdateStatus[keyof typeof AssetUpdateStatus];
 
 
 export const AssetUpdateStatus = {
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+  in_store: 'in_store',
+  in_use: 'in_use',
+  out_on_gate_pass: 'out_on_gate_pass',
+  in_repair: 'in_repair',
+  transfer_pending: 'transfer_pending',
+  pending_disposal: 'pending_disposal',
+  lost_stolen: 'lost_stolen',
+  disposed: 'disposed',
 } as const;
 
 export interface AssetUpdate {
   subCategory?: string;
   attributes?: TemplateValues;
   noSerialReason?: string;
+  /** Through the state machine (409 when not allowed); lost_stolen needs POST /assets/{id}/status (GI-07) */
   status?: AssetUpdateStatus;
   condition?: AssetCondition;
   /** @nullable */
@@ -1127,12 +1149,17 @@ export interface AssetUpgrade {
   beforeText: string;
   afterText: string;
   fieldChanges: TemplateValues;
-  /** USD - invoiceAmount × exchangeRate */
-  cost: number;
+  /**
+     * USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access
+     * @nullable
+     */
+  cost?: number | null;
   /** The invoice's currency, as invoiced (ISO 4217) */
   currency: string;
-  invoiceAmount: number;
-  exchangeRate: number;
+  /** @nullable */
+  invoiceAmount?: number | null;
+  /** @nullable */
+  exchangeRate?: number | null;
   /** @nullable */
   supplier?: string | null;
   /** @nullable */
@@ -1206,7 +1233,8 @@ export interface AssetCard {
   categoryName: string;
   isIt: boolean;
   attributes: AssetAttribute[];
-  value: AssetValue;
+  /** Null (and the schedule empty) for roles without financial access */
+  value?: AssetValue | null;
   upgrades: AssetUpgrade[];
   /** Newest month first */
   schedule: DepreciationLine[];
@@ -1719,6 +1747,58 @@ export interface AttachmentUpload {
   file: string;
   kind: AttachmentUploadKind;
   upgradeId?: number;
+}
+
+export interface StatusTransition {
+  status: AssetStatus;
+  label: string;
+  /** What the change is called ("issue", "recommend for disposal", …) */
+  action: string;
+  allowed: boolean;
+  /**
+     * Why it is refused, when it is
+     * @nullable
+     */
+  reason?: string | null;
+  /** lost_stolen needs lostDate, reporter and notes (GI-07) */
+  needsIncidentDetails: boolean;
+}
+
+export interface StatusChangeInput {
+  status: AssetStatus;
+  /** @minLength 3 */
+  reason: string;
+  lostDate?: string;
+  reporter?: string;
+  notes?: string;
+}
+
+export type RFIDReaderInputStatus = typeof RFIDReaderInputStatus[keyof typeof RFIDReaderInputStatus];
+
+
+export const RFIDReaderInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface RFIDReaderInput {
+  name: string;
+  locationId: number;
+  status?: RFIDReaderInputStatus;
+}
+
+export type RFIDReaderUpdateStatus = typeof RFIDReaderUpdateStatus[keyof typeof RFIDReaderUpdateStatus];
+
+
+export const RFIDReaderUpdateStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface RFIDReaderUpdate {
+  name?: string;
+  locationId?: number;
+  status?: RFIDReaderUpdateStatus;
 }
 
 /**

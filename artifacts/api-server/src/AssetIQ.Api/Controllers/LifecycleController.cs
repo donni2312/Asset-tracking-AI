@@ -13,16 +13,8 @@ using Microsoft.EntityFrameworkCore;
 namespace AssetIQ.Api.Controllers;
 
 /// <summary>Business-meaningful asset events: deployments, returns, repairs, SBU transfers and notes.</summary>
-public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, AssetAccess access, AssetRegistrationService registration) : ApiControllerBase
+public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, AssetAccess access, AssetRegistrationService registration, AssetStatusService statuses) : ApiControllerBase
 {
-    /// <summary>The asset status each event type implies.</summary>
-    private static readonly Dictionary<string, string> StatusAfterEvent = new()
-    {
-        [LifecycleEventTypes.Deployment] = AssetStatuses.Active,
-        [LifecycleEventTypes.ReturnToIt] = AssetStatuses.Active,
-        [LifecycleEventTypes.RepairSent] = AssetStatuses.Maintenance,
-        [LifecycleEventTypes.RepairReturned] = AssetStatuses.Active,
-    };
 
     private static readonly Expression<Func<AssetLifecycleEvent, LifecycleEventDto>> ToDto = e => new LifecycleEventDto
     {
@@ -112,9 +104,21 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
         db.AssetLifecycleEvents.Add(lifecycleEvent);
 
         var assetChanged = false;
-        if (StatusAfterEvent.TryGetValue(eventType, out var status))
+        // Phase 3: the status each event implies, through the state machine (409 when the table forbids it).
+        // A deployment of an asset already in use is a reassignment: its status stays.
+        if (eventType == LifecycleEventTypes.Deployment) AssetRegistrationService.EnsureReassignable(asset);
+        var status = eventType switch
         {
-            asset.Status = status;
+            LifecycleEventTypes.Deployment when asset.Status != AssetStatuses.InUse => AssetStatuses.InUse,
+            LifecycleEventTypes.ReturnToIt => AssetStatuses.InStore,
+            LifecycleEventTypes.RepairSent => AssetStatuses.InRepair,
+            LifecycleEventTypes.RepairReturned => null, // decided below, once the holder is known
+            LifecycleEventTypes.SbuTransfer when asset.Status == AssetStatuses.TransferPending => "decided below",
+            _ => null,
+        };
+        if (status is not null && status != "decided below")
+        {
+            statuses.Change(Caller, asset, new StatusChange(status, notes));
             assetChanged = true;
         }
         if (eventType == LifecycleEventTypes.Deployment && custodianEmployeeId is { IsSet: true, Value: not null })
@@ -131,7 +135,8 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
         }
         if (eventType == LifecycleEventTypes.ReturnToIt)
         {
-            asset.AssignedTo = null;
+            // SI-02: an unassigned IT item stays with SBU IT; a non-IT item goes to the SBU's Stores.
+            asset.AssignedTo = AssetStatusService.StoreHolder(asset, await db.Sbus.Where(x => x.Id == asset.SbuId).Select(x => x.Code).FirstOrDefaultAsync(Aborted));
             asset.CustodianEmployeeId = null;
             asset.DepartmentId = null;
             assetChanged = true;
@@ -139,6 +144,11 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
         if (eventType == LifecycleEventTypes.SbuTransfer && toSbuId is > 0 or < 0)
         {
             asset.SbuId = toSbuId;
+            assetChanged = true;
+        }
+        if (eventType == LifecycleEventTypes.RepairReturned || (eventType == LifecycleEventTypes.SbuTransfer && asset.Status == AssetStatuses.TransferPending))
+        {
+            statuses.Change(Caller, asset, new StatusChange(AssetStatusService.ReturnStatus(asset), notes));
             assetChanged = true;
         }
         if (assetChanged) asset.UpdatedAt = now;

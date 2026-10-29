@@ -34,7 +34,7 @@ public sealed class ScanController(AssetIqDbContext db, AppClock clock, AppConfi
         var basic = new ScanResultDto
         {
             AssetId = asset.Id,
-            CanOpen = visible && Roles.Parse(Roles.RecordReaders).Contains(Caller.Role),
+            CanOpen = visible && (Roles.Parse(Roles.RecordReaders).Contains(Caller.Role) || AccessPolicy.Sys(Caller)),
             Description = asset.Name, AssetNumber = asset.AssetNumber, RfidTag = asset.RfidTag, SbuCode = asset.Sbu?.Code, SbuName = asset.Sbu?.Name,
             Status = asset.Status, GateClearance = "not_shown",
         };

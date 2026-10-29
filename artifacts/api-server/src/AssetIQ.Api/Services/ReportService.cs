@@ -84,7 +84,8 @@ public sealed class ReportService(AssetIqDbContext db, AppClock clock, AppConfig
     private static string Title(string value) => value.Length == 0 ? value : char.ToUpperInvariant(value[0]) + value[1..].Replace('_', ' ');
 
     /// <summary>The asset register, with the Assets page's filters.</summary>
-    public async Task<CsvReport> AssetsAsync(string? status, int? locationId, int? sbuId, string? category, string? search, CancellationToken ct)
+    /// <param name="includeValues">False for roles that may not see financial data: the value column stays, empty.</param>
+    public async Task<CsvReport> AssetsAsync(string? status, int? locationId, int? sbuId, string? category, string? search, bool includeValues, CancellationToken ct)
     {
         var query = db.Assets.AsNoTracking();
         if (status is not null) query = query.Where(a => a.Status == status);
@@ -104,7 +105,7 @@ public sealed class ReportService(AssetIqDbContext db, AppClock clock, AppConfig
         foreach (var a in rows)
         {
             csv.Row(a.Id, a.Name, a.Category, a.SerialNumber, a.RfidTag, Title(a.Status), a.AssignedTo,
-                a.CurrentLocationName ?? "Off-premises / unknown", a.SbuCode, a.SbuName, a.PurchaseDate, a.PurchaseValue, a.Notes,
+                a.CurrentLocationName ?? "Off-premises / unknown", a.SbuCode, a.SbuName, a.PurchaseDate, includeValues ? a.PurchaseValue : null, a.Notes,
                 Local(a.CreatedAt), Local(a.UpdatedAt));
         }
         return Finish("assets", csv);

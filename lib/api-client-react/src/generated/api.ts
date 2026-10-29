@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 import {
   useMutation,
@@ -105,6 +105,8 @@ import type {
   MovementTrendPoint,
   NoSerialDecision,
   RFIDReader,
+  RFIDReaderInput,
+  RFIDReaderUpdate,
   RFIDScanResult,
   RFIDSimulateInput,
   ReasonInput,
@@ -115,6 +117,8 @@ import type {
   ScanCodeParams,
   ScanResult,
   SettingUpdate,
+  StatusChangeInput,
+  StatusTransition,
   TagInput,
   TemplateFieldInput,
   TemplateFieldUpdate,
@@ -2590,6 +2594,77 @@ export function useListRfidReaders<TData = Awaited<ReturnType<typeof listRfidRea
 
 
 
+
+export const getCreateRfidReaderUrl = () => {
+
+
+
+
+  return `/api/rfid/readers`
+}
+
+/**
+ * @summary Add a reader at a gate or other location (System Administrator)
+ */
+export const createRfidReader = async (rFIDReaderInput: RFIDReaderInput, options?: RequestInit): Promise<RFIDReader> => {
+
+  return customFetch<RFIDReader>(getCreateRfidReaderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rFIDReaderInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRfidReaderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRfidReader>>, TError,{data: BodyType<RFIDReaderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRfidReader>>, TError,{data: BodyType<RFIDReaderInput>}, TContext> => {
+
+const mutationKey = ['createRfidReader'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRfidReader>>, {data: BodyType<RFIDReaderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRfidReader(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRfidReaderMutationResult = NonNullable<Awaited<ReturnType<typeof createRfidReader>>>
+    export type CreateRfidReaderMutationBody = BodyType<RFIDReaderInput>
+    export type CreateRfidReaderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a reader at a gate or other location (System Administrator)
+ */
+export const useCreateRfidReader = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRfidReader>>, TError,{data: BodyType<RFIDReaderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRfidReader>>,
+        TError,
+        {data: BodyType<RFIDReaderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRfidReaderMutationOptions(options));
+    }
 
 export const getGetDashboardSummaryUrl = () => {
 
@@ -7712,4 +7787,225 @@ export function useScanCode<TData = Awaited<ReturnType<typeof scanCode>>, TError
 
 
 
+
+export const getListAssetTransitionsUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/transitions`
+}
+
+/**
+ * @summary The status changes the caller could ask for from the asset's current status (Phase 3)
+ */
+export const listAssetTransitions = async (id: number, options?: RequestInit): Promise<StatusTransition[]> => {
+
+  return customFetch<StatusTransition[]>(getListAssetTransitionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAssetTransitionsQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/transitions`
+    ] as const;
+    }
+
+
+export const getListAssetTransitionsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetTransitions>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetTransitions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAssetTransitionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetTransitions>>> = ({ signal }) => listAssetTransitions(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetTransitions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAssetTransitionsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetTransitions>>>
+export type ListAssetTransitionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The status changes the caller could ask for from the asset's current status (Phase 3)
+ */
+
+export function useListAssetTransitions<TData = Awaited<ReturnType<typeof listAssetTransitions>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetTransitions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAssetTransitionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getChangeAssetStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/status`
+}
+
+/**
+ * @summary Change the status through the state machine (409 not in the table or a guard fails; 403 not for the role)
+ */
+export const changeAssetStatus = async (id: number,
+    statusChangeInput: StatusChangeInput, options?: RequestInit): Promise<Asset> => {
+
+  return customFetch<Asset>(getChangeAssetStatusUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(statusChangeInput)
+  }
+);}
+
+
+
+
+
+export const getChangeAssetStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAssetStatus>>, TError,{id: number;data: BodyType<StatusChangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeAssetStatus>>, TError,{id: number;data: BodyType<StatusChangeInput>}, TContext> => {
+
+const mutationKey = ['changeAssetStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeAssetStatus>>, {id: number;data: BodyType<StatusChangeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  changeAssetStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeAssetStatusMutationResult = NonNullable<Awaited<ReturnType<typeof changeAssetStatus>>>
+    export type ChangeAssetStatusMutationBody = BodyType<StatusChangeInput>
+    export type ChangeAssetStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change the status through the state machine (409 not in the table or a guard fails; 403 not for the role)
+ */
+export const useChangeAssetStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAssetStatus>>, TError,{id: number;data: BodyType<StatusChangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof changeAssetStatus>>,
+        TError,
+        {id: number;data: BodyType<StatusChangeInput>},
+        TContext
+      > => {
+      return useMutation(getChangeAssetStatusMutationOptions(options));
+    }
+
+export const getUpdateRfidReaderUrl = (id: number,) => {
+
+
+
+
+  return `/api/rfid/readers/${id}`
+}
+
+/**
+ * @summary Rename, move or switch a reader on / off (System Administrator)
+ */
+export const updateRfidReader = async (id: number,
+    rFIDReaderUpdate: RFIDReaderUpdate, options?: RequestInit): Promise<RFIDReader> => {
+
+  return customFetch<RFIDReader>(getUpdateRfidReaderUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rFIDReaderUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRfidReaderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRfidReader>>, TError,{id: number;data: BodyType<RFIDReaderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRfidReader>>, TError,{id: number;data: BodyType<RFIDReaderUpdate>}, TContext> => {
+
+const mutationKey = ['updateRfidReader'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRfidReader>>, {id: number;data: BodyType<RFIDReaderUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRfidReader(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRfidReaderMutationResult = NonNullable<Awaited<ReturnType<typeof updateRfidReader>>>
+    export type UpdateRfidReaderMutationBody = BodyType<RFIDReaderUpdate>
+    export type UpdateRfidReaderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rename, move or switch a reader on / off (System Administrator)
+ */
+export const useUpdateRfidReader = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRfidReader>>, TError,{id: number;data: BodyType<RFIDReaderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRfidReader>>,
+        TError,
+        {id: number;data: BodyType<RFIDReaderUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRfidReaderMutationOptions(options));
+    }
 

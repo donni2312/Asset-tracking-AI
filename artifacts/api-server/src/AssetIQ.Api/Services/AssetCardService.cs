@@ -203,7 +203,8 @@ public sealed class AssetCardService(
                     ("Custodian", a.AssignedTo ?? "—"), ("Location", a.CurrentLocationName ?? "—"), ("Condition", a.Condition ?? "—"),
                 ]));
                 col.Item().Element(c => Pairs(c, "Specification", card.Attributes.Select(x => (x.Label, x.Unit is null ? x.Value : $"{x.Value} {x.Unit}")).ToList()));
-                col.Item().Element(c => Pairs(c, $"Cost & value ({v.Period})", [
+                // Without financial access the card carries no value (FinancialRedaction): the section is left out.
+                if (v is not null) col.Item().Element(c => Pairs(c, $"Cost & value ({v.Period})", [
                     ("Original cost", v.Capitalised ? Money(v.OriginalCost) : "Not capitalised"),
                     ("Currency / rate used", $"{v.Currency ?? "—"} · {TableExport.Format(v.ExchangeRate)}"),
                     ("Capitalised upgrades", Money(v.CapitalisedUpgrades)), ("Total cost", Money(v.TotalCost)),
@@ -225,12 +226,12 @@ public sealed class AssetCardService(
                         t.Cell().Padding(3).Text(u.UpgradeDate);
                         t.Cell().Padding(3).Text(u.Description);
                         t.Cell().Padding(3).Text($"{u.BeforeText} → {u.AfterText}");
-                        t.Cell().Padding(3).AlignRight().Text(Money(u.Cost));
+                        t.Cell().Padding(3).AlignRight().Text(u.Cost is { } cost ? Money(cost) : "—");
                         t.Cell().Padding(3).Text(u.CapitalisedPeriod is null ? u.Status : $"{u.Status} from {u.CapitalisedPeriod}");
                     }
                 });
-                col.Item().Text("Depreciation (latest 12 months)").Bold().FontSize(11);
-                col.Item().Table(t =>
+                if (v is not null) col.Item().Text("Depreciation (latest 12 months)").Bold().FontSize(11);
+                if (v is not null) col.Item().Table(t =>
                 {
                     t.ColumnsDefinition(cols => { for (var i = 0; i < 5; i++) cols.RelativeColumn(); });
                     foreach (var h in new[] { "Month", "Opening cost", "Charge", "Accumulated", "NBV" }) t.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text(h).Bold();

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  useGetAsset, useGetAssetHistory, useUpdateAsset, useCreateAssetLifecycleEvent,
+  useGetAsset, useGetAssetHistory, useUpdateAsset, useChangeAssetStatus, useCreateAssetLifecycleEvent,
   getGetAssetQueryKey, getGetAssetHistoryQueryKey, useListInsights, useDismissInsight,
 } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
@@ -250,6 +251,7 @@ export default function AssetDetail() {
   });
 
   const updateAsset = useUpdateAsset();
+  const changeStatus = useChangeAssetStatus();
   const createLifecycle = useCreateAssetLifecycleEvent();
   const { data: insights } = useListInsights();
   const dismissInsight = useDismissInsight();
@@ -274,64 +276,45 @@ export default function AssetDetail() {
 
   function handleAssign() {
     if (!employeeName.trim() || !performedBy.trim()) return;
-    updateAsset.mutate(
-      { id: assetId, data: { assignedTo: employeeName.trim(), status: "active" } },
+    // Phase 3: the deployment itself moves the asset to "in use" (through the state machine).
+    createLifecycle.mutate(
+      {
+        id: assetId,
+        data: {
+          eventType: "deployment",
+          performedBy: performedBy.trim(),
+          assignedTo: employeeName.trim(),
+          notes: assignNotes.trim() || undefined,
+        },
+      },
       {
         onSuccess: () => {
-          createLifecycle.mutate(
-            {
-              id: assetId,
-              data: {
-                eventType: "deployment",
-                performedBy: performedBy.trim(),
-                assignedTo: employeeName.trim(),
-                notes: assignNotes.trim() || undefined,
-              },
-            },
-            {
-              onSuccess: () => {
-                toast({ title: "Asset assigned", description: `Assigned to ${employeeName.trim()}.` });
-                setAssignOpen(false);
-                setEmployeeName("");
-                setPerformedBy("");
-                setAssignNotes("");
-                invalidate();
-              },
-            }
-          );
+          toast({ title: "Asset assigned", description: `Assigned to ${employeeName.trim()}.` });
+          setAssignOpen(false);
+          setEmployeeName("");
+          setPerformedBy("");
+          setAssignNotes("");
+          invalidate();
         },
-        onError: () => toast({ title: "Assignment failed", variant: "destructive" }),
+        onError: (err) => toast({ title: "Assignment failed", description: apiErrorMessage(err), variant: "destructive" }),
       }
     );
   }
 
   function handleDispose() {
     if (!disposeBy.trim()) return;
-    updateAsset.mutate(
-      { id: assetId, data: { status: "retired", assignedTo: null } },
+    // Phase 3: IT recommends; SBU Finance decides the disposal (pending disposal → disposed) on the asset card.
+    changeStatus.mutate(
+      { id: assetId, data: { status: "pending_disposal", reason: `Recommended by ${disposeBy.trim()}${disposeReason.trim() ? `: ${disposeReason.trim()}` : ""}` } },
       {
         onSuccess: () => {
-          createLifecycle.mutate(
-            {
-              id: assetId,
-              data: {
-                eventType: "note",
-                performedBy: disposeBy.trim(),
-                notes: `Asset disposed.${disposeReason.trim() ? ` Reason: ${disposeReason.trim()}` : ""}`,
-              },
-            },
-            {
-              onSuccess: () => {
-                toast({ title: "Asset disposed", description: "Status set to Retired." });
-                setDisposeOpen(false);
-                setDisposeBy("");
-                setDisposeReason("");
-                invalidate();
-              },
-            }
-          );
+          toast({ title: "Recommended for disposal", description: "SBU Finance decides on the asset card." });
+          setDisposeOpen(false);
+          setDisposeBy("");
+          setDisposeReason("");
+          invalidate();
         },
-        onError: () => toast({ title: "Disposal failed", variant: "destructive" }),
+        onError: (err) => toast({ title: "Not recommended", description: apiErrorMessage(err), variant: "destructive" }),
       }
     );
   }
@@ -339,8 +322,8 @@ export default function AssetDetail() {
   if (loadingAsset) return <Layout><div className="animate-pulse h-64 bg-muted rounded-lg" /></Layout>;
   if (!asset) return <Layout><p className="text-muted-foreground">Asset not found.</p></Layout>;
 
-  const isRetired = asset.status === "retired";
-  const statusColor = { pending_asset_number: "outline", active: "default", missing: "destructive", maintenance: "secondary", retired: "outline" }[asset.status] as any;
+  const isRetired = asset.status === "disposed" || asset.status === "pending_disposal";
+  const statusColor = (({ lost_stolen: "destructive", in_repair: "secondary", disposed: "outline", pending_asset_number: "outline" } as Record<string, string>)[asset.status] ?? "default") as any;
   const latestMovement = history?.find((e: any) => e.kind === "movement") as any;
   const offPremises = !asset.currentLocationId && latestMovement?.triggeredBy === "gate_pass";
 

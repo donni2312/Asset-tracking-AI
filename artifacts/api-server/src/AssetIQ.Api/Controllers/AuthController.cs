@@ -115,7 +115,7 @@ public sealed class AuthController(
         Roles.Stores => $"{sbuName ?? "No SBU set"} (items in store)",
         Roles.Employee => "My items",
         Roles.Auditor => "All SBUs (read only)",
-        Roles.SystemAdmin => "Categories, rates and settings",
+        Roles.SystemAdmin => "Everything (every request is logged)",
         _ => "No access",
     };
 }

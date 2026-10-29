@@ -65,6 +65,7 @@ builder.Services.AddDbContext<AssetIqDbContext>((sp, options) =>
 
 builder.Services.AddScoped<AssetQueries>();
 builder.Services.AddScoped<AssetAccess>();
+builder.Services.AddScoped<AssetStatusService>();
 builder.Services.AddScoped<MovementService>();
 builder.Services.AddScoped<InsightService>();
 builder.Services.AddScoped<GatePassService>();
@@ -111,7 +112,7 @@ builder.Services.AddHttpLogging(options =>
 });
 
 builder.Services
-    .AddControllers()
+    .AddControllers(options => options.Filters.Add<FinancialRedactionFilter>())
     .AddJsonOptions(options => JsonDefaults.Configure(options.JsonSerializerOptions))
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -157,6 +158,21 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseAuthorization();
+// The System Administrator may do everything; each of their requests is recorded in the access log.
+app.Use(async (context, next) =>
+{
+    var failed = true;
+    try
+    {
+        await next(context);
+        failed = false;
+    }
+    finally
+    {
+        if (context.User.GetAuthUser() is { Role: Roles.SystemAdmin } admin)
+            await context.RequestServices.GetRequiredService<AccessLog>().RequestAsync(admin, context, failed);
+    }
+});
 app.MapControllers();
 if (servesDashboard)
 {

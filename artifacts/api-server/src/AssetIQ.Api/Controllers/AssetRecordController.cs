@@ -17,8 +17,41 @@ namespace AssetIQ.Api.Controllers;
 /// </summary>
 public sealed class AssetRecordController(
     AssetIqDbContext db, AppClock clock, AssetQueries assets, AssetRegistrationService registration, AssetCardService cards,
-    UpgradeService upgrades, AccessLog accessLog) : ApiControllerBase
+    UpgradeService upgrades, AccessLog accessLog, AssetAccess access, AssetStatusService statuses) : ApiControllerBase
 {
+    /// <summary>Phase 3: the status changes the caller could ask for from the asset's current status, and why any is refused.</summary>
+    [HttpGet("assets/{id}/transitions")]
+    [RequireRole(Roles.AssetReaders)]
+    [FailureMessage("Failed to load the status changes")]
+    public async Task<List<StatusTransitionDto>> Transitions(string id) =>
+        AssetStatusService.Options(Caller, await access.LoadAsync(Caller, RequestValues.Id(id), Aborted));
+
+    /// <summary>
+    /// Phase 3: change the status through the state machine (409 when the table or a guard forbids it, 403 when the
+    /// role may not). Lost / stolen needs lostDate, reporter and notes (GI-07); a reason is recorded with every change.
+    /// </summary>
+    [HttpPost("assets/{id}/status")]
+    [RequireRole(Roles.StatusChangers)]
+    [FailureMessage("Failed to change the status")]
+    public async Task<AssetDto> ChangeStatus(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
+    {
+        var assetId = RequestValues.Id(id);
+        var input = JsonBody.From(body);
+        var status = input.RequiredEnum("status", AssetStatuses.Settable);
+        var reason = input.RequiredString("reason", minLength: 3);
+        var lostDate = input.NullableDay("lostDate");
+        var reporter = input.OptionalString("reporter");
+        var notes = input.OptionalString("notes");
+        input.ThrowIfInvalid();
+        // The transition rules (AccessPolicy.CanChangeStatus) check the SBU and IT / non-IT themselves, and say why
+        // a change is refused (e.g. ST-05 for Stores), so the asset is loaded across scopes here.
+        var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
+        statuses.Change(Caller, asset, new StatusChange(status, reason.Trim(), lostDate.Value, reporter, notes));
+        await db.SaveChangesAsync(Aborted);
+        return (await assets.GetDetailedAsync(assetId, Aborted))!;
+    }
+
     /// <summary>AU-08: open the card by asset number, previous number, tag or serial (search box or scanner).</summary>
     [HttpGet("assets/lookup")]
     [RequireRole(Roles.AssetReaders)]
@@ -37,6 +70,7 @@ public sealed class AssetRecordController(
     public async Task<IActionResult> CardPdf(string id)
     {
         var card = await cards.GetAsync(Caller, RequestValues.Id(id), Aborted);
+        if (!AccessPolicy.CanSeeFinancials(Caller)) card = FinancialRedaction.Redact(card);
         await accessLog.ExportAsync(Caller, $"asset card PDF {card.Asset.AssetNumber ?? card.Asset.Id.ToString()}", Request, Aborted);
         return Download(AssetCardService.Pdf(card, Caller.Name, clock.UtcNow), TableExport.PdfContentType, $"asset-card-{card.Asset.AssetNumber ?? card.Asset.Id.ToString()}.pdf");
     }
@@ -47,6 +81,7 @@ public sealed class AssetRecordController(
     [FailureMessage("Failed to export the depreciation schedule")]
     public async Task<IActionResult> ScheduleExcel(string id)
     {
+        if (!AccessPolicy.CanSeeFinancials(Caller)) throw AccessPolicy.Deny(Caller, "see depreciation (financial data)");
         var card = await cards.GetAsync(Caller, RequestValues.Id(id), Aborted);
         await accessLog.ExportAsync(Caller, $"depreciation schedule {card.Asset.AssetNumber ?? card.Asset.Id.ToString()}", Request, Aborted);
         return Download(TableExport.Excel(FinanceReportService.ScheduleTable(card)), TableExport.ExcelContentType,

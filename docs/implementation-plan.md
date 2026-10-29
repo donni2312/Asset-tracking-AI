@@ -469,3 +469,107 @@ clearance, recommend / approve disposal, run verification, fleet compliance (Pha
 6. **tsas.finance**: open John Doe's laptop card → Attachments shows the seeded invoice; attach a PDF.
 7. **sys.admin**: Administration → Categories: set the final life / rate and residual %; Assets are refused.
 8. **group.finance**: the Hilux card shows the engine overhaul invoiced in ZAR (51 546.00 × 0.054321 = USD 2 800.03).
+
+---
+
+## 11. Phase 2 follow-ups and Phase 3 report: the asset status state machine
+
+Done 29 Oct 2026. Answers to §10.3 (product owner):
+
+| Q | Answer | Built |
+|---|---|---|
+| 1 System Administrator | God-mode, but logged | Passes every role gate and record rule (`AccessPolicy.Sys`), sees every SBU; every request is written to `access_log` (`action = request`, "GET /api/assets → 200"); changes are in the audit trail as for anyone |
+| 2 Group IT | Asset inventory only, no financial data | Cost, value, depreciation and invoice amounts are removed from every response (`FinancialRedactionFilter`), the card PDF and the asset CSV for roles without financial access; the depreciation export is refused |
+| 3 Employee | Must not see the cost of their items | Same redaction |
+| 4 Gates | Many gates per SBU; the System Administrator configures them | Gate locations and RFID readers are created / changed by the System Administrator only (`POST /locations` type gate, `POST/PATCH /rfid/readers`), Administration → Gates & readers |
+| 5 HOD unavailable | As recommended | Kept: the asset's department has no active HOD account (B2) |
+
+Financial data is visible to Group Finance, SBU Finance, auditors and the System Administrator (**C1**, assumption:
+SBU IT, SBU Admin Manager, Stores, HOD, SBU HR and the Gate Officer do not see it either; HR-05 will revisit SBU HR).
+
+### 11.1 Allowed status transitions
+
+One state machine (`Domain/AssetStatusMachine.cs`); every status change (edits, lifecycle events, gate exits and
+returns, Business Central numbers, `POST /assets/{id}/status`) goes through it. A change not in this table is refused
+with 409; a person also needs the role in §11.2 (403). ✓ = allowed; every empty cell is forbidden and tested.
+
+| From \ To | Pending no. | In store | In use | Out on gate pass | In repair | Transfer pending | Pending disposal | Lost / stolen | Disposed |
+|---|---|---|---|---|---|---|---|---|---|
+| **Pending asset number** | — | ✓ number issued (system) | | | | | | | |
+| **In store** | | — | ✓ issue | ✓ leave on pass | ✓ | ✓ request | ✓ recommend | ✓ | |
+| **In use** | | ✓ return | — | ✓ leave on pass | ✓ | ✓ request | ✓ recommend | ✓ | |
+| **Out on gate pass** | | ✓ back | ✓ back | — | ✓ | | | ✓ | |
+| **In repair** | | ✓ | ✓ | ✓ leave on pass | — | | ✓ recommend | ✓ | |
+| **Transfer pending** | | ✓ decided | ✓ decided | | | — | | | |
+| **Pending disposal** | | ✓ rejected | ✓ rejected | | | | — | | ✓ approved |
+| **Lost / stolen** | | ✓ recovered | | | | | ✓ write-off | — | |
+| **Disposed** | | | | | | | | | — (final) |
+
+Changes from the §5 draft: *In store → Out on gate pass* and *In repair → Out on gate pass* (spares lent or taken to a
+vendor, SI-04), and *Out on gate pass → In store* (an unassigned item coming back). "In use → In use" is a
+reassignment, not a status change.
+
+Guards: issue needs a tag and an asset number (ST-02); no reassignment while pending disposal (SI-08, 409); lost /
+stolen needs date, reporter and notes and leaves the active counts (GI-07); disposed is final; nobody sets
+"pending asset number" (only Business Central moves an asset out of it).
+
+### 11.2 Who may make each change (`AccessPolicy.CanChangeStatus`)
+
+| Change | Roles |
+|---|---|
+| Issue (in store → in use) | Group IT, SBU IT (IT), SBU Admin Manager (non-IT), Stores |
+| Return (in use → in store) | Group IT / SBU IT (IT; the holder becomes "{SBU} IT store", SI-02), SBU Admin Manager or Stores (non-IT). Stores never takes back IT items (ST-05) |
+| Repair, transfer request, lost / stolen, recovery | Whoever edits the technical record |
+| Decide a transfer | Group IT (IT), SBU Admin Manager (non-IT) |
+| Recommend disposal | Technical owner, Stores ("return as scrap") |
+| Decide a disposal, write off a lost item | SBU Finance of the SBU, Group Finance |
+| Gate exit / return | The gate (system), the SBU's Gate Officer, technical owner |
+| Anything | System Administrator (still only along the table) |
+
+The role is checked before the table, so someone outside the asset's scope learns nothing about its status.
+
+Stores' scope is now status-based: items pending their number, non-IT items in store, IT items in store until tagged
+(ST-02), and IT items recommended for disposal (ST-05). Existing data is mapped by migration `0006` (active → in use /
+in store / out on gate pass by holder and location; maintenance → in repair; retired → disposed; missing → lost /
+stolen with placeholder incident details).
+
+### 11.3 Story status
+
+| Item | Status | Tests | Main files |
+|---|---|---|---|
+| State machine (9 statuses, every pair) | Done | `AssetStatusMachineTests.Phase3_each_listed_transition_…` (72 pairs), `…_disposed_is_final`, `…_covers_all_nine…` | `Domain/AssetStatusMachine.cs` |
+| ST-02 issue untagged / unnumbered | Done | `ST_02_…` (unit, API) | machine guard, `AssetStatusService.Options` |
+| SI-08 no reassignment pending disposal | Done | `SI_08_and_SF_04_…` | `AssetRegistrationService.EnsureReassignable` |
+| SI-02 unassigned IT stays with SBU IT | Done | `SI_02_and_ST_05_…` | `LifecycleController`, `AssetStatusService.StoreHolder` |
+| ST-05 Stores and IT returns | Done | `SI_02_and_ST_05_…` | `CanChangeStatus`, Stores scope |
+| GI-07 lost / stolen | Done | `GI_07_…` (unit, API) | `assets.lost_*`, `/assets/{id}/status` |
+| Disposed final | Done | `Phase3_disposed_is_final`, `SI_08_and_SF_04_…` | |
+| Gate exit / return | Done | `Phase3_the_gate_moves_an_asset_out_…` | `MovementService`, `RfidScanService` |
+| Migration of existing statuses | Done | `MigrationTests.Phase3_the_original_statuses_are_mapped_…` | `lib/db/migrations/0005`, `0006` |
+| Follow-ups (god-mode, redaction, gates) | Done | `Phase2_group_it_and_employees_see_the_inventory_without_cost_or_value`, `Phase2_the_system_administrator_configures_gates_…`, `AU_05_…` (request log) | `Infrastructure/FinancialRedaction.cs`, `Services/AccessLog.cs`, `RfidController.cs` |
+
+### 11.4 Assumptions
+
+- **C1** Financial data for finance roles, auditors and the System Administrator only (see above).
+- **C2** Until Phase 4's approvals (GF-04 above-threshold sign-off, GI-10 data wipe), SBU Finance or Group Finance
+  decides every disposal directly.
+- **C3** A gate pass exit / return applies the status only when the table allows it (an asset pending disposal that
+  leaves keeps its status; the movement is still recorded).
+- **C4** A transfer approved by Group IT returns the asset to "in use" if it has a holder, otherwise "in store".
+- **C5** Gates and readers: System Administrator only (Group IT and the SBU Admin Manager keep the other locations).
+
+### 11.5 Questions
+
+1. C1: should SBU IT / the SBU Admin Manager see cost (e.g. to judge repairs), and SBU HR the NBV of missing items (HR-05)?
+2. C2: disposals decided by SBU Finance alone until Phase 4 adds the Group sign-offs: acceptable for now?
+
+### 11.6 How to demo (after `pnpm db:migrate` and `pnpm seed --reset`)
+
+1. **tsas.it** → a TSAS laptop card → *Change status*: the list shows what the table allows from "in use" and why any
+   option is refused. Choose *Lost / stolen* without notes: refused (GI-07); with date, reporter and notes: done, and
+   the Operations dashboard's active count drops.
+2. **tsas.it** → another laptop → *Recommend for disposal*; *Assign* is now refused (SI-08). **tsas.finance** →
+   *Disposed*; no further change is possible.
+3. **tsas.it** → *Assign* an untagged item: refused (ST-02).
+4. **group.it** → any asset card: no cost section; the asset list shows no values. **group.finance**: values shown.
+5. **sys.admin** → Administration → Gates & readers: add a gate and a reader; Access log shows every request.

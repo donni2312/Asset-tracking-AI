@@ -16,12 +16,15 @@ namespace AssetIQ.Api.Auth;
 public sealed class AccessScope
 {
     public bool Unrestricted { get; private set; } = true;
-    /// <summary>Nothing at all (signed out, System Administrator, or a role missing its SBU / employee link).</summary>
+    /// <summary>Nothing at all (signed out, or a role missing its SBU / employee link).</summary>
     public bool Nothing { get; private set; }
     public int? SbuId { get; private set; }
     /// <summary>true: IT assets only; false: non-IT only; null: both.</summary>
     public bool? It { get; private set; }
-    /// <summary>Stores: items in store (until Phase 3, items not issued to an employee or a department).</summary>
+    /// <summary>
+    /// Stores (Phase 3): items waiting for their number; non-IT items in store; IT items in store until tagged (ST-02);
+    /// IT items SBU IT has recommended for disposal (ST-05). Unassigned IT items otherwise stay with SBU IT (SI-02).
+    /// </summary>
     public bool InStoreOnly { get; private set; }
     /// <summary>HOD: assets held by their department.</summary>
     public int? DepartmentId { get; private set; }
@@ -42,13 +45,11 @@ public sealed class AccessScope
         if (Roles.IsSbuScoped(user.Role) && sbu is null) return None();
         return user.Role switch
         {
-            Roles.GroupFinance or Roles.Auditor => new AccessScope(),
+            Roles.GroupFinance or Roles.Auditor or Roles.SystemAdmin => new AccessScope(),
             Roles.GroupIt => Restricted(it: true),
             Roles.SbuFinance => Restricted(sbu),
             Roles.SbuIt => Restricted(sbu, it: true),
             Roles.SbuAdmin => Restricted(sbu, it: false),
-            // ASSUMPTION: until the Phase 3 "In store" status exists, Stores sees its SBU's items that are not issued
-            // to an employee or a department (including what Stores itself has just received and registered).
             Roles.Stores => Restricted(sbu, inStore: true),
             Roles.SbuHr => Restricted(sbu, heldByEmployee: true),
             Roles.Hod => user.DepartmentId is { } department ? Restricted(sbu, department: department) : None(),
@@ -64,7 +65,9 @@ public sealed class AccessScope
         Unrestricted || (!Nothing
             && (SbuId is null || asset.SbuId == SbuId)
             && (It is null || isIt == It)
-            && (!InStoreOnly || (asset.CustodianEmployeeId == null && asset.DepartmentId == null))
+            && (!InStoreOnly || asset.Status == AssetStatuses.PendingAssetNumber
+                || (asset.Status == AssetStatuses.InStore && (!isIt || asset.RfidTag == null))
+                || (asset.Status == AssetStatuses.PendingDisposal && isIt))
             && (DepartmentId is null || asset.DepartmentId == DepartmentId)
             && (EmployeeId is null || asset.CustodianEmployeeId == EmployeeId)
             && (!HeldByEmployee || asset.CustodianEmployeeId != null));

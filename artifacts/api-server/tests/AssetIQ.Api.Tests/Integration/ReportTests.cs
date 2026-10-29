@@ -49,7 +49,7 @@ public sealed class ReportTests(ApiFixture api) : IAsyncLifetime
         Assert.StartsWith("Asset ID,Name,Category,Serial number,RFID tag,Status,Assigned to,Current location,SBU code,SBU name,", csv.Lines[0]);
         Assert.Contains("Registered (Africa/Harare)", csv.Lines[0]);
         Assert.Equal(3, csv.Lines.Length); // header + two assets, ordered by name
-        Assert.StartsWith($"{w.Laptop.Id},Dell Latitude 5440,Laptop,SN-DL-001,TAG-DL-001,Active,John Doe,TSAS IT Office,TSAS,", csv.Lines[1]);
+        Assert.StartsWith($"{w.Laptop.Id},Dell Latitude 5440,Laptop,SN-DL-001,TAG-DL-001,In use,John Doe,TSAS IT Office,TSAS,", csv.Lines[1]);
         Assert.EndsWith(",2026-10-14 10:00,2026-10-14 10:00", csv.Lines[1]); // organisation time, not UTC
     }
 

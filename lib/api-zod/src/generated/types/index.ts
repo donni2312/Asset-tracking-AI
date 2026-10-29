@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 
 export * from './accessLogEntry';
@@ -150,7 +150,11 @@ export * from './reportFilters';
 export * from './reportFromParameter';
 export * from './reportToParameter';
 export * from './rFIDReader';
+export * from './rFIDReaderInput';
+export * from './rFIDReaderInputStatus';
 export * from './rFIDReaderStatus';
+export * from './rFIDReaderUpdate';
+export * from './rFIDReaderUpdateStatus';
 export * from './rFIDScanResult';
 export * from './rFIDSimulateInput';
 export * from './roleInfo';
@@ -164,6 +168,8 @@ export * from './scanCodeParams';
 export * from './scanResult';
 export * from './scanResultGateClearance';
 export * from './settingUpdate';
+export * from './statusChangeInput';
+export * from './statusTransition';
 export * from './tagInput';
 export * from './templateField';
 export * from './templateFieldInput';

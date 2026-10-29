@@ -129,7 +129,8 @@ public sealed class RoleHandler(IHttpContextAccessor http) : AuthorizationHandle
     {
         var user = context.User.GetAuthUser();
         if (user is null) return Task.CompletedTask;
-        if (!requirement.AnyRole && !requirement.Allowed.Contains(user.Role)) return Task.CompletedTask;
+        // The System Administrator passes every endpoint (product owner, 29 Oct 2026); SystemAdminRequestLog records each request.
+        if (!requirement.AnyRole && !requirement.Allowed.Contains(user.Role) && user.Role != Roles.SystemAdmin) return Task.CompletedTask;
         if (user.Role == Roles.Auditor)
         {
             var method = (context.Resource as HttpContext ?? http.HttpContext)?.Request.Method;

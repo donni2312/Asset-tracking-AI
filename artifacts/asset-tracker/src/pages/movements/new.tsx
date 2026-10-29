@@ -40,7 +40,7 @@ export default function NewMovement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operator]);
 
-  const movable = (assets ?? []).filter((a) => a.status !== "retired");
+  const movable = (assets ?? []).filter((a) => a.status !== "disposed");
   const asset = movable.find((a) => String(a.id) === assetId);
 
   // Same picker as the gate-pass form: find an asset by name, tag or serial.

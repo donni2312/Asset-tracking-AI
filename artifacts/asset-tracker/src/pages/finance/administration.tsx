@@ -17,6 +17,7 @@ import { SELECT_CLASS } from "@/lib/constants";
 import { currentPeriod, money, periodLabel, recentPeriods } from "@/lib/finance";
 import { inGroup } from "@/lib/roles";
 import { UsersTab } from "./users-tab";
+import { GatesTab } from "./gates-tab";
 
 /**
  * Category templates and depreciation policy (Group Finance; fields by Group IT / SBU Admin Manager),
@@ -26,9 +27,10 @@ import { UsersTab } from "./users-tab";
 export default function Administration() {
   const user = useCurrentUser();
   if (!user) return <Layout><p className="text-sm text-muted-foreground">Sign in.</p></Layout>;
-  const finance = user.role === "group_finance";
-  const runsDepreciation = user.role === "group_finance" || user.role === "sbu_finance";
-  const managesUsers = inGroup(user, "userManagers");
+  const finance = user.role === "group_finance" || user.role === "system_admin";
+  const runsDepreciation = ["group_finance", "sbu_finance", "system_admin"].includes(user.role);
+  const managesUsers = inGroup(user, "userManagers") || user.role === "system_admin";
+  const sysAdmin = user.role === "system_admin";
   return (
     <Layout>
       <div className="space-y-5">
@@ -42,6 +44,7 @@ export default function Administration() {
             {runsDepreciation && <TabsTrigger value="depreciation">Depreciation run</TabsTrigger>}
             <TabsTrigger value="settings">Group settings</TabsTrigger>
             {managesUsers && <TabsTrigger value="users">Users</TabsTrigger>}
+            {sysAdmin && <TabsTrigger value="gates">Gates &amp; readers</TabsTrigger>}
             {finance && <TabsTrigger value="auditors">Auditor access</TabsTrigger>}
             {finance && <TabsTrigger value="log">Access log</TabsTrigger>}
           </TabsList>
@@ -49,6 +52,7 @@ export default function Administration() {
           {runsDepreciation && <TabsContent value="depreciation"><DepreciationRun /></TabsContent>}
           <TabsContent value="settings"><Settings /></TabsContent>
           {managesUsers && <TabsContent value="users"><UsersTab /></TabsContent>}
+          {sysAdmin && <TabsContent value="gates"><GatesTab /></TabsContent>}
           {finance && <TabsContent value="auditors"><Auditors /></TabsContent>}
           {finance && <TabsContent value="log"><AccessLogTab /></TabsContent>}
         </Tabs>

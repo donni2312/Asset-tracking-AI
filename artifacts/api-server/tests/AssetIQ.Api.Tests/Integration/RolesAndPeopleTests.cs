@@ -200,7 +200,9 @@ public sealed class RolesAndPeopleTests(ApiFixture api) : IAsyncLifetime
             invoiceAmount = 2500m, currency = "zar", exchangeRate = 0.054m, supplier = "Incredible Connection", invoiceNo = "IC-7781",
         }, r[Roles.SbuIt]);
         Assert.Equal(201, logged.Status);
-        Assert.Equal(("ZAR", 2500m, 0.054m, 135.00m), (logged.Body.Str("currency"), logged.Body.Prop("invoiceAmount").GetDecimal(), logged.Body.Prop("exchangeRate").GetDecimal(), logged.Body.Prop("cost").GetDecimal()));
+        Assert.True(logged.Body.IsNull("cost")); // SBU IT sees no financial figures (product owner, 29 Oct 2026)
+        var asFinance = (await api.CallAsync("GET", $"/assets/{r.W.Laptop.Id}/upgrades", token: r[Roles.SbuFinance])).Body.Items().Single(u => u.Int("id") == logged.Body.Int("id"));
+        Assert.Equal(("ZAR", 2500m, 0.054m, 135.00m), (asFinance.Str("currency"), asFinance.Prop("invoiceAmount").GetDecimal(), asFinance.Prop("exchangeRate").GetDecimal(), asFinance.Prop("cost").GetDecimal()));
 
         Assert.Equal(400, (await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/upgrades", new
         {
@@ -210,12 +212,50 @@ public sealed class RolesAndPeopleTests(ApiFixture api) : IAsyncLifetime
         {
             upgradeDate = "2026-10-12", description = "Battery", beforeText = "Worn", afterText = "New", cost = 85m,
         }, r[Roles.SbuIt]);
-        Assert.Equal(("USD", 85m, 1m), (usd.Body.Str("currency"), usd.Body.Prop("invoiceAmount").GetDecimal(), usd.Body.Prop("exchangeRate").GetDecimal()));
+        Assert.Equal((201, "USD"), (usd.Status, usd.Body.Str("currency")));
 
         var decided = await api.CallAsync("POST", $"/upgrades/{logged.Body.Int("id")}/decision",
             new { treatment = "expense", exchangeRate = 0.055m, comment = "Rate on the payment date" }, r[Roles.SbuFinance]);
         Assert.Equal(200, decided.Status);
         Assert.Equal((0.055m, 137.50m), (decided.Body.Prop("exchangeRate").GetDecimal(), decided.Body.Prop("cost").GetDecimal()));
+    }
+
+    // ── Phase 2 follow-ups (29 Oct 2026): financial data, gates ──────────────────
+
+    [Fact]
+    public async Task Phase2_group_it_and_employees_see_the_inventory_without_cost_or_value()
+    {
+        var employee = await api.CallAsync("GET", $"/assets/{r.TsasDesk.Id}", token: r[Roles.Employee]);
+        Assert.Equal((200, true, true), (employee.Status, employee.Body.IsNull("costUsd"), employee.Body.IsNull("originalCost")));
+        var finance = await api.CallAsync("GET", $"/assets/{r.TsasDesk.Id}", token: r[Roles.SbuFinance]);
+        Assert.Equal(1200m, finance.Body.Prop("costUsd").GetDecimal());
+
+        var groupIt = await api.CallAsync("GET", $"/assets/{r.BakLaptop.Id}", token: r[Roles.GroupIt]);
+        Assert.Equal((200, true), (groupIt.Status, groupIt.Body.IsNull("costUsd")));
+        var card = await api.CallAsync("GET", $"/assets/{r.BakLaptop.Id}/card", token: r[Roles.GroupIt]);
+        Assert.Equal((200, true, 0), (card.Status, card.Body.IsNull("value"), card.Body.Prop("schedule").Items().Count));
+        Assert.Equal(403, (await api.CallAsync("GET", $"/assets/{r.BakLaptop.Id}/depreciation.xlsx", token: r[Roles.GroupIt])).Status);
+        Assert.Contains((await api.CallAsync("GET", "/assets", token: r[Roles.GroupIt])).Body.Items(), a => a.IsNull("purchaseValue"));
+        Assert.False((await api.CallAsync("GET", $"/assets/{r.BakLaptop.Id}/card", token: r[Roles.GroupFinance])).Body.IsNull("value"));
+    }
+
+    [Fact]
+    public async Task Phase2_the_system_administrator_configures_gates_and_their_readers()
+    {
+        var gate = new { name = "TSAS Back Gate", type = "gate", building = "TSAS House", sbuId = r.W.Tsas.Id };
+        Assert.Equal(403, (await api.CallAsync("POST", "/locations", gate, r[Roles.GroupIt])).Status);
+        Assert.Equal(403, (await api.CallAsync("POST", "/locations", gate, r[Roles.SbuAdmin])).Status);
+        Assert.Equal(201, (await api.CallAsync("POST", "/locations", new { name = "Boardroom 2", type = "office", building = "TSAS House", sbuId = r.W.Tsas.Id }, r[Roles.SbuAdmin])).Status);
+        var created = await api.CallAsync("POST", "/locations", gate, r[Roles.SystemAdmin]);
+        Assert.Equal(201, created.Status);
+
+        var reader = await api.CallAsync("POST", "/rfid/readers", new { name = "TSAS Back Gate Reader", locationId = created.Body.Int("id") }, r[Roles.SystemAdmin]);
+        Assert.Equal((201, "active", "TSAS"), (reader.Status, reader.Body.Str("status"), reader.Body.Str("sbuCode")));
+        Assert.Equal(403, (await api.CallAsync("POST", "/rfid/readers", new { name = "Rogue reader", locationId = created.Body.Int("id") }, r[Roles.GroupIt])).Status);
+        var off = await api.CallAsync("PATCH", $"/rfid/readers/{reader.Body.Int("id")}", new { status = "inactive" }, r[Roles.SystemAdmin]);
+        Assert.Equal("inactive", off.Body.Str("status"));
+        var gates = await api.CallAsync("GET", $"/locations?type=gate&sbuId={r.W.Tsas.Id}", token: r[Roles.SystemAdmin]);
+        Assert.Equal(2, gates.Body.Items().Count); // the main gate and the new back gate
     }
 
     // ── AU-05 follow-up: default residual value and who sets the final rates ─────
@@ -232,7 +272,12 @@ public sealed class RolesAndPeopleTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(400, (await api.CallAsync("PATCH", $"/categories/{Categories.Computers}", new { defaultResidualPercent = 120m }, r[Roles.SystemAdmin])).Status);
         Assert.Equal(403, (await api.CallAsync("PATCH", $"/categories/{Categories.Computers}", new { defaultResidualPercent = 5m }, r[Roles.GroupIt])).Status);
         Assert.Equal(200, (await api.CallAsync("PATCH", "/settings/warranty_alert_days", new { value = 30 }, r[Roles.SystemAdmin])).Status);
-        Assert.Equal(403, (await api.CallAsync("GET", "/assets", token: r[Roles.SystemAdmin])).Status); // categories and settings only
+        Assert.Equal(200, (await api.CallAsync("GET", "/assets", token: r[Roles.SystemAdmin])).Status); // may do everything …
+        await using (var log = api.NewDbContext())
+        {
+            Assert.Contains(await log.AccessLog.Where(e => e.Role == Roles.SystemAdmin && e.Action == "request").Select(e => e.Detail).ToListAsync(),
+                d => d == "GET /api/assets → 200"); // … and every request is on record
+        }
 
         // Capitalising applies the category's default (10% of 1,500.00) while Finance has not set a residual itself.
         var fin = await api.CallAsync("PATCH", $"/assets/{r.W.Projector.Id}/financial",

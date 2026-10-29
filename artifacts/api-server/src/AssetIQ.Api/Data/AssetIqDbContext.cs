@@ -255,7 +255,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
     private Expression<Func<Asset, bool>> AssetVisible => a => Scope.Unrestricted || (!Scope.Nothing
         && (Scope.SbuId == null || a.SbuId == Scope.SbuId)
         && (Scope.It == null || a.AssetCategory.IsIt == Scope.It)
-        && (!Scope.InStoreOnly || (a.CustodianEmployeeId == null && a.DepartmentId == null))
+        && (!Scope.InStoreOnly || a.Status == AssetStatuses.PendingAssetNumber
+            || (a.Status == AssetStatuses.InStore && (!a.AssetCategory.IsIt || a.RfidTag == null))
+            || (a.Status == AssetStatuses.PendingDisposal && a.AssetCategory.IsIt))
         && (Scope.DepartmentId == null || a.DepartmentId == Scope.DepartmentId)
         && (Scope.EmployeeId == null || a.CustodianEmployeeId == Scope.EmployeeId)
         && (!Scope.HeldByEmployee || a.CustodianEmployeeId != null));

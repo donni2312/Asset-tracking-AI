@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { TemplateFields, describe, type TemplateDraft } from "@/components/template-fields";
 import { ShieldAlert } from "lucide-react";
+import { STATUS_LABEL } from "@/lib/finance";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import { SELECT_CLASS } from "@/lib/constants";
 import { personHint, usePeople } from "@/hooks/use-people";
 import { useCurrentUser, useHasRole } from "@/hooks/use-auth";
 
-const STATUSES = ["active", "maintenance", "missing", "retired"] as const;
+// Phase 3: status changes go through the state machine ("Change status" on the asset card), not this form.
 
 /**
  * Edit an asset's technical record (AU-01). The category's template fields are edited here and the
@@ -101,7 +102,7 @@ export default function EditAsset() {
     // Send only what actually changed: an unchanged record field would
     // otherwise make the API refuse an operator's legitimate edit.
     const data: AssetUpdate = {};
-    if (form.status !== asset.status) data.status = form.status as AssetUpdate["status"];
+
     if (form.assignedTo.trim() !== (asset.assignedTo ?? "")) data.assignedTo = form.assignedTo.trim() || null;
     if (form.currentLocationId !== (asset.currentLocationId != null ? String(asset.currentLocationId) : "")) {
       data.currentLocationId = form.currentLocationId ? Number(form.currentLocationId) : null;
@@ -210,16 +211,9 @@ export default function EditAsset() {
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="as-status">Status</Label>
-                    <select
-                      id="as-status"
-                      className={SELECT_CLASS}
-                      value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value as (typeof STATUSES)[number] })}
-                    >
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <p className="text-sm">{STATUS_LABEL[asset.status] ?? asset.status} <span className="text-xs text-muted-foreground">· change it with "Change status" on the asset card</span></p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="as-sbu">SBU</Label>

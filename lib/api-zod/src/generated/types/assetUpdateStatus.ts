@@ -3,15 +3,22 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 
+/**
+ * Through the state machine (409 when not allowed); lost_stolen needs POST /assets/{id}/status (GI-07)
+ */
 export type AssetUpdateStatus = typeof AssetUpdateStatus[keyof typeof AssetUpdateStatus];
 
 
 export const AssetUpdateStatus = {
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+  in_store: 'in_store',
+  in_use: 'in_use',
+  out_on_gate_pass: 'out_on_gate_pass',
+  in_repair: 'in_repair',
+  transfer_pending: 'transfer_pending',
+  pending_disposal: 'pending_disposal',
+  lost_stolen: 'lost_stolen',
+  disposed: 'disposed',
 } as const;

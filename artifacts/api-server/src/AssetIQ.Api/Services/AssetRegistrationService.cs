@@ -36,7 +36,7 @@ public sealed record FinancialUpdate(
 /// written to the audit trail in the same transaction.
 /// </summary>
 public sealed class AssetRegistrationService(
-    AssetIqDbContext db, AppClock clock, AuditTrail audit, BcNumberService bcNumbers, ILogger<AssetRegistrationService> logger)
+    AssetIqDbContext db, AppClock clock, AuditTrail audit, BcNumberService bcNumbers, AssetStatusService statuses, ILogger<AssetRegistrationService> logger)
 {
     public async Task<Template> LoadTemplateAsync(int categoryId, CancellationToken ct, bool activeOnly = true)
     {
@@ -285,14 +285,14 @@ public sealed class AssetRegistrationService(
 
         if (input.LocationId.IsSet && audit.RecordChange(user, "asset", asset.Id, asset.Id, "currentLocationId", asset.CurrentLocationId, input.LocationId.Value, reason))
             asset.CurrentLocationId = input.LocationId.Value;
+        if ((input.Custodian.IsSet && Blank(input.Custodian.Value) != asset.AssignedTo) || input.CustodianEmployeeId.IsSet) EnsureReassignable(asset);
         if (input.Custodian.IsSet && audit.RecordChange(user, "asset", asset.Id, asset.Id, "custodian", asset.AssignedTo, Blank(input.Custodian.Value), reason))
             asset.AssignedTo = Blank(input.Custodian.Value);
         if (input.CustodianEmployeeId.IsSet) await AssignCustodianAsync(user, asset, input.CustodianEmployeeId.Value, reason, ct);
         if (input.DepartmentId.IsSet) await AssignDepartmentAsync(user, asset, input.DepartmentId.Value, reason, ct);
         if (input.Condition is not null && audit.RecordChange(user, "asset", asset.Id, asset.Id, "condition", asset.Condition, input.Condition, reason))
             asset.Condition = input.Condition;
-        if (input.Status is not null && audit.RecordChange(user, "asset", asset.Id, asset.Id, "status", asset.Status, input.Status, reason))
-            asset.Status = input.Status;
+        if (input.Status is not null && input.Status != asset.Status) statuses.Change(user, asset, new StatusChange(input.Status, reason));
         if (input.SbuId.IsSet && audit.RecordChange(user, "asset", asset.Id, asset.Id, "sbuId", asset.SbuId, input.SbuId.Value, reason))
             asset.SbuId = input.SbuId.Value;
         if (input.Notes.IsSet && audit.RecordChange(user, "asset", asset.Id, asset.Id, "notes", asset.Notes, input.Notes.Value, reason))
@@ -544,6 +544,7 @@ public sealed class AssetRegistrationService(
     /// </summary>
     public async Task AssignCustodianAsync(AuthUser user, Asset asset, int? employeeId, string? reason, CancellationToken ct)
     {
+        EnsureReassignable(asset);
         Employee? employee = null;
         if (employeeId is { } id)
         {
@@ -558,6 +559,14 @@ public sealed class AssetRegistrationService(
             if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "custodian", asset.AssignedTo, employee?.Name, reason)) asset.AssignedTo = employee?.Name;
             if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "departmentId", asset.DepartmentId, employee?.DepartmentId, reason)) asset.DepartmentId = employee?.DepartmentId;
         }
+    }
+
+    /// <summary>SI-08: an asset waiting for a disposal decision cannot get a new holder.</summary>
+    public static void EnsureReassignable(Asset asset)
+    {
+        if (asset.Status == AssetStatuses.PendingDisposal)
+            throw new ApiException(StatusCodes.Status409Conflict, "The asset is pending disposal and cannot be reassigned (SI-08)");
+        if (asset.Status == AssetStatuses.Disposed) throw new ApiException(StatusCodes.Status409Conflict, "A disposed asset cannot be reassigned");
     }
 
     /// <summary>The department holding the asset (a department of the asset's SBU, or null).</summary>

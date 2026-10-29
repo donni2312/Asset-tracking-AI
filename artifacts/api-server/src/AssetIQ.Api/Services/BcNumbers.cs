@@ -55,7 +55,7 @@ public sealed class MockBcFixedAssetClient(IServiceScopeFactory scopes, IConfigu
 /// <see cref="BcNumberWorker"/>. A number is never made up locally, and once set it can never change
 /// (the database enforces it).
 /// </summary>
-public sealed class BcNumberService(AssetIqDbContext db, IBcFixedAssetClient bc, AppClock clock, AuditTrail audit, ILogger<BcNumberService> logger)
+public sealed class BcNumberService(AssetIqDbContext db, IBcFixedAssetClient bc, AppClock clock, AuditTrail audit, AssetStatusService statuses, ILogger<BcNumberService> logger)
 {
     public static readonly TimeSpan MaxBackoff = TimeSpan.FromHours(1);
 
@@ -117,7 +117,8 @@ public sealed class BcNumberService(AssetIqDbContext db, IBcFixedAssetClient bc,
         }
 
         asset.AssetNumber = number;
-        if (asset.Status == AssetStatuses.PendingAssetNumber) asset.Status = AssetStatuses.Active;
+        // Phase 3: pending asset number → in store, the only way out of "pending" (the asset is then tagged and issued).
+        if (asset.Status == AssetStatuses.PendingAssetNumber) statuses.TrySystemChange(null, asset, new StatusChange(AssetStatuses.InStore, "Asset number issued by Business Central"));
         asset.UpdatedAt = now;
         request.Status = "done";
         request.AssetNumber = number;

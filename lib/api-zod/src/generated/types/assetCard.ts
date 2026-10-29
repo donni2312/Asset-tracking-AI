@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 import type { Asset } from './asset';
 import type { AssetAttribute } from './assetAttribute';
@@ -18,7 +18,8 @@ export interface AssetCard {
   categoryName: string;
   isIt: boolean;
   attributes: AssetAttribute[];
-  value: AssetValue;
+  /** Null (and the schedule empty) for roles without financial access */
+  value?: AssetValue | null;
   upgrades: AssetUpgrade[];
   /** Newest month first */
   schedule: DepreciationLine[];

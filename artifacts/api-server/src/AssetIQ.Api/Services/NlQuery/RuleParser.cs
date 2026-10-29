@@ -179,9 +179,9 @@ public static class RuleParser
 
         if (assignee is not null) return new AssetsAssignedToIntent(assignee);
 
-        if (Missing.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.Missing);
-        if (Maintenance.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.Maintenance);
-        if (Retired.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.Retired);
+        if (Missing.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.LostStolen);
+        if (Maintenance.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.InRepair);
+        if (Retired.IsMatch(q)) return new AssetsByStatusIntent(Domain.AssetStatuses.Disposed);
 
         var category = q.Split(' ').Select(Vocabulary.CategoryFromWord).FirstOrDefault(c => c is not null);
         if (category is not null) return new CategoryCountIntent(category);

@@ -140,9 +140,9 @@ public sealed class AiQueryTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Answers_count_category_status_and_unassigned_questions()
     {
-        Assert.Equal("Total assets: 2. Active: 2. In maintenance: 0. Missing: 0. Retired: 0.", (await Ask("How many assets in total?")).Body.Str("answer"));
-        Assert.Equal("There is 1 laptop in the register — 1 active, 0 in maintenance, 0 missing, 0 retired.", (await Ask("How many laptops do we have?")).Body.Str("answer"));
-        Assert.Equal("No assets are currently missing.", (await Ask("Which assets are missing?")).Body.Str("answer"));
+        Assert.Equal("Total assets: 2. In use: 1. In store: 1. In repair: 0. Lost or stolen: 0. Disposed: 0.", (await Ask("How many assets in total?")).Body.Str("answer"));
+        Assert.Equal("There is 1 laptop in the register — 1 in use, 0 in store, 0 in repair, 0 lost or stolen, 0 disposed.", (await Ask("How many laptops do we have?")).Body.Str("answer"));
+        Assert.Equal("No assets are currently lost or stolen.", (await Ask("Which assets are missing?")).Body.Str("answer"));
         Assert.Equal("1 asset is currently unassigned:\n• Epson EB-X51 Projector (Projector)", (await Ask("Show me unassigned assets")).Body.Str("answer"));
         Assert.Equal("1 asset assigned to John Doe:\n• Dell Latitude 5440 (Laptop) — TSAS IT Office", (await Ask("What is assigned to John Doe?")).Body.Str("answer"));
     }

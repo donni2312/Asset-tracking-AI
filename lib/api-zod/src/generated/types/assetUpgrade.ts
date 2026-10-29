@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 import type { AssetUpgradeStatus } from './assetUpgradeStatus';
 import type { TemplateValues } from './templateValues';
@@ -20,12 +20,17 @@ export interface AssetUpgrade {
   beforeText: string;
   afterText: string;
   fieldChanges: TemplateValues;
-  /** USD - invoiceAmount × exchangeRate */
-  cost: number;
+  /**
+     * USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access
+     * @nullable
+     */
+  cost?: number | null;
   /** The invoice's currency, as invoiced (ISO 4217) */
   currency: string;
-  invoiceAmount: number;
-  exchangeRate: number;
+  /** @nullable */
+  invoiceAmount?: number | null;
+  /** @nullable */
+  exchangeRate?: number | null;
   /** @nullable */
   supplier?: string | null;
   /** @nullable */

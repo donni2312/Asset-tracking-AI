@@ -56,7 +56,7 @@ public sealed class AccessAndCompletenessRulesTests
     private static AuthUser U(string role, int? sbu = null) => new(1, role, role, role, sbu);
 
     // "custodian" is the employee holding the asset (null = not issued, i.e. in store until Phase 3).
-    private static Asset A(int sbu, string status = AssetStatuses.Active, int? custodian = 7) =>
+    private static Asset A(int sbu, string status = AssetStatuses.InUse, int? custodian = 7) =>
         new() { SbuId = sbu, Status = status, AssignedTo = custodian is null ? "Stores" : "Someone", CustodianEmployeeId = custodian };
 
     [Fact]
@@ -72,7 +72,8 @@ public sealed class AccessAndCompletenessRulesTests
         Assert.False(AccessPolicy.CanView(U(Roles.GroupIt), A(5), isIt: false));
         Assert.True(AccessPolicy.CanView(U(Roles.GroupFinance), A(5), isIt: false));
         Assert.True(AccessPolicy.CanView(U(Roles.Auditor), A(5), isIt: true));
-        Assert.True(AccessPolicy.CanView(U(Roles.Stores, 1), A(1, custodian: null), isIt: true));
+        Assert.True(AccessPolicy.CanView(U(Roles.Stores, 1), A(1, AssetStatuses.InStore, custodian: null), isIt: false));
+        Assert.True(AccessPolicy.CanView(U(Roles.Stores, 1), A(1, AssetStatuses.PendingDisposal), isIt: true)); // ST-05
         Assert.False(AccessPolicy.CanView(U(Roles.Stores, 1), A(1), isIt: true));
         Assert.False(AccessPolicy.CanView(U(Roles.SbuFinance, null), A(1), isIt: true)); // an SBU role without an SBU sees nothing
     }
@@ -86,7 +87,7 @@ public sealed class AccessAndCompletenessRulesTests
         Assert.True(AccessPolicy.CanRegister(U(Roles.Stores, 1), isIt: false, sbuId: 1));
         Assert.False(AccessPolicy.CanRegister(U(Roles.Stores, 1), isIt: false, sbuId: 2));
         Assert.False(AccessPolicy.CanEditTechnical(U(Roles.Stores, 1), isIt: false, sbuId: 1));
-        foreach (var role in Roles.All.Except([Roles.SbuAdmin, Roles.Stores]))
+        foreach (var role in Roles.All.Except([Roles.SbuAdmin, Roles.Stores, Roles.SystemAdmin])) // the System Administrator may do everything
         {
             Assert.False(AccessPolicy.CanRegister(U(role, 1), isIt: false, sbuId: 1), role);
             Assert.False(AccessPolicy.CanEditTechnical(U(role, 1), isIt: false, sbuId: 1), role);

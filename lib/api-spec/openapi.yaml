@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.5.0
+  version: 0.6.0
   description: TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
 servers:
   - url: /api
@@ -871,6 +871,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RFIDReader"
+    post:
+      operationId: createRfidReader
+      tags: [rfid]
+      summary: Add a reader at a gate or other location (System Administrator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RFIDReaderInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RFIDReader"
 
   # ── Dashboard ─────────────────────────────────────────────────────────────────
   /dashboard/summary:
@@ -2259,6 +2276,65 @@ paths:
               schema:
                 $ref: "#/components/schemas/ScanResult"
 
+  /assets/{id}/transitions:
+    get:
+      operationId: listAssetTransitions
+      tags: [asset-record]
+      summary: The status changes the caller could ask for from the asset's current status (Phase 3)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Next statuses, each allowed or with the reason it is refused
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusTransition"
+
+  /assets/{id}/status:
+    post:
+      operationId: changeAssetStatus
+      tags: [asset-record]
+      summary: Change the status through the state machine (409 not in the table or a guard fails; 403 not for the role)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusChangeInput"
+      responses:
+        "200":
+          description: Changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /rfid/readers/{id}:
+    patch:
+      operationId: updateRfidReader
+      tags: [rfid]
+      summary: Rename, move or switch a reader on / off (System Administrator)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RFIDReaderUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RFIDReader"
+
 components:
   parameters:
     IdPath:
@@ -2437,7 +2513,7 @@ components:
     # ── Asset schemas ────────────────────────────────────────────────────────
     Asset:
       type: object
-      required: [id, name, category, categoryId, categoryName, status, residualValue, createdAt]
+      required: [id, name, category, categoryId, categoryName, status, createdAt]
       properties:
         id:
           type: integer
@@ -2510,7 +2586,8 @@ components:
         capitalisedBy:
           type: ["string", "null"]
         residualValue:
-          type: number
+          type: ["number", "null"]
+          description: Null, like every cost and value field, for roles without financial access
         supplier:
           type: ["string", "null"]
         invoiceNo:
@@ -2526,6 +2603,13 @@ components:
         disposalDate:
           type: ["string", "null"]
           format: date
+        lostDate:
+          type: ["string", "null"]
+          format: date
+        lostReportedBy:
+          type: ["string", "null"]
+        lostNotes:
+          type: ["string", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -2584,7 +2668,8 @@ components:
           type: string
         status:
           type: string
-          enum: [active, maintenance, retired, missing]
+          enum: [in_store, in_use, out_on_gate_pass, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
+          description: Through the state machine (409 when not allowed); lost_stolen needs POST /assets/{id}/status (GI-07)
         condition:
           $ref: "#/components/schemas/AssetCondition"
         assignedTo:
@@ -3224,8 +3309,10 @@ components:
     # ── Priority 1 schemas (AU-01 … AU-12) ────────────────────────────────────
     AssetStatus:
       type: string
-      enum: [pending_asset_number, active, maintenance, retired, missing]
-      description: pending_asset_number = waiting for the Business Central asset number (AU-03)
+      enum: [pending_asset_number, in_store, in_use, out_on_gate_pass, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
+      description: >-
+        Phase 3 state machine (docs/implementation-plan.md §11.1); a change not in the table is refused with 409.
+        pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.
 
     AssetCondition:
       type: string
@@ -3479,7 +3566,7 @@ components:
 
     AssetUpgrade:
       type: object
-      required: [id, assetId, upgradeDate, description, beforeText, afterText, fieldChanges, cost, currency, invoiceAmount, exchangeRate, loggedBy, loggedByRole, status, createdAt]
+      required: [id, assetId, upgradeDate, description, beforeText, afterText, fieldChanges, currency, loggedBy, loggedByRole, status, createdAt]
       properties:
         id:
           type: integer
@@ -3501,15 +3588,15 @@ components:
         fieldChanges:
           $ref: "#/components/schemas/TemplateValues"
         cost:
-          type: number
-          description: USD - invoiceAmount × exchangeRate
+          type: ["number", "null"]
+          description: USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access
         currency:
           type: string
           description: The invoice's currency, as invoiced (ISO 4217)
         invoiceAmount:
-          type: number
+          type: ["number", "null"]
         exchangeRate:
-          type: number
+          type: ["number", "null"]
         supplier:
           type: ["string", "null"]
         invoiceNo:
@@ -3619,7 +3706,7 @@ components:
 
     AssetCard:
       type: object
-      required: [asset, categoryName, isIt, attributes, value, upgrades, schedule, timeline, completenessGaps, can]
+      required: [asset, categoryName, isIt, attributes, upgrades, schedule, timeline, completenessGaps, can]
       properties:
         asset:
           $ref: "#/components/schemas/Asset"
@@ -3632,7 +3719,10 @@ components:
           items:
             $ref: "#/components/schemas/AssetAttribute"
         value:
-          $ref: "#/components/schemas/AssetValue"
+          description: Null (and the schedule empty) for roles without financial access
+          oneOf:
+            - $ref: "#/components/schemas/AssetValue"
+            - type: "null"
         upgrades:
           type: array
           items:
@@ -4388,3 +4478,63 @@ components:
           enum: [invoice, photo, other]
         upgradeId:
           type: integer
+
+    StatusTransition:
+      type: object
+      required: [status, label, action, allowed, needsIncidentDetails]
+      properties:
+        status:
+          $ref: "#/components/schemas/AssetStatus"
+        label:
+          type: string
+        action:
+          type: string
+          description: What the change is called ("issue", "recommend for disposal", …)
+        allowed:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+          description: Why it is refused, when it is
+        needsIncidentDetails:
+          type: boolean
+          description: lost_stolen needs lostDate, reporter and notes (GI-07)
+
+    StatusChangeInput:
+      type: object
+      required: [status, reason]
+      properties:
+        status:
+          $ref: "#/components/schemas/AssetStatus"
+        reason:
+          type: string
+          minLength: 3
+        lostDate:
+          type: string
+          format: date
+        reporter:
+          type: string
+        notes:
+          type: string
+
+    RFIDReaderInput:
+      type: object
+      required: [name, locationId]
+      properties:
+        name:
+          type: string
+        locationId:
+          type: integer
+        status:
+          type: string
+          enum: [active, inactive]
+
+    RFIDReaderUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        locationId:
+          type: integer
+        status:
+          type: string
+          enum: [active, inactive]

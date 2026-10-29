@@ -80,13 +80,13 @@ public sealed class TestWorld
         var laptop = new Asset
         {
             Name = "Dell Latitude 5440", Category = "Laptop", CategoryId = Categories.Computers, SubCategory = "Laptop", SerialNumber = "SN-DL-001", RfidTag = "TAG-DL-001",
-            AssetNumber = "TSAS-IT-2026-00001",
+            AssetNumber = "TSAS-IT-2026-00001", Status = AssetStatuses.InUse,
             SbuId = tsas.Id, CurrentLocationId = office.Id, AssignedTo = "John Doe", CreatedAt = now, UpdatedAt = now,
         };
         var projector = new Asset
         {
             Name = "Epson EB-X51 Projector", Category = "Projector", CategoryId = Categories.Peripherals, SubCategory = "Projector", SerialNumber = "SN-EP-001", RfidTag = "TAG-EP-001",
-            AssetNumber = "TSAS-IT-2026-00002",
+            AssetNumber = "TSAS-IT-2026-00002", Status = AssetStatuses.InStore,
             SbuId = tsas.Id, CurrentLocationId = office.Id, CreatedAt = now, UpdatedAt = now,
         };
         db.Assets.AddRange(laptop, projector);

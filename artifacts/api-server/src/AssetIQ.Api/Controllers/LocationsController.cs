@@ -41,7 +41,8 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
         var description = input.OptionalString("description");
         var sbuId = input.OptionalInt("sbuId");
         input.ThrowIfInvalid();
-        if (!AccessPolicy.CanManageLocation(Caller, sbuId)) throw AccessPolicy.Deny(Caller, "add locations for this SBU");
+        if (!AccessPolicy.CanManageLocation(Caller, sbuId, type))
+            throw AccessPolicy.Deny(Caller, type == LocationTypes.Gate ? "add gates (the System Administrator configures gates)" : "add locations for this SBU");
 
         var now = clock.UtcNow;
         var location = new Location
@@ -88,7 +89,8 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
 
         var location = await db.Locations.FirstOrDefaultAsync(l => l.Id == locationId, Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Location not found");
-        if (!AccessPolicy.CanManageLocation(Caller, location.SbuId) || (sbuId.IsSet && !AccessPolicy.CanManageLocation(Caller, sbuId.Value)))
+        if (!AccessPolicy.CanManageLocation(Caller, location.SbuId, location.Type) || (sbuId.IsSet && !AccessPolicy.CanManageLocation(Caller, sbuId.Value, location.Type))
+            || (type is not null && !AccessPolicy.CanManageLocation(Caller, location.SbuId, type)))
             throw AccessPolicy.Deny(Caller, "change this location");
         if (name is not null) location.Name = name;
         if (type is not null) location.Type = type;

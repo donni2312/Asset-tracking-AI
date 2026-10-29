@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AssetIQ.Api.Services;
 
-public sealed class MovementService(AssetIqDbContext db, AppClock clock)
+public sealed class MovementService(AssetIqDbContext db, AppClock clock, AssetStatusService statuses)
 {
     public static readonly Expression<Func<Movement, MovementDto>> ToDto = m => new MovementDto
     {
@@ -65,6 +65,8 @@ public sealed class MovementService(AssetIqDbContext db, AppClock clock)
             Timestamp = timestamp,
         };
         db.Movements.Add(movement);
+        // Phase 3: out on gate pass (an asset the table does not let leave, e.g. one pending disposal, keeps its status).
+        statuses.TrySystemChange(null, asset, new StatusChange(AssetStatuses.OutOnGatePass, $"Left under gate pass #{pass.Id}"));
         await db.SaveChangesAsync(ct);
         await ApplyLocationIfLatestAsync(asset, movement, null, ct);
         return movement;

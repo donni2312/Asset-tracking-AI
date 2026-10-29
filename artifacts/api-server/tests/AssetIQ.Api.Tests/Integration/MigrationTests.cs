@@ -90,6 +90,51 @@ public sealed class MigrationTests(ApiFixture api)
         }
     }
 
+    [Fact]
+    public async Task Phase3_the_original_statuses_are_mapped_onto_the_state_machine()
+    {
+        var name = $"assetiq_mig_{Guid.NewGuid():N}"[..28];
+        var admin = new NpgsqlConnectionStringBuilder(api.ConnectionString) { Database = "postgres", Pooling = false }.ConnectionString;
+        await Exec(admin, $"CREATE DATABASE \"{name}\"");
+        var connection = new NpgsqlConnectionStringBuilder(api.ConnectionString) { Database = name, Pooling = false }.ConnectionString;
+        try
+        {
+            var migrations = Migrations.Load().ToList();
+            foreach (var sql in migrations.Take(6)) await Exec(connection, sql); // up to 0005
+            await Exec(connection, """
+                INSERT INTO sbus (code, name) VALUES ('TSAS', 'TSAS');
+                INSERT INTO locations (name, type, building, sbu_id) VALUES ('TSAS Office', 'office', 'TSAS House', 1);
+                INSERT INTO assets (name, category, category_id, status, assigned_to, current_location_id, sbu_id) VALUES
+                  ('Held laptop', 'Laptop', 1, 'active', 'John Doe', 1, 1),
+                  ('Spare laptop', 'Laptop', 1, 'active', 'TSAS IT store', 1, 1),
+                  ('Laptop on a gate pass', 'Laptop', 1, 'active', 'Rudo Moyo', NULL, 1),
+                  ('Projector in repair', 'Projector', 4, 'maintenance', NULL, 1, 1),
+                  ('Old printer', 'Printer', 4, 'retired', NULL, 1, 1),
+                  ('Lost phone', 'Phone', 2, 'missing', 'Tendai', NULL, 1),
+                  ('New laptop', 'Laptop', 1, 'pending_asset_number', 'TSAS IT store', 1, 1);
+                INSERT INTO movements (asset_id, from_location_id, to_location_id, triggered_by) VALUES (3, 1, NULL, 'gate_pass');
+                """);
+            foreach (var sql in migrations.Skip(6)) await Exec(connection, sql);
+
+            await using var db = new NpgsqlConnection(connection);
+            await db.OpenAsync();
+            await using var read = new NpgsqlCommand("SELECT status, lost_date IS NOT NULL, disposal_date IS NOT NULL FROM assets ORDER BY id", db);
+            await using var reader = await read.ExecuteReaderAsync();
+            var rows = new List<string>();
+            while (await reader.ReadAsync()) rows.Add($"{reader.GetString(0)}|{reader.GetBoolean(1)}|{reader.GetBoolean(2)}");
+            Assert.Equal(
+            [
+                "in_use|False|False", "in_store|False|False", "out_on_gate_pass|False|False", "in_repair|False|False",
+                "disposed|False|True", "lost_stolen|True|False", "pending_asset_number|False|False",
+            ], rows);
+        }
+        finally
+        {
+            NpgsqlConnection.ClearAllPools();
+            await Exec(admin, $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)");
+        }
+    }
+
     private static async Task Exec(string connectionString, string sql)
     {
         await using var connection = new NpgsqlConnection(connectionString);

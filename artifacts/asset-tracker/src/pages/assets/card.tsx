@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SbuBadge } from "@/components/sbu-badge";
 import { AttachmentsPanel } from "@/components/attachments";
+import { StatusChangeButton } from "@/components/status-change";
 import { TemplateFields, filled, type TemplateDraft } from "@/components/template-fields";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-auth";
@@ -79,6 +80,7 @@ export default function AssetCardPage() {
             {card.can.editTechnical && <Button variant="outline" size="sm" asChild><Link href={`/assets/${a.id}/edit`}>Edit fields</Link></Button>}
             {card.can.tag && <Button variant="outline" size="sm" onClick={() => setDialog("tag")}>{a.rfidTag ? "Re-link tag" : "Link tag"}</Button>}
             {card.can.changeCategory && <Button variant="outline" size="sm" onClick={() => setDialog("category")}>Change category</Button>}
+            <StatusChangeButton assetId={a.id} status={a.status} />
             {card.can.logUpgrade && <Button size="sm" onClick={() => setDialog("upgrade")}>+ Log upgrade</Button>}
           </div>
         </div>
@@ -97,6 +99,7 @@ export default function AssetCardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {v && (
           <section className="rounded-md border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-semibold">Cost &amp; value · {periodLabel(v.period)}</h2>
@@ -118,6 +121,7 @@ export default function AssetCardPage() {
               <div><Key>Method / life</Key><Val>{v.depreciationMethod === "straight_line" ? `Straight-line · ${v.usefulLifeMonths} months` : `Reducing balance · ${((v.annualRate ?? 0) * 100).toFixed(0)}% a year`}</Val></div>
             </div>
           </section>
+          )}
           <section className="rounded-md border bg-card p-4">
             <h2 className="mb-3 font-semibold">Purchase details</h2>
             <div className="grid grid-cols-2 gap-x-5 gap-y-3">
@@ -163,8 +167,8 @@ export default function AssetCardPage() {
                     <TableCell>{u.loggedBy}</TableCell>
                     <TableCell className="text-right font-mono">
                       {money(u.cost)}
-                      {u.currency !== "USD" && (
-                        <div className="text-[11px] text-muted-foreground">{u.invoiceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {u.currency} × {u.exchangeRate}</div>
+                      {u.currency !== "USD" && u.invoiceAmount != null && (
+                        <div className="text-[11px] text-muted-foreground">{(u.invoiceAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {u.currency} × {u.exchangeRate}</div>
                       )}
                     </TableCell>
                     <TableCell>{u.status === "pending" && card.can.decideUpgrades ? <UpgradeDecisionButtons upgrade={u} assetId={a.id} /> : <UpgradeStatus u={u} />}</TableCell>
@@ -179,6 +183,7 @@ export default function AssetCardPage() {
         {a.noSerialStatus === "pending" && card.can.editFinancial && <NoSerialDecision assetId={a.id} reason={a.noSerialReason ?? ""} />}
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+          {v && (
           <section className="rounded-md border bg-card lg:col-span-3">
             <div className="flex items-center justify-between gap-2 p-4">
               <h2 className="font-semibold">Monthly depreciation schedule</h2>
@@ -205,6 +210,7 @@ export default function AssetCardPage() {
               </Table>
             </div>
           </section>
+          )}
           <section className="rounded-md border bg-card p-4 lg:col-span-2">
             <h2 className="mb-3 font-semibold">History</h2>
             <ol className="max-h-96 space-y-3 overflow-auto text-sm">
@@ -424,7 +430,7 @@ function FinancialDialog({ open, onClose, card }: { open: boolean; onClose: () =
   const a = card.asset;
   const [form, setForm] = useState({
     originalCost: a.originalCost?.toString() ?? "", currency: a.currency ?? "USD", exchangeRate: a.exchangeRate?.toString() ?? "1",
-    residualValue: a.residualValue.toString(), supplier: a.supplier ?? "", invoiceNo: a.invoiceNo ?? "", poNo: a.poNo ?? "",
+    residualValue: (a.residualValue ?? 0).toString(), supplier: a.supplier ?? "", invoiceNo: a.invoiceNo ?? "", poNo: a.poNo ?? "",
     purchaseDate: a.purchaseDate ?? "", inUseDate: a.inUseDate ?? "", reason: "",
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });

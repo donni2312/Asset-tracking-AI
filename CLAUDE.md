@@ -642,3 +642,15 @@ The plan, story status, assumptions and open questions are in `docs/implementati
   → Users; attachments on the asset card.
 - **Tests**: `PermissionTests` (cross-SBU 403 per role, every "—" cell of the implemented matrix rows),
   `RolesAndPeopleTests`, `MigrationTests` (0004); `RoleWorld` seeds one account per role.
+
+## Phase 3 — asset status state machine, October 2026
+
+Report and the transition table: `docs/implementation-plan.md` §11.
+
+- **Statuses**: `Domain/Values.cs` `AssetStatuses` (9); the table is `Domain/AssetStatusMachine.cs`. Change a status
+  only through `Services/AssetStatusService.cs` (`Change` for a person: role + table + guards; `TrySystemChange` for
+  the gate / Business Central). `POST /assets/{id}/status` and `GET /assets/{id}/transitions`; the card's
+  *Change status* dialog uses them. Migration `0006` maps the old statuses (the seed runs the same file).
+- **Follow-ups**: the System Administrator may do everything (`AccessPolicy.Sys`, every request in `access_log`);
+  financial figures are removed for roles without `AccessPolicy.CanSeeFinancials` (`Infrastructure/FinancialRedaction.cs`,
+  a global result filter); gates and readers are the System Administrator's (`/rfid/readers`).

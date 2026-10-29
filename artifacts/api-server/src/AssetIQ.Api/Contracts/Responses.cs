@@ -89,13 +89,18 @@ public sealed record AssetDto
     public decimal? CostUsd { get; init; }
     public DateTime? CapitalisedAt { get; init; }
     public string? CapitalisedBy { get; init; }
-    public required decimal ResidualValue { get; init; }
+    /// <summary>Null (like every cost and value field) for roles that may not see financial data.</summary>
+    public decimal? ResidualValue { get; init; }
     public string? Supplier { get; init; }
     public string? InvoiceNo { get; init; }
     public string? PoNo { get; init; }
     public string? InUseDate { get; init; }
     public string? WarrantyEnds { get; init; }
     public string? DisposalDate { get; init; }
+    /// <summary>GI-07 incident details while lost / stolen.</summary>
+    public string? LostDate { get; init; }
+    public string? LostReportedBy { get; init; }
+    public string? LostNotes { get; init; }
     public string? Notes { get; init; }
     public required DateTime CreatedAt { get; init; }
     public required DateTime UpdatedAt { get; init; }

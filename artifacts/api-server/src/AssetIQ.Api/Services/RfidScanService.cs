@@ -29,6 +29,7 @@ public sealed class RfidScanService(
     MovementService movements,
     GatePassService gatePasses,
     InsightService insights,
+    AssetStatusService statuses,
     ILogger<RfidScanService> logger)
 {
     /// <summary>Scans further than this in the future are rejected (clock skew allowance).</summary>
@@ -128,6 +129,9 @@ public sealed class RfidScanService(
                 Timestamp = scannedAt,
             };
             db.Movements.Add(movement);
+            // Phase 3: back through the gate after a gate pass: to its holder, or into store.
+            if (outcome == GatePassRules.EntryOutcome && asset.Status == AssetStatuses.OutOnGatePass)
+                statuses.TrySystemChange(null, asset, new StatusChange(AssetStatusService.ReturnStatus(asset), $"Returned through {location.Name}"));
             await db.SaveChangesAsync(ct);
             await movements.ApplyLocationIfLatestAsync(asset, movement, location.Id, ct);
         }

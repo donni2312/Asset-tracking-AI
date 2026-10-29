@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 import type { AssetNoSerialStatus } from './assetNoSerialStatus';
 import type { AssetStatus } from './assetStatus';
@@ -84,7 +84,11 @@ export interface Asset {
   capitalisedAt?: Date | null;
   /** @nullable */
   capitalisedBy?: string | null;
-  residualValue: number;
+  /**
+     * Null, like every cost and value field, for roles without financial access
+     * @nullable
+     */
+  residualValue?: number | null;
   /** @nullable */
   supplier?: string | null;
   /** @nullable */
@@ -97,6 +101,12 @@ export interface Asset {
   warrantyEnds?: Date | null;
   /** @nullable */
   disposalDate?: Date | null;
+  /** @nullable */
+  lostDate?: Date | null;
+  /** @nullable */
+  lostReportedBy?: string | null;
+  /** @nullable */
+  lostNotes?: string | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

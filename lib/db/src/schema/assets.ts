@@ -25,7 +25,12 @@ export const assetsTable = pgTable("assets", {
   assetNumber: text("asset_number").unique(),
   previousAssetNumber: text("previous_asset_number"), // imported assets keep their old number here
   // pending_asset_number | active | maintenance | retired | missing (the full state machine comes in Phase 3)
-  status: text("status").notNull().default("active"),
+  // Phase 3 state machine (API Domain/AssetStatusMachine.cs): pending_asset_number | in_store | in_use | out_on_gate_pass |
+  // in_repair | transfer_pending | pending_disposal | lost_stolen | disposed
+  status: text("status").notNull().default("pending_asset_number"),
+  lostDate: text("lost_date"),                // GI-07: YYYY-MM-DD, with the reporter and notes, when lost / stolen
+  lostReportedBy: text("lost_reported_by"),
+  lostNotes: text("lost_notes"),
   condition: text("condition"),              // new | good | fair | poor | damaged
   assignedTo: text("assigned_to"),           // custodian: the person holding the asset (or the store holding it)
   custodianEmployeeId: integer("custodian_employee_id").references(() => employeesTable.id), // the employee holding it (assignedTo shows the name)

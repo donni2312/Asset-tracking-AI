@@ -180,7 +180,7 @@ public sealed class ScreensTests(ApiFixture api) : IAsyncLifetime
         });
         Assert.Equal(201, created.Status);
         Assert.Equal(("repair_sent", "Epson EB-X51 Projector", "TAG-EP-001"), (created.Body.Str("eventType"), created.Body.Str("assetName"), created.Body.Str("rfidTag")));
-        Assert.Equal("maintenance", (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Str("status"));
+        Assert.Equal("in_repair", (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Str("status"));
 
         api.Clock.Advance(TimeSpan.FromMinutes(1));
         var transfer = await api.CallAsync("POST", $"/assets/{w.Projector.Id}/lifecycle", new

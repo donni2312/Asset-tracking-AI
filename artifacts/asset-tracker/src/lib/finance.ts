@@ -47,20 +47,29 @@ export function saveBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Phase 3 statuses (the API's state machine). */
 export const STATUS_LABEL: Record<string, string> = {
   pending_asset_number: "Pending asset number",
-  active: "In use",
-  maintenance: "In repair",
-  retired: "Retired",
-  missing: "Missing",
+  in_store: "In store",
+  in_use: "In use",
+  out_on_gate_pass: "Out on gate pass",
+  in_repair: "In repair",
+  transfer_pending: "Transfer pending",
+  pending_disposal: "Pending disposal",
+  lost_stolen: "Lost / stolen",
+  disposed: "Disposed",
 };
 
 export const STATUS_TONE: Record<string, string> = {
   pending_asset_number: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  active: "bg-green-500/15 text-green-700 dark:text-green-400",
-  maintenance: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  retired: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
-  missing: "bg-red-500/15 text-red-700 dark:text-red-400",
+  in_store: "bg-slate-500/15 text-slate-700 dark:text-slate-200",
+  in_use: "bg-green-500/15 text-green-700 dark:text-green-400",
+  out_on_gate_pass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  in_repair: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  transfer_pending: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  pending_disposal: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  lost_stolen: "bg-red-500/15 text-red-700 dark:text-red-400",
+  disposed: "bg-slate-500/15 text-slate-500 dark:text-slate-400",
 };
 
 import { inGroup } from "@/lib/roles";

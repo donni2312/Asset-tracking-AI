@@ -34,6 +34,8 @@ import {
 } from "@workspace/db";
 import { createHash, randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { count, eq, max, sql } from "drizzle-orm";
 import { APPROVERS, ASSETS, DEMO_USERS, INACTIVE_READER, LOCATIONS, SBUS, type AssetSeed } from "./seed-data";
 import { SCOPED_USERS, TEMPLATES, UPGRADES, describe } from "./seed-audit";
@@ -561,6 +563,10 @@ async function main() {
         notes: `Flagged: gate pass #${gp4.id} rejected — Unassigned laptop — no business reason to leave site. The asset must not leave the premises.`,
       },
     ]);
+
+    // Phase 3: the demo rows above use the original statuses; migration 0006 maps them, exactly as on an existing database.
+    const mapping = readFileSync(resolve(import.meta.dirname, "..", "..", "lib", "db", "migrations", "0006_map_statuses.sql"), "utf8");
+    for (const statement of mapping.split("--> statement-breakpoint")) await tx.execute(sql.raw(statement));
 
     console.log("Seeded AssetIQ demo data:");
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);

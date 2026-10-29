@@ -5,15 +5,23 @@ namespace AssetIQ.Api.Domain;
 
 public static class AssetStatuses
 {
-    public const string Active = "active";
-    public const string Maintenance = "maintenance";
-    public const string Retired = "retired";
-    public const string Missing = "missing";
     /// <summary>AU-03: waiting for its Business Central number; it cannot be tagged, issued or capitalised.</summary>
     public const string PendingAssetNumber = "pending_asset_number";
-    public static readonly IReadOnlyList<string> All = [PendingAssetNumber, Active, Maintenance, Retired, Missing];
-    /// <summary>Statuses a user may set; leaving <see cref="PendingAssetNumber"/> happens only when BC issues the number.</summary>
-    public static readonly IReadOnlyList<string> Settable = [Active, Maintenance, Retired, Missing];
+    public const string InStore = "in_store";
+    public const string InUse = "in_use";
+    public const string OutOnGatePass = "out_on_gate_pass";
+    public const string InRepair = "in_repair";
+    public const string TransferPending = "transfer_pending";
+    public const string PendingDisposal = "pending_disposal";
+    /// <summary>GI-07: needs a date, a reporter and notes; excluded from active counts.</summary>
+    public const string LostStolen = "lost_stolen";
+    /// <summary>Final.</summary>
+    public const string Disposed = "disposed";
+    /// <summary>Phase 3 statuses; the transitions between them are <see cref="AssetStatusMachine"/>.</summary>
+    public static readonly IReadOnlyList<string> All =
+        [PendingAssetNumber, InStore, InUse, OutOnGatePass, InRepair, TransferPending, PendingDisposal, LostStolen, Disposed];
+    /// <summary>Statuses a user may ask for; leaving <see cref="PendingAssetNumber"/> happens only when BC issues the number.</summary>
+    public static readonly IReadOnlyList<string> Settable = All.Where(s => s != PendingAssetNumber).ToList();
 }
 
 public static class AssetConditions
@@ -94,6 +102,8 @@ public static class GatePassSources
 public static class ReaderStatuses
 {
     public const string Active = "active";
+    public const string Inactive = "inactive";
+    public static readonly IReadOnlyList<string> All = [Active, Inactive];
 }
 
 public static class InsightTypes
@@ -155,8 +165,8 @@ public static class Roles
     /// <summary>Sees the items they hold.</summary>
     public const string Employee = "employee";
     /// <summary>
-    /// Sets the final depreciation rates (with Group Finance) and the Group settings; nothing else. Added at
-    /// the product owner's request (29 Oct 2026); not a column of the permissions matrix.
+    /// May do everything, including setting the final depreciation rates and configuring gates; every request is
+    /// recorded in the access log (product owner, 29 Oct 2026). Not a column of the permissions matrix.
     /// </summary>
     public const string SystemAdmin = "system_admin";
 
@@ -191,6 +201,8 @@ public static class Roles
     /// <summary>Issue / assign, returns, repairs, transfers, notes (per-event rules in AccessPolicy.CanRecordLifecycle).</summary>
     public const string LifecycleWriters = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin;
     public const string TechnicalEditors = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Phase 3 status changes (record-level rules: AccessPolicy.CanChangeStatus).</summary>
+    public const string StatusChangers = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + GateOfficer + "," + Stores + "," + SbuAdmin;
     /// <summary>Matrix "Register / tag asset" plus SBU Finance ("Capitalise only", checked per action).</summary>
     public const string Registrars = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin;
     public const string FinanceWriters = GroupFinance + "," + SbuFinance;
@@ -200,6 +212,8 @@ public static class Roles
     public const string LocationManagers = GroupIt + "," + SbuAdmin;
     public const string SbuManagers = GroupIt + "," + SystemAdmin;
     public const string ReaderViewers = GroupIt + "," + SbuIt + "," + GateOfficer + "," + Auditor;
+    /// <summary>Gates and RFID readers are configured by the System Administrator (who passes every role gate).</summary>
+    public const string GateManagers = SystemAdmin;
     public const string BcViewers = GroupFinance + "," + GroupIt + "," + SystemAdmin + "," + Auditor;
     public const string BcOperators = GroupFinance + "," + SystemAdmin;
     /// <summary>Matrix "Manage users".</summary>

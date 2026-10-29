@@ -103,7 +103,7 @@ public static class AnomalyRules
     /// <summary>An active asset that has not moved (or, if never moved, not since registration) for <paramref name="idleDays"/>.</summary>
     public static InsightDraft? IdleAsset(PeriodicAsset asset, DateTime? lastMovedAt, DateTime now, int idleDays)
     {
-        if (asset.Status != AssetStatuses.Active) return null;
+        if (asset.Status is not (AssetStatuses.InUse or AssetStatuses.InStore)) return null;
         var since = lastMovedAt ?? asset.CreatedAt;
         if (now - since < idleDays * ZonedTime.Day) return null;
         return new InsightDraft(
@@ -114,10 +114,10 @@ public static class AnomalyRules
             asset.Id);
     }
 
-    /// <summary>An asset whose status is "missing".</summary>
+    /// <summary>An asset whose status is "lost / stolen".</summary>
     public static InsightDraft? MissingAsset(PeriodicAsset asset)
     {
-        if (asset.Status != AssetStatuses.Missing) return null;
+        if (asset.Status != AssetStatuses.LostStolen) return null;
         return new InsightDraft(
             "missing_asset",
             InsightTypes.MissingAsset,

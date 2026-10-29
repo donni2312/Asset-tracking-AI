@@ -133,7 +133,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
     /// <summary>AU-05: the monthly schedule of one asset.</summary>
     public static ExportTable ScheduleTable(AssetCardDto card) => new(
         $"Depreciation schedule — {card.Asset.AssetNumber ?? $"asset {card.Asset.Id}"}",
-        [card.Asset.Name, $"{card.Value.DepreciationMethod} · residual {TableExport.Format(card.Value.ResidualValue, true)}"],
+        [card.Asset.Name, $"{card.Value!.DepreciationMethod} · residual {TableExport.Format(card.Value.ResidualValue, true)}"],
         [new("Month"), new("Opening cost", Money: true), new("Opening accumulated", Money: true), new("Charge", Money: true), new("Adjustment", Money: true),
          new("Closing accumulated", Money: true), new("NBV", Money: true), new("Locked")],
         card.Schedule.OrderBy(l => l.Period, StringComparer.Ordinal)

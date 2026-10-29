@@ -139,7 +139,7 @@ public sealed class IntentExecutor(AssetIqDbContext db, AssetQueries assets, Gat
 
     private async Task<QueryAnswer> NotMovedAsync(int days, DateTime now, TimeZoneInfo zone, CancellationToken ct)
     {
-        var tracked = (await assets.ListDetailedAsync(ct: ct)).Where(a => a.Status != AssetStatuses.Retired).ToList();
+        var tracked = (await assets.ListDetailedAsync(ct: ct)).Where(a => a.Status != AssetStatuses.Disposed).ToList();
         var lastMoved = await assets.LastMovedAtAsync(ct);
         var cutoff = DaysBefore(now, days);
 
@@ -229,8 +229,8 @@ public sealed class IntentExecutor(AssetIqDbContext db, AssetQueries assets, Gat
         var matching = await assets.ListDetailedAsync(a => a.Status == status, ct);
         var label = status switch
         {
-            AssetStatuses.Maintenance => "in maintenance",
-            AssetStatuses.Missing => "missing",
+            AssetStatuses.InRepair => "in repair",
+            AssetStatuses.LostStolen => "lost or stolen",
             _ => status,
         };
         if (matching.Count == 0) return new QueryAnswer($"No assets are currently {label}.", [], []);
@@ -251,8 +251,8 @@ public sealed class IntentExecutor(AssetIqDbContext db, AssetQueries assets, Gat
         var answer = inCategory.Count == 0
             ? $"There are no {lower} assets in the register."
             : $"There {(inCategory.Count == 1 ? "is" : "are")} {Plural(inCategory.Count, lower)} in the register — " +
-              $"{ByStatus(AssetStatuses.Active)} active, {ByStatus(AssetStatuses.Maintenance)} in maintenance, " +
-              $"{ByStatus(AssetStatuses.Missing)} missing, {ByStatus(AssetStatuses.Retired)} retired.";
+              $"{ByStatus(AssetStatuses.InUse)} in use, {ByStatus(AssetStatuses.InStore)} in store, {ByStatus(AssetStatuses.InRepair)} in repair, " +
+              $"{ByStatus(AssetStatuses.LostStolen)} lost or stolen, {ByStatus(AssetStatuses.Disposed)} disposed.";
         return new QueryAnswer(answer, inCategory, []);
     }
 
@@ -261,8 +261,8 @@ public sealed class IntentExecutor(AssetIqDbContext db, AssetQueries assets, Gat
         var all = await assets.ListDetailedAsync(ct: ct);
         int ByStatus(string s) => all.Count(a => a.Status == s);
         return new QueryAnswer(
-            $"Total assets: {all.Count}. Active: {ByStatus(AssetStatuses.Active)}. In maintenance: {ByStatus(AssetStatuses.Maintenance)}. " +
-            $"Missing: {ByStatus(AssetStatuses.Missing)}. Retired: {ByStatus(AssetStatuses.Retired)}.",
+            $"Total assets: {all.Count}. In use: {ByStatus(AssetStatuses.InUse)}. In store: {ByStatus(AssetStatuses.InStore)}. In repair: {ByStatus(AssetStatuses.InRepair)}. " +
+            $"Lost or stolen: {ByStatus(AssetStatuses.LostStolen)}. Disposed: {ByStatus(AssetStatuses.Disposed)}.",
             [],
             []);
     }
@@ -270,7 +270,7 @@ public sealed class IntentExecutor(AssetIqDbContext db, AssetQueries assets, Gat
     private async Task<QueryAnswer> UnassignedAsync(CancellationToken ct)
     {
         var free = (await assets.ListDetailedAsync(ct: ct))
-            .Where(a => string.IsNullOrEmpty(a.AssignedTo) && a.Status != AssetStatuses.Retired)
+            .Where(a => string.IsNullOrEmpty(a.AssignedTo) && a.Status != AssetStatuses.Disposed)
             .ToList();
         if (free.Count == 0) return new QueryAnswer("Every active asset is assigned to someone.", [], []);
         return new QueryAnswer(

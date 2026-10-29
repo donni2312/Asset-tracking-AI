@@ -32,18 +32,18 @@ public sealed class DashboardService(AssetIqDbContext db, AppClock clock, AppCon
                 SbuName = s.Name,
                 SbuColor = s.Color,
                 TotalAssets = db.Assets.Count(a => a.SbuId == s.Id),
-                ActiveAssets = db.Assets.Count(a => a.SbuId == s.Id && a.Status == AssetStatuses.Active),
-                MissingAssets = db.Assets.Count(a => a.SbuId == s.Id && a.Status == AssetStatuses.Missing),
-                MaintenanceAssets = db.Assets.Count(a => a.SbuId == s.Id && a.Status == AssetStatuses.Maintenance),
+                ActiveAssets = db.Assets.Count(a => a.SbuId == s.Id && AssetStatusMachine.Active.Contains(a.Status)),
+                MissingAssets = db.Assets.Count(a => a.SbuId == s.Id && a.Status == AssetStatuses.LostStolen),
+                MaintenanceAssets = db.Assets.Count(a => a.SbuId == s.Id && a.Status == AssetStatuses.InRepair),
             })
             .ToListAsync(ct);
 
         return new DashboardSummaryDto
         {
             TotalAssets = await db.Assets.CountAsync(ct),
-            ActiveAssets = await db.Assets.CountAsync(a => a.Status == AssetStatuses.Active, ct),
-            MissingAssets = await db.Assets.CountAsync(a => a.Status == AssetStatuses.Missing, ct),
-            MaintenanceAssets = await db.Assets.CountAsync(a => a.Status == AssetStatuses.Maintenance, ct),
+            ActiveAssets = await db.Assets.CountAsync(a => AssetStatusMachine.Active.Contains(a.Status), ct),
+            MissingAssets = await db.Assets.CountAsync(a => a.Status == AssetStatuses.LostStolen, ct),
+            MaintenanceAssets = await db.Assets.CountAsync(a => a.Status == AssetStatuses.InRepair, ct),
             PendingGatePasses = await db.GatePasses.CountAsync(p => p.Status == GatePassStatuses.Pending, ct),
             TodayMovements = await db.Movements.CountAsync(m => m.Timestamp >= today, ct),
             TotalLocations = await db.Locations.CountAsync(ct),

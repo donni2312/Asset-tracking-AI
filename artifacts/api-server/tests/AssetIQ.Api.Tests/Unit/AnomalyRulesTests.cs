@@ -110,7 +110,7 @@ public sealed class AnomalyRulesTests
     }
 
     private static readonly DateTime Now = new(2026, 10, 14, 8, 0, 0, DateTimeKind.Utc);
-    private static readonly PeriodicAsset Projector = new(1, "Epson Projector", "active", "SN1", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+    private static readonly PeriodicAsset Projector = new(1, "Epson Projector", "in_store", "SN1", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
     [Fact]
     public void Flags_active_assets_idle_for_longer_than_the_threshold()
@@ -129,8 +129,8 @@ public sealed class AnomalyRulesTests
     [Fact]
     public void Ignores_assets_that_are_not_active_and_flags_missing_ones_as_critical()
     {
-        Assert.Null(AnomalyRules.IdleAsset(Projector with { Status = "retired" }, null, Now, 7));
-        Assert.Equal("critical", AnomalyRules.MissingAsset(Projector with { Status = "missing" })?.Severity);
+        Assert.Null(AnomalyRules.IdleAsset(Projector with { Status = "disposed" }, null, Now, 7));
+        Assert.Equal("critical", AnomalyRules.MissingAsset(Projector with { Status = "lost_stolen" })?.Severity);
         Assert.Null(AnomalyRules.MissingAsset(Projector));
     }
 }

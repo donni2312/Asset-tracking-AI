@@ -58,7 +58,7 @@ export function Layout({ children }: LayoutProps) {
     { name: "BC Sync",             href: "/bc-sync",       icon: HardDrive, roles: "bcViewers" },
     { name: "Administration",      href: "/administration", icon: Settings2, roles: [...ROLE_GROUPS.administrators, "sbu_finance", "sbu_it", "auditor"] },
   ];
-  const visible = (e: Entry) => (typeof e.roles === "string" ? inGroup(user, e.roles) : !!user && e.roles.includes(user.role));
+  const visible = (e: Entry) => (typeof e.roles === "string" ? inGroup(user, e.roles) : !!user && (user.role === "system_admin" || e.roles.includes(user.role)));
   const shownNav = navigation.filter(visible);
   const shownTracking = tracking.filter(visible);
   const isActive = (href: string) =>

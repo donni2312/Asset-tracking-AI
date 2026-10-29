@@ -22,7 +22,7 @@ public sealed class ReportsController(ReportService reports, AccessLog accessLog
         [FromQuery] string? category, [FromQuery] string? q) =>
         await CsvAsync(await reports.AssetsAsync(
             RequestValues.OptionalChoice(status, AssetStatuses.All), RequestValues.OptionalInt(locationId), RequestValues.OptionalInt(sbuId),
-            RequestValues.OptionalText(category), RequestValues.OptionalText(q), Aborted));
+            RequestValues.OptionalText(category), RequestValues.OptionalText(q), AccessPolicy.CanSeeFinancials(Caller), Aborted));
 
     [HttpGet("reports/movements.csv")]
     [RequireRole(Roles.GateLogReaders)]

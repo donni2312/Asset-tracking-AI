@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 0.6.0
  */
 import * as zod from 'zod';
 
@@ -181,7 +181,7 @@ export const GetSbuAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -197,13 +197,16 @@ export const GetSbuAssetsResponseItem = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -236,7 +239,7 @@ export const ListAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -252,13 +255,16 @@ export const ListAssetsResponseItem = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -301,7 +307,7 @@ export const CreateAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -317,13 +323,16 @@ export const CreateAssetResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -351,7 +360,7 @@ export const GetAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -367,13 +376,16 @@ export const GetAssetResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -392,7 +404,7 @@ export const UpdateAssetBody = zod.object({
   "subCategory": zod.string().optional(),
   "attributes": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)'),
   "noSerialReason": zod.string().optional(),
-  "status": zod.enum(['active', 'maintenance', 'retired', 'missing']).optional(),
+  "status": zod.enum(['in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).optional().describe('Through the state machine (409 when not allowed); lost_stolen needs POST \/assets\/{id}\/status (GI-07)'),
   "condition": zod.enum(['new', 'good', 'fair', 'poor', 'damaged']).optional(),
   "assignedTo": zod.string().nullish(),
   "currentLocationId": zod.number().nullish(),
@@ -418,7 +430,7 @@ export const UpdateAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -434,13 +446,16 @@ export const UpdateAssetResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -717,7 +732,7 @@ export const GetLocationAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -733,13 +748,16 @@ export const GetLocationAssetsResponseItem = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1111,6 +1129,28 @@ export const ListRfidReadersResponse = zod.array(ListRfidReadersResponseItem)
 
 
 /**
+ * @summary Add a reader at a gate or other location (System Administrator)
+ */
+export const CreateRfidReaderBody = zod.object({
+  "name": zod.string(),
+  "locationId": zod.number(),
+  "status": zod.enum(['active', 'inactive']).optional()
+})
+
+export const CreateRfidReaderResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "sbuName": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']),
+  "lastReadAt": zod.coerce.date().nullish()
+})
+
+
+/**
  * @summary Get dashboard summary statistics (overall + per-SBU)
  */
 export const GetDashboardSummaryResponse = zod.object({
@@ -1284,7 +1324,7 @@ export const AiQueryResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -1300,13 +1340,16 @@ export const AiQueryResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1746,7 +1789,7 @@ export const GetAssetCardResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -1762,13 +1805,16 @@ export const GetAssetCardResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1781,7 +1827,7 @@ export const GetAssetCardResponse = zod.object({
   "value": zod.string(),
   "unit": zod.string().nullish()
 })),
-  "value": zod.object({
+  "value": zod.union([zod.object({
   "period": zod.string().describe('YYYY-MM'),
   "capitalised": zod.boolean(),
   "originalCostInCurrency": zod.number().nullish(),
@@ -1797,7 +1843,7 @@ export const GetAssetCardResponse = zod.object({
   "depreciationMethod": zod.string(),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish()
-}),
+}),zod.null()]).optional().describe('Null (and the schedule empty) for roles without financial access'),
   "upgrades": zod.array(zod.object({
   "id": zod.number(),
   "assetId": zod.number(),
@@ -1808,10 +1854,10 @@ export const GetAssetCardResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "cost": zod.number().nullish().describe('USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access'),
   "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
-  "invoiceAmount": zod.number(),
-  "exchangeRate": zod.number(),
+  "invoiceAmount": zod.number().nullish(),
+  "exchangeRate": zod.number().nullish(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -1924,7 +1970,7 @@ export const ChangeAssetCategoryResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -1940,13 +1986,16 @@ export const ChangeAssetCategoryResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -1987,7 +2036,7 @@ export const UpdateAssetFinancialResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2003,13 +2052,16 @@ export const UpdateAssetFinancialResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -2041,7 +2093,7 @@ export const CapitaliseAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2057,13 +2109,16 @@ export const CapitaliseAssetResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -2096,7 +2151,7 @@ export const DecideNoSerialResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2112,13 +2167,16 @@ export const DecideNoSerialResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -2150,7 +2208,7 @@ export const TagAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).describe('pending_asset_number = waiting for the Business Central asset number (AU-03)'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2166,13 +2224,16 @@ export const TagAssetResponse = zod.object({
   "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
   "capitalisedAt": zod.coerce.date().nullish(),
   "capitalisedBy": zod.string().nullish(),
-  "residualValue": zod.number(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date().optional()
@@ -2196,10 +2257,10 @@ export const ListAssetUpgradesResponseItem = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "cost": zod.number().nullish().describe('USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access'),
   "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
-  "invoiceAmount": zod.number(),
-  "exchangeRate": zod.number(),
+  "invoiceAmount": zod.number().nullish(),
+  "exchangeRate": zod.number().nullish(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -2246,10 +2307,10 @@ export const LogAssetUpgradeResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "cost": zod.number().nullish().describe('USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access'),
   "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
-  "invoiceAmount": zod.number(),
-  "exchangeRate": zod.number(),
+  "invoiceAmount": zod.number().nullish(),
+  "exchangeRate": zod.number().nullish(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -2289,10 +2350,10 @@ export const DecideUpgradeResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "cost": zod.number().nullish().describe('USD - invoiceAmount × exchangeRate; the amounts are null for roles without financial access'),
   "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
-  "invoiceAmount": zod.number(),
-  "exchangeRate": zod.number(),
+  "invoiceAmount": zod.number().nullish(),
+  "exchangeRate": zod.number().nullish(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -3049,6 +3110,115 @@ export const ScanCodeResponse = zod.object({
   "gatePassId": zod.number().nullish(),
   "gatePassStatus": zod.string().nullish(),
   "gatePassReturnDate": zod.string().nullish()
+})
+
+
+/**
+ * @summary The status changes the caller could ask for from the asset's current status (Phase 3)
+ */
+export const ListAssetTransitionsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAssetTransitionsResponseItem = zod.object({
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "label": zod.string(),
+  "action": zod.string().describe('What the change is called (\"issue\", \"recommend for disposal\", …)'),
+  "allowed": zod.boolean(),
+  "reason": zod.string().nullish().describe('Why it is refused, when it is'),
+  "needsIncidentDetails": zod.boolean().describe('lost_stolen needs lostDate, reporter and notes (GI-07)')
+})
+export const ListAssetTransitionsResponse = zod.array(ListAssetTransitionsResponseItem)
+
+
+/**
+ * @summary Change the status through the state machine (409 not in the table or a guard fails; 403 not for the role)
+ */
+export const ChangeAssetStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const changeAssetStatusBodyReasonMin = 3;
+
+
+
+export const ChangeAssetStatusBody = zod.object({
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "reason": zod.string().min(changeAssetStatusBodyReasonMin),
+  "lostDate": zod.coerce.date().optional(),
+  "reporter": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+export const ChangeAssetStatusResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string().describe('The description, generated from the category template (AU-01)'),
+  "category": zod.string().describe('The sub-category (Laptop, Desktop, Printer, Light vehicle …)'),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "serialNumber": zod.string().nullish().describe('Group-unique identifier (serial, VIN or IMEI); null when recorded as \"No serial\"'),
+  "noSerialReason": zod.string().nullish(),
+  "noSerialStatus": zod.union([zod.literal('pending'),zod.literal('approved'),zod.literal('rejected'),zod.literal(null)]).nullish(),
+  "macAddress": zod.string().nullish(),
+  "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
+  "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
+  "previousAssetNumber": zod.string().nullish(),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "condition": zod.string().nullish(),
+  "assignedTo": zod.string().nullish().describe('The custodian'),
+  "currentLocationId": zod.number().nullish(),
+  "currentLocationName": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "purchaseDate": zod.coerce.date().nullish(),
+  "purchaseValue": zod.number().nullish().describe('Legacy USD value (kept equal to the original cost)'),
+  "originalCost": zod.number().nullish().describe('In the purchase currency'),
+  "currency": zod.string().nullish(),
+  "exchangeRate": zod.number().nullish(),
+  "costUsd": zod.number().nullish().describe('originalCost × exchangeRate, fixed at capitalisation'),
+  "capitalisedAt": zod.coerce.date().nullish(),
+  "capitalisedBy": zod.string().nullish(),
+  "residualValue": zod.number().nullish().describe('Null, like every cost and value field, for roles without financial access'),
+  "supplier": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNo": zod.string().nullish(),
+  "inUseDate": zod.coerce.date().nullish(),
+  "warrantyEnds": zod.coerce.date().nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "lostDate": zod.coerce.date().nullish(),
+  "lostReportedBy": zod.string().nullish(),
+  "lostNotes": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Rename, move or switch a reader on / off (System Administrator)
+ */
+export const UpdateRfidReaderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRfidReaderBody = zod.object({
+  "name": zod.string().optional(),
+  "locationId": zod.number().optional(),
+  "status": zod.enum(['active', 'inactive']).optional()
+})
+
+export const UpdateRfidReaderResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "sbuName": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']),
+  "lastReadAt": zod.coerce.date().nullish()
 })
 
 

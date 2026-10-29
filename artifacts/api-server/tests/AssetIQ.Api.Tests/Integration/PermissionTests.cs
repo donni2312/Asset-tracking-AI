@@ -50,7 +50,7 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
         { Roles.GateOfficer, "GET /gate-passes/{bakPass}", "POST /movements bak", "GET /reports/movements.csv?assetId={bakLaptop}", "GET /gate-passes/{tsasPass}" },
         { Roles.Hod, "GET /assets/{bakLaptop}", "POST /gate-passes/{bakPass}/approve", "GET /assets/{bakLaptop}/card.pdf", "GET /assets/{laptop}" },
         { Roles.SbuHr, "GET /employees/{bakStaff}", "PATCH /employees/{bakStaff}", "GET /assets/{bakLaptop}/card.pdf", "GET /employees/{staff}" },
-        { Roles.Stores, "GET /assets/{bakStore}", "POST /assets/{bakStore}/lifecycle", "GET /assets/{bakStore}/card.pdf", "GET /assets/{projector}" },
+        { Roles.Stores, "GET /assets/{bakStore}", "POST /assets/{bakStore}/lifecycle", "GET /assets/{bakStore}/card.pdf", "GET /scan?code=TAG-EP-001" },
         { Roles.SbuAdmin, "GET /assets/{bakDesk}", "PATCH /assets/{bakDesk}", "GET /assets/{bakDesk}/card.pdf", "GET /assets/{desk}" },
         { Roles.Employee, "GET /assets/{bakLaptop}", "PATCH /assets/{bakLaptop}", "GET /assets/{bakLaptop}/card.pdf", "GET /assets/{laptop}" },
     };
@@ -99,7 +99,7 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(["TSAS-FF-2026-00001", "TSAS-IT-2026-00001"], Numbers(await api.CallAsync("GET", "/assets", token: r[Roles.Employee])));
         Assert.Equal(["TSAS-FF-2026-00001", "TSAS-IT-2026-00001"], Numbers(await api.CallAsync("GET", "/assets", token: r[Roles.Hod])));
         Assert.Equal(["TSAS-FF-2026-00001", "TSAS-IT-2026-00001"], Numbers(await api.CallAsync("GET", "/assets", token: r[Roles.SbuHr])));
-        Assert.Equal(["TSAS-IT-2026-00002"], Numbers(await api.CallAsync("GET", "/assets", token: r[Roles.Stores])));
+        Assert.Empty(Numbers(await api.CallAsync("GET", "/assets", token: r[Roles.Stores]))); // no non-IT item in store, no IT item for disposal
         Assert.Equal(6, (await api.CallAsync("GET", "/assets", token: r[Roles.GroupFinance])).Body.Items().Count);
 
         // A filter for another SBU returns nothing rather than leaking it.
@@ -130,15 +130,17 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
         get
         {
             var data = new TheoryData<string, string, string, string>();
+            // The System Administrator may do everything (product owner, 29 Oct 2026), whatever the row says.
             void Row(string row, string request, string[] allowed, string[] refused) =>
-                data.Add(row, request, string.Join(",", allowed), string.Join(",", refused));
+                data.Add(row, request, string.Join(",", allowed.Append(Roles.SystemAdmin).Distinct()), string.Join(",", refused.Where(r => r != Roles.SystemAdmin)));
             const string gf = Roles.GroupFinance, gi = Roles.GroupIt, si = Roles.SbuIt, sf = Roles.SbuFinance, go = Roles.GateOfficer, hod = Roles.Hod,
                 hr = Roles.SbuHr, st = Roles.Stores, sa = Roles.SbuAdmin, au = Roles.Auditor, em = Roles.Employee, sys = Roles.SystemAdmin;
 
             Row("View assets: on scan only", "GET /assets", [gf, gi, si, sf, hod, hr, st, sa, au, em], [go, sys]);
             Row("View assets: on scan only", "GET /assets/{laptop}", [gf, gi, si, sf, hod, hr, au, em], [go, st, sa, sys]);
             Row("View assets: on scan only", "GET /scan?code=TAG-DL-001", [gf, gi, si, sf, go, hod, hr, st, sa, au, em], [sys]);
-            Row("View assets: items in store / own dept / toolboxes", "GET /assets/{projector}", [gf, gi, si, sf, st, au], [go, hod, hr, sa, em, sys]);
+            // Phase 3: an unassigned, tagged IT item stays with SBU IT, not Stores (SI-02).
+            Row("View assets: items in store / own dept / toolboxes", "GET /assets/{projector}", [gf, gi, si, sf, au], [go, hod, hr, st, sa, em]);
             Row("View assets: own SBU (non-IT)", "GET /assets/{desk}", [gf, sf, hod, hr, sa, au, em], [gi, si, go, st, sys]);
 
             Row("Register / tag asset (IT)", "POST /assets laptop", [gi, si, st], [gf, sf, go, hod, hr, sa, au, em, sys]);
@@ -177,12 +179,12 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
     [MemberData(nameof(Matrix))]
     public async Task Phase2_permissions_matrix(string row, string request, string allowed, string refused)
     {
-        foreach (var role in refused.Split(','))
+        foreach (var role in refused.Split(',', StringSplitOptions.RemoveEmptyEntries))
         {
             var res = await Call(request, r[role]);
             Assert.True(res.Status == 403, $"[{row}] {role} should be refused {request} but got {res.Status} {res.Error()}");
         }
-        foreach (var role in allowed.Split(','))
+        foreach (var role in allowed.Split(',', StringSplitOptions.RemoveEmptyEntries))
         {
             var res = await Call(request, r[role]);
             Assert.True(res.Status is not (401 or 403), $"[{row}] {role} should be allowed {request} but got {res.Status} {res.Error()}");

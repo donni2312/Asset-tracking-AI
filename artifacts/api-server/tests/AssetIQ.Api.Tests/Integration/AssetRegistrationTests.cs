@@ -186,7 +186,7 @@ public sealed class AssetRegistrationTests(ApiFixture api) : IAsyncLifetime
         var id = await a.RegisterLaptopAsync(api, "SN-BC-1");
         var asset = (await api.CallAsync("GET", $"/assets/{id}", token: a.TsasIt)).Body;
 
-        Assert.Equal("active", asset.Str("status"));
+        Assert.Equal("in_store", asset.Str("status")); // Phase 3: pending asset number → in store
         Assert.Matches(@"^TSAS-IT-2026-\d{5}$", asset.Str("assetNumber")!);
         Assert.NotEqual("TSAS-IT-2026-00001", asset.Str("assetNumber")); // already used by the seeded laptop: skipped
     }
@@ -220,7 +220,7 @@ public sealed class AssetRegistrationTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(1, await AuditWorld.ProcessBcQueueAsync(api));
 
         var issued = (await api.CallAsync("GET", $"/assets/{id}", token: a.TsasIt)).Body;
-        Assert.Equal("active", issued.Str("status"));
+        Assert.Equal("in_store", issued.Str("status"));
         Assert.NotNull(issued.Str("assetNumber"));
         Assert.Equal(200, (await api.CallAsync("POST", $"/assets/{id}/tag", new { rfidTag = "TAG-NEW" }, a.TsasIt)).Status);
     }

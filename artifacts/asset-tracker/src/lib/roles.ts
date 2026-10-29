@@ -32,7 +32,7 @@ export const ROLE_SUMMARY: Record<UserRole, string> = {
   sbu_admin: "non-IT assets of your SBU",
   auditor: "read only, all SBUs, until your access expires",
   employee: "the items you hold",
-  system_admin: "categories, final depreciation rates and Group settings",
+  system_admin: "everything, every request logged",
 };
 
 const ALL: UserRole[] = ["group_finance", "group_it", "sbu_it", "sbu_finance", "gate_officer", "hod", "sbu_hr", "stores", "sbu_admin", "auditor", "employee", "system_admin"];
@@ -70,7 +70,8 @@ export type RoleGroup = keyof typeof ROLE_GROUPS;
 
 /** Whether `user` holds one of the roles of `group`. Auditors are read-only whatever the group says. */
 export function inGroup(user: User | null, group: RoleGroup): boolean {
-  return !!user && (ROLE_GROUPS[group] as UserRole[]).includes(user.role);
+  // The System Administrator may do everything (product owner, 29 Oct 2026); the API logs each of their requests.
+  return !!user && (user.role === "system_admin" || (ROLE_GROUPS[group] as UserRole[]).includes(user.role));
 }
 
 /** The roles of a group, for "you need one of …" messages. */
@@ -79,4 +80,4 @@ export const groupNames = (group: RoleGroup) => (ROLE_GROUPS[group] as UserRole[
 export const roleName = (role: string) => ROLE_NAME[role as UserRole] ?? role;
 
 /** Roles whose scope is every SBU (the SBU filter is shown to them). */
-export const isGroupWide = (user: User | null) => !!user && (["group_finance", "group_it", "auditor"] as UserRole[]).includes(user.role);
+export const isGroupWide = (user: User | null) => !!user && (["group_finance", "group_it", "auditor", "system_admin"] as UserRole[]).includes(user.role);

@@ -81,11 +81,11 @@ public sealed record AssetUpgradeDto
     public required string BeforeText { get; init; }
     public required string AfterText { get; init; }
     public required IReadOnlyDictionary<string, string?> FieldChanges { get; init; }
-    /// <summary>USD (invoice amount × exchange rate).</summary>
-    public required decimal Cost { get; init; }
+    /// <summary>USD (invoice amount × exchange rate). The amounts are null for roles that may not see financial data.</summary>
+    public decimal? Cost { get; init; }
     public required string Currency { get; init; }
-    public required decimal InvoiceAmount { get; init; }
-    public required decimal ExchangeRate { get; init; }
+    public decimal? InvoiceAmount { get; init; }
+    public decimal? ExchangeRate { get; init; }
     public string? Supplier { get; init; }
     public string? InvoiceNo { get; init; }
     public required string LoggedBy { get; init; }
@@ -112,7 +112,8 @@ public sealed record AssetCardDto
     public required string CategoryName { get; init; }
     public required bool IsIt { get; init; }
     public required IReadOnlyList<AssetAttributeDto> Attributes { get; init; }
-    public required AssetValueDto Value { get; init; }
+    /// <summary>Null, with an empty schedule, for roles that may not see financial data.</summary>
+    public AssetValueDto? Value { get; init; }
     public required IReadOnlyList<AssetUpgradeDto> Upgrades { get; init; }
     public required IReadOnlyList<DepreciationLineDto> Schedule { get; init; }
     public required IReadOnlyList<TimelineEventDto> Timeline { get; init; }
@@ -120,6 +121,9 @@ public sealed record AssetCardDto
     /// <summary>What the signed-in user may do on this card (the API checks each action again).</summary>
     public required AssetCardPermissionsDto Can { get; init; }
 }
+
+/// <summary>A status change the caller could ask for (Phase 3); <c>Reason</c> says why it is refused, when it is.</summary>
+public sealed record StatusTransitionDto(string Status, string Label, string Action, bool Allowed, string? Reason, bool NeedsIncidentDetails);
 
 public sealed record AssetCardPermissionsDto(bool EditTechnical, bool EditFinancial, bool LogUpgrade, bool DecideUpgrades, bool ChangeCategory, bool Tag, bool Attach);
 

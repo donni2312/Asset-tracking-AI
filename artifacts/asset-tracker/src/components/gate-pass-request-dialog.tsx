@@ -53,7 +53,7 @@ export function GatePassRequestDialog({ open, onOpenChange, assetId }: GatePassR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, assetId]);
 
-  const requestable = (assets ?? []).filter((a) => a.status !== "retired");
+  const requestable = (assets ?? []).filter((a) => !["disposed", "lost_stolen", "pending_disposal"].includes(a.status));
 
   // An asset is found by name, RFID tag, serial number, category, SBU or the
   // location it is sitting in - whichever the requester happens to know.

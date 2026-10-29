@@ -54,6 +54,7 @@ public sealed class RoleWorld
         Asset NewAsset(string name, int categoryId, string sub, string serial, string number, Sbu sbu, Location location, Employee? holder, Department? department) => new()
         {
             Name = name, Category = sub, CategoryId = categoryId, SubCategory = sub, SerialNumber = serial, RfidTag = $"TAG-{serial}", AssetNumber = number,
+            Status = holder is null ? AssetStatuses.InStore : AssetStatuses.InUse,
             SbuId = sbu.Id, CurrentLocationId = location.Id, AssignedTo = holder?.Name, CustodianEmployeeId = holder?.Id, DepartmentId = department?.Id,
             CostUsd = 1200m, OriginalCost = 1200m, Currency = "USD", ExchangeRate = 1m, PurchaseValue = 1200m, CreatedAt = now, UpdatedAt = now,
         };

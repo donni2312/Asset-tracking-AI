@@ -190,9 +190,9 @@ export function MovementTrendChart({ days = 14, viewAllHref }: { days?: number; 
 const STATUS_SERIES = ["active", "maintenance", "missing", "retired"] as const;
 const STATUS = {
   active: { label: "Active", color: "#0ca30c", icon: CheckCircle2 },
-  maintenance: { label: "In maintenance", color: "#fab219", icon: Wrench },
+  maintenance: { label: "In repair", color: "#fab219", icon: Wrench },
   missing: { label: "Missing", color: "#d03b3b", icon: AlertTriangle },
-  retired: { label: "Retired", color: "#898781", icon: Archive },
+  retired: { label: "Disposed / other", color: "#898781", icon: Archive },
 } as const;
 const statusConfig = Object.fromEntries(
   STATUS_SERIES.map((k) => [k, { label: STATUS[k].label, color: STATUS[k].color, icon: STATUS[k].icon }]),
