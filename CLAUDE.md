@@ -654,3 +654,20 @@ Report and the transition table: `docs/implementation-plan.md` §11.
 - **Follow-ups**: the System Administrator may do everything (`AccessPolicy.Sys`, every request in `access_log`);
   financial figures are removed for roles without `AccessPolicy.CanSeeFinancials` (`Infrastructure/FinancialRedaction.cs`,
   a global result filter); gates and readers are the System Administrator's (`/rfid/readers`).
+
+## Phase 4 — workflows (in slices), October 2026
+
+Report: `docs/implementation-plan.md` §12.
+
+- **4a approvals engine**: `Services/Approvals/ApprovalService.cs` (requests, steps, one inbox, delegation, reminders /
+  escalation via `ApprovalWorker`), `ApprovalRouting` (who may decide a step), handlers per kind (`WorkflowService`:
+  repairs, disposals, transfers; `GatePassApprovalHandler`). Workflow-owned statuses change only through them.
+  Notifications: `NotificationService`; email goes through `IEmailSender` (`LoggingEmailSender` writes `outbound_emails`).
+- **4b Stores and toolbox**: `Services/Stores/StoresService.cs` (POs, receiving, stock, equipment requests and issue,
+  returns) and `ToolboxService.cs` (toolbox, acknowledgements, exit clearance, department holdings); `StoresController`.
+  The emailed acknowledgement link `/acknowledge/{token}` works without signing in.
+- **4c gate and verification**: `Services/GateService.cs` (gate check of `GP-<id>` or an item tag: clear / return / stop;
+  exits and partial returns per `gate_pass_items`; the officer's action on an alert in `gate_actions`; overdue returns,
+  flagged by `ApprovalWorker`) and `Services/VerificationService.cs` (counts per location: scan, close → found /
+  missing / unrecorded; SBU Finance resolves each with a comment; reconciled when none is open); `GateController`.
+  A gate pass may carry several items (`itemAssetIds`, same SBU); approval routing uses the first item.

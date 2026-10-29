@@ -4,7 +4,8 @@ import {
   Activity, Box, Boxes, Building2, CheckCircle2, Database, FileDown, FileText, HardDrive, Inbox, LayoutDashboard, MapPin, Radio, ScanLine,
   Settings2, ShieldAlert, Truck, Users, Gauge, 
 } from "lucide-react";
-import { useListApprovals } from "@workspace/api-client-react";
+import { useListApprovals, useListNotifications } from "@workspace/api-client-react";
+import { NotificationsButton } from "@/components/notifications";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { inGroup, ROLE_GROUPS, type RoleGroup } from "@/lib/roles";
 import type { UserRole } from "@workspace/api-client-react";
@@ -27,7 +28,8 @@ export function Layout({ children }: LayoutProps) {
   // panel) sits outside the keyed element and survives.
   const [dateFormat] = useDateFormat();
   const user = useCurrentUser();
-  const { data: approvals } = useListApprovals({ query: { enabled: user?.role === "sbu_finance", queryKey: ["approvals"] } });
+  const { data: approvals } = useListApprovals({ query: { enabled: !!user, queryKey: ["approvals"], refetchInterval: 60_000 } });
+  const { data: unread } = useListNotifications({ unread: true }, { query: { enabled: !!user, queryKey: ["notifications", "unread"], refetchInterval: 60_000 } });
   const pendingApprovals = approvals?.length ?? 0;
 
   // Main entries follow the approved designs; the screens that came before them stay under "Tracking".
@@ -35,12 +37,14 @@ export function Layout({ children }: LayoutProps) {
   type Entry = { name: string; href: string; icon: typeof Box; roles: RoleGroup | UserRole[] };
   const navigation: Entry[] = [
     { name: "Dashboard",           href: "/",              icon: LayoutDashboard, roles: "everyone" },
+    { name: "Gate",                href: "/gate",          icon: ShieldAlert, roles: "gateOfficers" },
     { name: "Scan",                href: "/scan",          icon: ScanLine,  roles: "scanners" },
     { name: "Asset Register",      href: "/register",      icon: Boxes,     roles: "financeReaders" },
     { name: "Reports",             href: "/reports/category", icon: FileText, roles: "financeReaders" },
-    { name: "Approvals",           href: "/approvals",     icon: Inbox,     roles: "financeReaders" },
-    { name: "Verification",        href: "/verification",  icon: ScanLine,  roles: "financeReaders" },
-    { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2, roles: ["stores", "sbu_finance", "sbu_it", "sbu_admin"] },
+    { name: "Approvals",           href: "/approvals",     icon: Inbox,     roles: [...ROLE_GROUPS.gatePassApprovers, "group_finance", "auditor"] },
+    { name: "Verification",        href: "/verification",  icon: ScanLine,  roles: "verificationReaders" },
+    { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2, roles: ["stores", "sbu_finance", "group_finance", "sbu_it", "group_it", "sbu_admin", "hod", "sbu_hr"] },
+    { name: "My items",            href: "/my-items",      icon: CheckCircle2, roles: ["employee"] },
     { name: "Gate Passes",         href: "/gate-passes",   icon: ShieldAlert, roles: "gatePassReaders" },
     { name: "People & Toolboxes",  href: "/people",        icon: Users,     roles: "peopleReaders" },
     { name: "Departments",         href: "/departments",   icon: Building2, roles: "peopleReaders" },
@@ -124,6 +128,7 @@ export function Layout({ children }: LayoutProps) {
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2">
           <AccountBadge />
+          {user && <NotificationsButton count={unread?.length ?? 0} />}
           <SettingsButton />
           <div className="px-2 text-[10px] text-sidebar-foreground/40 font-mono tracking-wider">
             TSL GROUP — ASSET MGMT v2

@@ -19,8 +19,23 @@ public sealed record StatusChange(string To, string? Reason, string? LostDate = 
 public sealed class AssetStatusService(AuditTrail audit, AppClock clock)
 {
     /// <summary>A person's change: table, guards and role.</summary>
-    public void Change(AuthUser user, Asset asset, StatusChange change)
+    /// <summary>Statuses entered and left only through an approval (Phase 4): repairs, transfers, disposals.</summary>
+    public static readonly IReadOnlyList<string> WorkflowOwned =
+        [AssetStatuses.RepairRequested, AssetStatuses.TransferPending, AssetStatuses.PendingDisposal, AssetStatuses.Disposed];
+
+    /// <param name="viaWorkflow">True when a workflow (repair, transfer, disposal request) makes the change.</param>
+    public void Change(AuthUser user, Asset asset, StatusChange change, bool viaWorkflow = false)
     {
+        if (!viaWorkflow && (WorkflowOwned.Contains(change.To) || WorkflowOwned.Contains(asset.Status)))
+        {
+            throw new ApiException(StatusCodes.Status409Conflict, change.To switch
+            {
+                AssetStatuses.RepairRequested => "Request a repair with POST /assets/{id}/repairs; SBU Finance approves it",
+                AssetStatuses.TransferPending => "Request a transfer with POST /assets/{id}/transfers",
+                AssetStatuses.PendingDisposal => "Recommend a disposal with POST /assets/{id}/disposals",
+                _ => $"The asset is {AssetStatusMachine.Label(asset.Status)}; that is decided in the approvals inbox",
+            });
+        }
         if (!AssetStatuses.All.Contains(change.To)) throw new ApiException(StatusCodes.Status400BadRequest, $"status: one of {string.Join(", ", AssetStatuses.All)}");
         if (asset.Status == AssetStatuses.PendingAssetNumber && change.To != asset.Status)
             throw new ApiException(StatusCodes.Status409Conflict, "The asset is waiting for its Business Central asset number; its status changes when the number is issued");
@@ -61,15 +76,26 @@ public sealed class AssetStatusService(AuditTrail audit, AppClock clock)
     public static List<StatusTransitionDto> Options(AuthUser user, Asset asset) =>
         AssetStatusMachine.Next(asset.Status).Select(to =>
         {
-            var guard = to == AssetStatuses.InUse && (asset.AssetNumber is null || asset.RfidTag is null)
-                ? "Tag the item and wait for its asset number first (ST-02)" : null;
+            var workflow = to switch
+            {
+                AssetStatuses.RepairRequested => "repair",
+                AssetStatuses.PendingDisposal => "disposal",
+                AssetStatuses.TransferPending => "transfer",
+                _ => null,
+            };
+            var guard = WorkflowOwned.Contains(asset.Status) ? "Decided in the approvals inbox"
+                : to == AssetStatuses.Disposed ? "Decided in the approvals inbox"
+                : to == AssetStatuses.InUse && (asset.AssetNumber is null || asset.RfidTag is null) ? "Tag the item and wait for its asset number first (ST-02)"
+                : to == AssetStatuses.InRepair && asset.AssetCategory.IsIt && asset.Status != AssetStatuses.RepairRequested ? "Request the repair; Finance approves it first (SI-05)"
+                : null;
             var role = AccessPolicy.CanChangeStatus(user, asset, asset.AssetCategory.IsIt, asset.Status, to) ? null : "Not for your role";
             return new StatusTransitionDto(to, AssetStatusMachine.Label(to), AssetStatusMachine.Transitions[asset.Status][to],
-                guard is null && role is null, guard ?? role, to == AssetStatuses.LostStolen);
+                guard is null && role is null, guard ?? role, to == AssetStatuses.LostStolen, workflow);
         }).ToList();
 
     private static AssetStatusMachine.Facts FactsOf(Asset asset, StatusChange change) =>
-        new(asset.AssetNumber is not null, asset.RfidTag is not null, change.LostDate, change.Reporter, change.Notes);
+        new(asset.AssetNumber is not null, asset.RfidTag is not null, change.LostDate ?? asset.LostDate, change.Reporter ?? asset.LostReportedBy,
+            change.Notes ?? asset.LostNotes, asset.AssetCategory?.IsIt ?? false);
 
     private void Apply(AuthUser? user, Asset asset, StatusChange change)
     {
@@ -77,7 +103,7 @@ public sealed class AssetStatusService(AuditTrail audit, AppClock clock)
         audit.Record(user, "asset", asset.Id, asset.Id, "status_changed", "status", from, change.To,
             change.Reason ?? AssetStatusMachine.Transitions[from][change.To]);
         asset.Status = change.To;
-        if (change.To == AssetStatuses.LostStolen)
+        if (change.To == AssetStatuses.LostStolen && change.LostDate is not null)
         {
             asset.LostDate = change.LostDate!.Trim();
             asset.LostReportedBy = change.Reporter!.Trim();

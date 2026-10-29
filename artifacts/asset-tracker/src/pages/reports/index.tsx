@@ -6,6 +6,7 @@ import {
   type DownloadLifecycleReportEventType,
 } from "@workspace/api-client-react";
 import { Activity, Box, Database, FileSpreadsheet, History, ShieldAlert } from "lucide-react";
+import { STATUS_LABEL } from "@/lib/finance";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -39,10 +40,7 @@ export default function Reports() {
       extra: (
         <select className={SELECT_CLASS} value={assetStatus} onChange={(e) => setAssetStatus(e.target.value as DownloadAssetsReportStatus | "")} aria-label="Asset status">
           <option value="">Any status</option>
-          <option value="active">Active</option>
-          <option value="maintenance">Maintenance</option>
-          <option value="missing">Missing</option>
-          <option value="retired">Retired</option>
+          {Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       ),
     },

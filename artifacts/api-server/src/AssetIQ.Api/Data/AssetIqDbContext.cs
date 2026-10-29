@@ -43,6 +43,26 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<AssetAttachment> AssetAttachments => Set<AssetAttachment>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
+    public DbSet<Delegation> Delegations => Set<Delegation>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
+    public DbSet<AssetRepair> AssetRepairs => Set<AssetRepair>();
+    public DbSet<AssetDisposal> AssetDisposals => Set<AssetDisposal>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+    public DbSet<EquipmentRequest> EquipmentRequests => Set<EquipmentRequest>();
+    public DbSet<AssetAcknowledgement> AssetAcknowledgements => Set<AssetAcknowledgement>();
+    public DbSet<ExitClearance> ExitClearances => Set<ExitClearance>();
+    public DbSet<ExitClearanceItem> ExitClearanceItems => Set<ExitClearanceItem>();
+    public DbSet<GatePassItem> GatePassItems => Set<GatePassItem>();
+    public DbSet<GateAction> GateActions => Set<GateAction>();
+    public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
+    public DbSet<VerificationScan> VerificationScans => Set<VerificationScan>();
+    public DbSet<VerificationResult> VerificationResults => Set<VerificationResult>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -241,6 +261,88 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
             e.HasOne<AssetUpgrade>().WithMany().HasForeignKey(x => x.UpgradeId).OnDelete(DeleteBehavior.NoAction);
             e.HasQueryFilter(VisibleThrough<AssetAttachment>(nameof(AssetAttachment.Asset)));
         });
+
+        // Phase 4. Approval requests are not filtered by the asset scope: an approver's inbox is decided by the
+        // routing (role, SBU, department, delegation), which may reach beyond what the approver sees day to day.
+        modelBuilder.Entity<ApprovalRequest>(e =>
+        {
+            e.ToTable("approval_requests");
+            e.Property(x => x.Details).HasColumnType("jsonb");
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+            e.HasMany(x => x.Steps).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<ApprovalStep>(e => e.ToTable("approval_steps"));
+        modelBuilder.Entity<Delegation>(e => e.ToTable("delegations"));
+        modelBuilder.Entity<Notification>(e => e.ToTable("notifications"));
+        modelBuilder.Entity<OutboundEmail>(e => e.ToTable("outbound_emails"));
+        modelBuilder.Entity<AssetRepair>(e =>
+        {
+            e.ToTable("asset_repairs");
+            e.Property(x => x.Cost).HasColumnType("numeric(18,2)");
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<AssetDisposal>(e =>
+        {
+            e.ToTable("asset_disposals");
+            foreach (var money in new[] { "Proceeds", "NbvAtDisposal", "GainLoss" }) e.Property(money).HasColumnType("numeric(18,2)");
+            e.HasOne<Asset>().WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // Phase 4b
+        modelBuilder.Entity<PurchaseOrder>(e =>
+        {
+            e.ToTable("purchase_orders");
+            e.HasIndex(x => x.PoNo).IsUnique().HasDatabaseName("purchase_orders_po_no_unique");
+            e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.PurchaseOrderId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<PurchaseOrderLine>(e =>
+        {
+            e.ToTable("purchase_order_lines");
+            e.Property(x => x.UnitCost).HasColumnType("numeric(18,2)");
+            e.HasOne<AssetCategory>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<GoodsReceipt>(e =>
+        {
+            e.ToTable("goods_receipts");
+            e.HasOne<PurchaseOrder>().WithMany().HasForeignKey(x => x.PurchaseOrderId).OnDelete(DeleteBehavior.NoAction);
+            e.HasMany(x => x.Lines).WithOne().HasForeignKey(x => x.ReceiptId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<GoodsReceiptLine>(e =>
+        {
+            e.ToTable("goods_receipt_lines");
+            e.Property(x => x.Serials).HasColumnType("jsonb");
+            e.HasOne<PurchaseOrderLine>().WithMany().HasForeignKey(x => x.PurchaseOrderLineId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<EquipmentRequest>(e =>
+        {
+            e.ToTable("equipment_requests");
+            e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<AssetAcknowledgement>(e =>
+        {
+            e.ToTable("asset_acknowledgements");
+            e.HasIndex(x => x.Token).IsUnique().HasDatabaseName("asset_acknowledgements_token_unique");
+        });
+        modelBuilder.Entity<ExitClearance>(e =>
+        {
+            e.ToTable("exit_clearances");
+            e.HasMany(x => x.Items).WithOne().HasForeignKey(x => x.ClearanceId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<ExitClearanceItem>(e => e.ToTable("exit_clearance_items"));
+
+        // Phase 4c
+        modelBuilder.Entity<GatePassItem>(e =>
+        {
+            e.ToTable("gate_pass_items");
+            e.HasOne<GatePass>().WithMany().HasForeignKey(x => x.GatePassId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<GateAction>(e => e.ToTable("gate_actions"));
+        modelBuilder.Entity<VerificationSession>(e => e.ToTable("verification_sessions"));
+        modelBuilder.Entity<VerificationScan>(e => e.ToTable("verification_scans"));
+        modelBuilder.Entity<VerificationResult>(e => e.ToTable("verification_results"));
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

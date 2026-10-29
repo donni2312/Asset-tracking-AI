@@ -3,9 +3,10 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 import type { AssetStatus } from './assetStatus';
+import type { StatusTransitionWorkflow } from './statusTransitionWorkflow';
 
 export interface StatusTransition {
   status: AssetStatus;
@@ -20,4 +21,9 @@ export interface StatusTransition {
   reason?: string | null;
   /** lost_stolen needs lostDate, reporter and notes (GI-07) */
   needsIncidentDetails: boolean;
+  /**
+     * The change is a request (POST /assets/{id}/repairs, /disposals, /transfers) decided in the approvals inbox
+     * @nullable
+     */
+  workflow?: StatusTransitionWorkflow;
 }

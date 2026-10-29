@@ -44,7 +44,9 @@ const SEVERITY_TONE = {
 
 export default function RfidSimulator() {
   const { data: readers, isLoading: loadingReaders } = useListRfidReaders();
-  const { data: assets, isLoading: loadingAssets } = useListAssets({ status: "active" });
+  // Phase 3 statuses: every asset that can pass a reader (not disposed).
+  const { data: allAssets, isLoading: loadingAssets } = useListAssets();
+  const assets = allAssets?.filter((a) => a.status !== "disposed");
   const { data: sbus } = useListSbus();
   const simulate = useSimulateRfidRead();
   const { allowed: canScan, reason: scanBlockedReason } = usePermission("rfidSimulator", "run the RFID simulator");

@@ -29,7 +29,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
     // TRUNCATE bypasses the append-only triggers on audit_log / access_log, which only reject UPDATE and DELETE.
     private const string TruncateAll =
-        "TRUNCATE \"asset_attachments\", \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", " +
+        "TRUNCATE \"gate_pass_items\", \"gate_actions\", \"verification_results\", \"verification_scans\", \"verification_sessions\", \"exit_clearance_items\", \"exit_clearances\", \"asset_acknowledgements\", \"equipment_requests\", \"goods_receipt_lines\", \"goods_receipts\", " +
+        "\"purchase_order_lines\", \"purchase_orders\", \"approval_steps\", \"approval_requests\", \"delegations\", \"notifications\", \"outbound_emails\", \"asset_repairs\", \"asset_disposals\", " +
+        "\"asset_attachments\", \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", " +
         "\"asset_attribute_values\", \"asset_upgrades\", \"depreciation_entries\", \"depreciation_locks\", \"bc_number_requests\", " +
         "\"bc_mock_number_series\", \"assets\", \"category_template_fields\", \"asset_categories\", \"group_settings\", " +
         "\"audit_log\", \"access_log\", \"employees\", \"departments\", \"rfid_readers\", \"locations\", \"sbus\" RESTART IDENTITY CASCADE";

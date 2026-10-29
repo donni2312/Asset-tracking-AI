@@ -470,3 +470,315 @@ public sealed class AssetAttachment
 
     public Asset Asset { get; set; } = null!;
 }
+
+// ── Phase 4: approvals engine, notifications, repairs, disposals ─────────────
+
+/// <summary>`approval_requests`: one thing to decide (repair, disposal, transfer, gate pass).</summary>
+public sealed class ApprovalRequest
+{
+    public int Id { get; set; }
+    /// <summary>repair | disposal | transfer | gate_pass | equipment</summary>
+    public string Kind { get; set; } = "";
+    /// <summary>Null for an equipment request.</summary>
+    public int? AssetId { get; set; }
+    public int SbuId { get; set; }
+    public int? SubjectId { get; set; }
+    /// <summary>pending | approved | rejected</summary>
+    public string Status { get; set; } = "pending";
+    public string Summary { get; set; } = "";
+    /// <summary>JSON object with the kind's details (transfer target, reason …).</summary>
+    public string Details { get; set; } = "{}";
+    public string RequestedBy { get; set; } = "";
+    public int? RequestedByUserId { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public Asset? Asset { get; set; }
+    public List<ApprovalStep> Steps { get; set; } = [];
+}
+
+/// <summary>`approval_steps`: one approver's part of a request.</summary>
+public sealed class ApprovalStep
+{
+    public int Id { get; set; }
+    public int RequestId { get; set; }
+    public int StepNo { get; set; }
+    public string Role { get; set; } = "";
+    public int? SbuId { get; set; }
+    public int? DepartmentId { get; set; }
+    public string Label { get; set; } = "";
+    /// <summary>waiting (an earlier step is open) | pending | approved | rejected</summary>
+    public string Status { get; set; } = "pending";
+    public string? DecidedBy { get; set; }
+    public int? DecidedByUserId { get; set; }
+    public string? OnBehalfOf { get; set; }
+    public DateTime? DecidedAt { get; set; }
+    public string? Comment { get; set; }
+    public DateTime? RemindedAt { get; set; }
+    public string? EscalatedToRole { get; set; }
+    public DateTime? EscalatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>`delegations`: LM-03, an approver on leave and who decides for them.</summary>
+public sealed class Delegation
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int? DelegateUserId { get; set; }
+    public DateTime StartsAt { get; set; }
+    public DateTime EndsAt { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class Notification
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public string Kind { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+    public string? Link { get; set; }
+    public DateTime? ReadAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class OutboundEmail
+{
+    public int Id { get; set; }
+    public int? UserId { get; set; }
+    public string? ToAddress { get; set; }
+    public string Subject { get; set; } = "";
+    public string Body { get; set; } = "";
+    public string Status { get; set; } = "logged";
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>`asset_repairs` (SI-05). The cost is Finance's.</summary>
+public sealed class AssetRepair
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public string Fault { get; set; } = "";
+    public string? Action { get; set; }
+    public string? Parts { get; set; }
+    public string? Vendor { get; set; }
+    public int? DowntimeDays { get; set; }
+    public decimal? Cost { get; set; }
+    /// <summary>requested | approved | rejected | completed</summary>
+    public string Status { get; set; } = "requested";
+    public string PreviousStatus { get; set; } = "";
+    public string RequestedBy { get; set; } = "";
+    public DateTime? CompletedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>`asset_disposals` (SI-08, SF-04, GF-04, GI-10).</summary>
+public sealed class AssetDisposal
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public string Reason { get; set; } = "";
+    public string? Condition { get; set; }
+    public string RecommendedBy { get; set; } = "";
+    public string PreviousStatus { get; set; } = "";
+    /// <summary>sale | scrap | donation | write_off</summary>
+    public string? Method { get; set; }
+    public string? DisposalDate { get; set; }
+    public decimal? Proceeds { get; set; }
+    public string? Buyer { get; set; }
+    public decimal? NbvAtDisposal { get; set; }
+    public decimal? GainLoss { get; set; }
+    public string? DataWipeNote { get; set; }
+    /// <summary>pending | completed | rejected</summary>
+    public string Status { get; set; } = "pending";
+    public DateTime CreatedAt { get; set; }
+}
+
+// ── Phase 4b: purchase orders, receiving, equipment requests, acknowledgements, exit clearance ──
+
+public sealed class PurchaseOrder
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public string PoNo { get; set; } = "";
+    public string Supplier { get; set; } = "";
+    /// <summary>open | partly_received | received | closed</summary>
+    public string Status { get; set; } = "open";
+    public string CreatedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public List<PurchaseOrderLine> Lines { get; set; } = [];
+}
+
+public sealed class PurchaseOrderLine
+{
+    public int Id { get; set; }
+    public int PurchaseOrderId { get; set; }
+    public int CategoryId { get; set; }
+    public string Description { get; set; } = "";
+    public int Quantity { get; set; }
+    public decimal? UnitCost { get; set; }
+    public int ReceivedQuantity { get; set; }
+}
+
+public sealed class GoodsReceipt
+{
+    public int Id { get; set; }
+    public int PurchaseOrderId { get; set; }
+    public string ReceivedBy { get; set; } = "";
+    public string? Notes { get; set; }
+    public bool Flagged { get; set; }
+    public string? FlagReason { get; set; }
+    public DateTime ReceivedAt { get; set; }
+    public List<GoodsReceiptLine> Lines { get; set; } = [];
+}
+
+public sealed class GoodsReceiptLine
+{
+    public int Id { get; set; }
+    public int ReceiptId { get; set; }
+    public int PurchaseOrderLineId { get; set; }
+    public int QuantityReceived { get; set; }
+    public int QuantityDamaged { get; set; }
+    /// <summary>JSON array of serial numbers counted at the door.</summary>
+    public string Serials { get; set; } = "[]";
+    public string? Condition { get; set; }
+    public int Registered { get; set; }
+}
+
+public sealed class EquipmentRequest
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public int? EmployeeId { get; set; }
+    public int? DepartmentId { get; set; }
+    public int CategoryId { get; set; }
+    public string ItemType { get; set; } = "";
+    public int Quantity { get; set; } = 1;
+    public int IssuedQuantity { get; set; }
+    public string Reason { get; set; } = "";
+    public string Urgency { get; set; } = "normal";
+    /// <summary>pending | approved | rejected | fulfilled</summary>
+    public string Status { get; set; } = "pending";
+    /// <summary>request | onboarding</summary>
+    public string Source { get; set; } = "request";
+    public string RequestedBy { get; set; } = "";
+    public int? RequestedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class AssetAcknowledgement
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public int EmployeeId { get; set; }
+    public int? EquipmentRequestId { get; set; }
+    public string Token { get; set; } = "";
+    public string IssuedBy { get; set; } = "";
+    public DateTime IssuedAt { get; set; }
+    public DateTime? AcknowledgedAt { get; set; }
+    /// <summary>app | email</summary>
+    public string? Method { get; set; }
+}
+
+public sealed class ExitClearance
+{
+    public int Id { get; set; }
+    public int EmployeeId { get; set; }
+    public string Reason { get; set; } = "";
+    /// <summary>open | completed</summary>
+    public string Status { get; set; } = "open";
+    public string? ExceptionApprovedBy { get; set; }
+    public string? ExceptionReason { get; set; }
+    public string CreatedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public List<ExitClearanceItem> Items { get; set; } = [];
+}
+
+public sealed class ExitClearanceItem
+{
+    public int Id { get; set; }
+    public int ClearanceId { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>outstanding | returned | damaged | missing</summary>
+    public string Outcome { get; set; } = "outstanding";
+    public string? RecordedBy { get; set; }
+    public DateTime? RecordedAt { get; set; }
+    public string? Notes { get; set; }
+}
+
+// ── Phase 4c: gate pass items and gate actions, verification ──────────────────
+
+/// <summary>`gate_pass_items`: one item of a gate pass and its exit / return (SG-03).</summary>
+public sealed class GatePassItem
+{
+    public int Id { get; set; }
+    public int GatePassId { get; set; }
+    public int AssetId { get; set; }
+    public Asset Asset { get; set; } = null!;
+    public DateTime? ExitedAt { get; set; }
+    public int? ExitGateId { get; set; }
+    public string? ExitOfficer { get; set; }
+    public string? ExitNotes { get; set; }
+    public DateTime? ReturnedAt { get; set; }
+    public int? ReturnGateId { get; set; }
+    public string? ReturnOfficer { get; set; }
+    public string? ReturnCondition { get; set; }
+    public string? ReturnNotes { get; set; }
+}
+
+/// <summary>`gate_actions`: SG-02, what the Gate Officer did about an alert.</summary>
+public sealed class GateAction
+{
+    public int Id { get; set; }
+    public int? InsightId { get; set; }
+    public int AssetId { get; set; }
+    public int? GateLocationId { get; set; }
+    /// <summary>stopped | released_with_override | escalated</summary>
+    public string Action { get; set; } = "";
+    public string? Notes { get; set; }
+    public string Officer { get; set; } = "";
+    public DateTime At { get; set; }
+}
+
+public sealed class VerificationSession
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public int LocationId { get; set; }
+    /// <summary>it | non_it | in_store | all</summary>
+    public string Scope { get; set; } = "all";
+    /// <summary>open | closed | reconciled</summary>
+    public string Status { get; set; } = "open";
+    public string StartedBy { get; set; } = "";
+    public DateTime StartedAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
+}
+
+public sealed class VerificationScan
+{
+    public int Id { get; set; }
+    public int SessionId { get; set; }
+    public string Code { get; set; } = "";
+    public int? AssetId { get; set; }
+    public string ScannedBy { get; set; } = "";
+    public DateTime ScannedAt { get; set; }
+}
+
+public sealed class VerificationResult
+{
+    public int Id { get; set; }
+    public int SessionId { get; set; }
+    public int? AssetId { get; set; }
+    public string? Code { get; set; }
+    /// <summary>found | missing | unrecorded</summary>
+    public string Result { get; set; } = "";
+    /// <summary>adjust | write_off | investigate | register</summary>
+    public string? Resolution { get; set; }
+    public string? Comment { get; set; }
+    public string? ResolvedBy { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+}
+

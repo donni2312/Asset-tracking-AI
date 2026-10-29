@@ -45,12 +45,15 @@ public sealed class MovementService(AssetIqDbContext db, AppClock clock, AssetSt
 
     /// <summary>Record the asset leaving the premises under <paramref name="pass"/> (to-location null = off-premises).</summary>
     public async Task<Movement> RecordGatePassExitAsync(
-        GatePass pass, Asset asset, string gateName, int? rfidReaderId, DateTime timestamp, CancellationToken ct)
+        GatePass pass, Asset asset, string gateName, int? rfidReaderId, DateTime timestamp, CancellationToken ct,
+        int? gateLocationId = null, string? officer = null, string? notes = null)
     {
         var details = new List<string> { $"Left the premises through {gateName} under gate pass #{pass.Id}" };
         if (!string.IsNullOrEmpty(pass.ApprovedBy)) details.Add($"approved by {pass.ApprovedBy}");
         if (!string.IsNullOrEmpty(pass.Destination)) details.Add($"destination: {pass.Destination}");
         if (!string.IsNullOrEmpty(pass.ReturnDate)) details.Add($"due back {pass.ReturnDate}");
+        if (!string.IsNullOrEmpty(officer)) details.Add($"checked by {officer}");
+        if (!string.IsNullOrEmpty(notes)) details.Add(notes);
 
         var movement = new Movement
         {
@@ -65,6 +68,17 @@ public sealed class MovementService(AssetIqDbContext db, AppClock clock, AssetSt
             Timestamp = timestamp,
         };
         db.Movements.Add(movement);
+        // Phase 4c: the item of the pass is out (a pass from before 4c gets its row here).
+        var item = await db.GatePassItems.FirstOrDefaultAsync(i => i.GatePassId == pass.Id && i.AssetId == asset.Id, ct);
+        if (item is null)
+        {
+            item = new GatePassItem { GatePassId = pass.Id, AssetId = asset.Id };
+            db.GatePassItems.Add(item);
+        }
+        item.ExitedAt = timestamp;
+        item.ExitGateId = gateLocationId ?? asset.CurrentLocationId;
+        item.ExitOfficer = officer;
+        item.ExitNotes = notes;
         // Phase 3: out on gate pass (an asset the table does not let leave, e.g. one pending disposal, keeps its status).
         statuses.TrySystemChange(null, asset, new StatusChange(AssetStatuses.OutOnGatePass, $"Left under gate pass #{pass.Id}"));
         await db.SaveChangesAsync(ct);

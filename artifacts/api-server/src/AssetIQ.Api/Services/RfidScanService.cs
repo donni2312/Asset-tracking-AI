@@ -76,7 +76,8 @@ public sealed class RfidScanService(
         if (isGate && direction == GatePassRules.Exit)
         {
             var approved = await db.GatePasses.IgnoreQueryFilters().AsNoTracking()
-                .Where(p => p.AssetId == asset.Id && p.Status == GatePassStatuses.Approved)
+                .Where(p => (p.AssetId == asset.Id || db.GatePassItems.Any(i => i.GatePassId == p.Id && i.AssetId == asset.Id && i.ExitedAt == null))
+                    && p.Status == GatePassStatuses.Approved)
                 .ToListAsync(ct);
             validPass = GatePassRules.FindValidApprovedPass(approved, scannedAt, zone);
             if (validPass is null)
@@ -106,6 +107,9 @@ public sealed class RfidScanService(
             };
             db.GatePasses.Add(gatePass);
             await db.SaveChangesAsync(ct);
+            db.GatePassItems.Add(new GatePassItem { GatePassId = gatePass.Id, AssetId = asset.Id });
+            await db.SaveChangesAsync(ct);
+            await gatePasses.OpenApprovalAsync(gatePass, asset, null, ct); // Phase 4: routed to the line manager (and Finance if high-value)
         }
 
         // 3. Movement + current location.
@@ -113,7 +117,7 @@ public sealed class RfidScanService(
         if (outcome == GatePassRules.Authorized && validPass is not null)
         {
             // Approved exit: the asset leaves the premises under the pass.
-            movement = await movements.RecordGatePassExitAsync(validPass, asset, location.Name, reader.Id, scannedAt, ct);
+            movement = await movements.RecordGatePassExitAsync(validPass, asset, location.Name, reader.Id, scannedAt, ct, location.Id);
         }
         else
         {
@@ -132,6 +136,19 @@ public sealed class RfidScanService(
             // Phase 3: back through the gate after a gate pass: to its holder, or into store.
             if (outcome == GatePassRules.EntryOutcome && asset.Status == AssetStatuses.OutOnGatePass)
                 statuses.TrySystemChange(null, asset, new StatusChange(AssetStatusService.ReturnStatus(asset), $"Returned through {location.Name}"));
+            // Phase 4c: the item of the pass it was out on is back.
+            if (outcome == GatePassRules.EntryOutcome)
+            {
+                var item = await db.GatePassItems.Where(i => i.AssetId == asset.Id && i.ExitedAt != null && i.ReturnedAt == null)
+                    .OrderByDescending(i => i.ExitedAt).FirstOrDefaultAsync(ct);
+                if (item is not null)
+                {
+                    item.ReturnedAt = scannedAt;
+                    item.ReturnGateId = location.Id;
+                    item.ReturnOfficer = $"RFID reader: {reader.Name}";
+                    movement.GatePassId ??= item.GatePassId;
+                }
+            }
             await db.SaveChangesAsync(ct);
             await movements.ApplyLocationIfLatestAsync(asset, movement, location.Id, ct);
         }

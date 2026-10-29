@@ -66,9 +66,23 @@ builder.Services.AddDbContext<AssetIqDbContext>((sp, options) =>
 builder.Services.AddScoped<AssetQueries>();
 builder.Services.AddScoped<AssetAccess>();
 builder.Services.AddScoped<AssetStatusService>();
+// Phase 4: approvals engine, workflows, notifications (email is logged until Microsoft 365 / SMTP is connected).
+builder.Services.AddSingleton<IEmailSender, LoggingEmailSender>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.ApprovalService>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.WorkflowService>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.IApprovalHandler, AssetIQ.Api.Services.Approvals.RepairApprovalHandler>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.IApprovalHandler, AssetIQ.Api.Services.Approvals.DisposalApprovalHandler>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.IApprovalHandler, AssetIQ.Api.Services.Approvals.TransferApprovalHandler>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.IApprovalHandler, AssetIQ.Api.Services.Approvals.GatePassApprovalHandler>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Stores.StoresService>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Stores.ToolboxService>();
+builder.Services.AddScoped<AssetIQ.Api.Services.Approvals.IApprovalHandler, AssetIQ.Api.Services.Stores.EquipmentApprovalHandler>();
 builder.Services.AddScoped<MovementService>();
 builder.Services.AddScoped<InsightService>();
 builder.Services.AddScoped<GatePassService>();
+builder.Services.AddScoped<GateService>();
+builder.Services.AddScoped<VerificationService>();
 builder.Services.AddScoped<RfidScanService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IntentExecutor>();
@@ -88,6 +102,8 @@ builder.Services.AddScoped<AssetCardService>();
 builder.Services.AddScoped<FinanceReportService>();
 // AU-03: retries Business Central number requests; the tests drive the queue themselves.
 if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<BcNumberWorker>();
+// Phase 4: approval reminders and escalation; the tests drive it themselves.
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<AssetIQ.Api.Services.Approvals.ApprovalWorker>();
 builder.Services.AddHttpClient<OpenAiIntentParser>();
 
 builder.Services

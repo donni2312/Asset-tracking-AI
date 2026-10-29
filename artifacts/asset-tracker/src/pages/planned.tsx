@@ -1,7 +1,6 @@
 import { Layout } from "@/components/layout";
 
 const PLANNED: Record<string, { title: string; stories: string }> = {
-  stores: { title: "Stores & Receiving", stories: "ST-01 to ST-05: receive against a PO, capture and tag, stock, issue and returns" },
   fleet: { title: "Fleet & Non-IT", stories: "AM-02 to AM-04: fleet register, document reminders and service schedules" },
 };
 

@@ -16,7 +16,8 @@ namespace AssetIQ.Api.Controllers;
 /// Asset records. Lists show only what the caller may see (the request's <see cref="AccessScope"/> filters every
 /// query); asking for one asset outside that scope is a 403.
 /// </summary>
-public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, AssetRegistrationService registration, AssetAccess access) : ApiControllerBase
+public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, AssetRegistrationService registration, AssetAccess access,
+    AssetIQ.Api.Services.Stores.StoresService stores) : ApiControllerBase
 {
     [HttpGet("assets")]
     [RequireRole(Roles.AssetReaders)]
@@ -71,12 +72,21 @@ public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, A
         var poNo = input.OptionalString("poNo");
         var purchaseDate = input.NullableDay("purchaseDate");
         var warrantyEnds = input.NullableDay("warrantyEnds");
+        var receiptLineId = input.OptionalInt("receiptLineId");
         input.ThrowIfInvalid();
 
+        // ST-02: an item received against a PO takes its PO number and supplier from the delivery.
+        if (receiptLineId is { } lineId)
+        {
+            var (po, from) = await stores.ReceiptLineForRegistrationAsync(lineId, sbuId ?? Caller.SbuId ?? 0, categoryId, Aborted);
+            poNo = po;
+            supplier = from;
+        }
         var id = await registration.RegisterAsync(Caller, new RegisterAssetInput(
             categoryId, subCategory, attributes.Value ?? [], noSerialReason, sbuId, locationId, custodian, condition, notes,
             previousAssetNumber, supplier, poNo, purchaseDate.Value, warrantyEnds.Value), Aborted);
-        return Status201((await assets.GetDetailedAsync(id, Aborted))!);
+        if (receiptLineId is { } registeredLine) await stores.MarkRegisteredAsync(registeredLine, id, (await assets.GetDetailedAsync(id, Aborted))?.Name ?? "", Aborted);
+        return Status201((await db.Assets.IgnoreQueryFilters().AsNoTracking().Where(a => a.Id == id).Select(AssetQueries.ToDto).FirstAsync(Aborted)));
     }
 
     [HttpGet("assets/{id}")]

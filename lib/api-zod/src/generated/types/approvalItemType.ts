@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 
 export type ApprovalItemType = typeof ApprovalItemType[keyof typeof ApprovalItemType];
@@ -12,4 +12,9 @@ export type ApprovalItemType = typeof ApprovalItemType[keyof typeof ApprovalItem
 export const ApprovalItemType = {
   upgrade: 'upgrade',
   no_serial: 'no_serial',
+  repair: 'repair',
+  disposal: 'disposal',
+  transfer: 'transfer',
+  gate_pass: 'gate_pass',
+  equipment: 'equipment',
 } as const;

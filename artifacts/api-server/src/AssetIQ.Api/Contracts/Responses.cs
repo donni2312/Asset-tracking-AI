@@ -224,6 +224,8 @@ public sealed record GatePassDto
     public DateTime? ExitedAt { get; init; }
     public required DateTime CreatedAt { get; init; }
     public required DateTime UpdatedAt { get; init; }
+    /// <summary>Phase 4c: the items of the pass and each one's exit / return (partial returns).</summary>
+    public List<GatePassItemDto> Items { get; init; } = [];
 }
 
 // ── RFID ──────────────────────────────────────────────────────────────────────

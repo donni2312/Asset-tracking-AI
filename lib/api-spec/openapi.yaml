@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.6.0
+  version: 0.8.0
   description: TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
 servers:
   - url: /api
@@ -54,6 +54,12 @@ tags:
     description: Invoices, photos and documents on an asset (AU-01, AU-04, AU-07)
   - name: scan
     description: Tag / number scans at the gate or on the floor (SG-01, SI-03)
+  - name: workflows
+    description: Phase 4 approvals engine - repairs, disposals, transfers, delegation, notifications
+  - name: stores
+    description: Phase 4b - purchase orders, receiving, stock, equipment requests, issue, returns, HR toolbox, departments
+  - name: gate
+    description: Phase 4c - gate officer checks, exits and returns, alerts, overdue returns; verification counts
 
 # Phase 2: every endpoint needs a signed-in user except the health check and sign-in. What each role may do is
 # the Permissions matrix of docs/user-stories.md, enforced by the API (403 otherwise); lists and exports hold
@@ -237,7 +243,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending_asset_number, active, maintenance, retired, missing]
+            enum: [pending_asset_number, in_store, in_use, out_on_gate_pass, repair_requested, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
         - name: locationId
           in: query
           schema:
@@ -1067,7 +1073,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending_asset_number, active, maintenance, retired, missing]
+            enum: [pending_asset_number, in_store, in_use, out_on_gate_pass, repair_requested, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
         - name: locationId
           in: query
           schema:
@@ -2335,6 +2341,911 @@ paths:
               schema:
                 $ref: "#/components/schemas/RFIDReader"
 
+  /assets/{id}/repairs:
+    get:
+      operationId: listAssetRepairs
+      tags: [workflows]
+      summary: The asset's repairs (cost only for Finance)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Repairs, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Repair"
+    post:
+      operationId: requestRepair
+      tags: [workflows]
+      summary: Report a fault and request a repair (SI-05); SBU Finance approves it before the asset goes for repair
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepairInput"
+      responses:
+        "201":
+          description: Requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Repair"
+
+  /repairs/{id}:
+    patch:
+      operationId: updateRepair
+      tags: [workflows]
+      summary: Finance records the cost; IT the work, parts, vendor and downtime
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepairUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Repair"
+
+  /assets/{id}/disposals:
+    get:
+      operationId: listAssetDisposals
+      tags: [workflows]
+      summary: The asset's disposals (money only for Finance)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Disposals, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Disposal"
+    post:
+      operationId: recommendDisposal
+      tags: [workflows]
+      summary: Recommend a disposal (SI-08); SBU Finance completes it, Group IT signs off IT data wipes, Group Finance above the threshold
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisposalInput"
+      responses:
+        "201":
+          description: Recommended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disposal"
+
+  /assets/{id}/transfers:
+    post:
+      operationId: requestTransfer
+      tags: [workflows]
+      summary: Request a transfer to another SBU (SI-10); Group IT (IT) or the receiving Admin Manager (non-IT) approves
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+      responses:
+        "201":
+          description: Requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+
+  /approval-requests/{id}:
+    get:
+      operationId: getApprovalRequest
+      tags: [workflows]
+      summary: A request and its steps
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+
+  /approval-requests/{id}/decision:
+    post:
+      operationId: decideApprovalRequest
+      tags: [workflows]
+      summary: Approve or reject the caller's step (403 none for the caller; 409 already decided)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionInput"
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalRequest"
+
+  /delegations:
+    get:
+      operationId: listDelegations
+      tags: [workflows]
+      summary: My leave and who decides for me, and whom I decide for (LM-03)
+      responses:
+        "200":
+          description: Delegations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Delegation"
+    post:
+      operationId: createDelegation
+      tags: [workflows]
+      summary: Record leave and the delegate who decides my approvals meanwhile (LM-03)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DelegationInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delegation"
+
+  /delegations/candidates:
+    get:
+      operationId: listDelegationCandidates
+      tags: [workflows]
+      summary: Colleagues the caller may name as delegate
+      responses:
+        "200":
+          description: Candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Colleague"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [workflows]
+      summary: My in-app notifications, newest first
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      tags: [workflows]
+      summary: Mark one (id) or all of my notifications read
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationReadInput"
+      responses:
+        "204":
+          description: Marked
+
+  /purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags: [stores]
+      summary: Purchase orders (unit cost only for Finance)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseOrder"
+    post:
+      operationId: createPurchaseOrder
+      tags: [stores]
+      summary: Enter a purchase order (SBU Finance; until Business Central's feed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseOrderInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+
+  /purchase-orders/{id}:
+    get:
+      operationId: getPurchaseOrder
+      tags: [stores]
+      summary: A purchase order with its deliveries
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+
+  /purchase-orders/{id}/receipts:
+    post:
+      operationId: receiveGoods
+      tags: [stores]
+      summary: Record a delivery against the PO (Stores, ST-01); short or damaged deliveries are flagged
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoodsReceiptInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+
+  /stores/stock:
+    get:
+      operationId: listStock
+      tags: [stores]
+      summary: Items in store by category, type and location (ST-03)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StockLine"
+
+  /equipment-requests:
+    get:
+      operationId: listEquipmentRequests
+      tags: [stores]
+      summary: Equipment requests in the caller's scope
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EquipmentRequest"
+    post:
+      operationId: requestEquipment
+      tags: [stores]
+      summary: Request equipment (LM-05; SBU HR onboarding kits, HR-02); approved in the inbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EquipmentRequestInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipmentRequest"
+
+  /equipment-requests/{id}/issue:
+    post:
+      operationId: issueEquipment
+      tags: [stores]
+      summary: Issue an item in store against an approved request (ST-04); the recipient acknowledges it (HR-03)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Acknowledgement"
+
+  /assets/{id}/returns:
+    post:
+      operationId: receiveReturn
+      tags: [stores]
+      summary: Stores takes an item back and records its condition (ST-05; IT items only once recommended for disposal)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnResult"
+
+  /acknowledgements:
+    get:
+      operationId: listAcknowledgements
+      tags: [stores]
+      summary: Items issued to me (or to an employee in my scope) and whether they are acknowledged
+      parameters:
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Acknowledgement"
+
+  /acknowledgements/{id}/accept:
+    post:
+      operationId: acceptAcknowledgement
+      tags: [stores]
+      summary: Acknowledge an item issued to me (HR-03)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Acknowledgement"
+
+  /acknowledgements/accept-link:
+    post:
+      operationId: acceptAcknowledgementLink
+      tags: [stores]
+      summary: Acknowledge by the emailed link (no sign-in)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgementLinkInput"
+      responses:
+        "204":
+          description: OK
+
+  /employees/{id}/toolbox:
+    get:
+      operationId: getToolbox
+      tags: [stores]
+      summary: 'An employee''s toolbox: items held, acknowledgements, past items (HR-01)'
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Toolbox"
+
+  /employees/{id}/exit-clearance:
+    post:
+      operationId: startExitClearance
+      tags: [stores]
+      summary: Start the exit clearance from the toolbox (SBU HR, HR-04)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExitClearanceInput"
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExitClearance"
+
+  /exit-clearances/{id}:
+    get:
+      operationId: getExitClearance
+      tags: [stores]
+      summary: An exit clearance and its items
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExitClearance"
+
+  /exit-clearances/{id}/items/{itemId}:
+    post:
+      operationId: recordExitClearanceItem
+      tags: [stores]
+      summary: Record an item returned, damaged or missing
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExitClearanceItemInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExitClearance"
+
+  /exit-clearances/{id}/complete:
+    post:
+      operationId: completeExitClearance
+      tags: [stores]
+      summary: Complete the clearance (409 while items are outstanding, unless an approved exception is recorded)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExitClearanceCompleteInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExitClearance"
+
+  /departments/{id}/holdings:
+    get:
+      operationId: getDepartmentHoldings
+      tags: [stores]
+      summary: What the department holds, by person (LM-01, LM-02)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentHoldings"
+
+  /departments/{id}/holdings.xlsx:
+    get:
+      operationId: exportDepartmentHoldings
+      tags: [stores]
+      summary: The department's holdings as Excel
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /gate/scan:
+    get:
+      operationId: gateScan
+      tags: [gate]
+      summary: "SG-01: check a gate pass QR (GP-12) or an item tag at the gate"
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: No pass or asset has this code
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateScan"
+
+  /gate-passes/{id}/exit:
+    post:
+      operationId: recordGateExit
+      tags: [gate]
+      summary: "SG-03: record items leaving under an approved pass"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GateExitInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatePass"
+
+  /gate-passes/{id}/return:
+    post:
+      operationId: recordGateReturn
+      tags: [gate]
+      summary: "SG-03 / SI-04: record items coming back (partial returns)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GateReturnBody"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatePass"
+
+  /gate/alerts:
+    get:
+      operationId: listGateAlerts
+      tags: [gate]
+      summary: "SG-02: open alerts at the caller's SBU's gates"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GateAlert"
+
+  /gate/alerts/{insightId}/actions:
+    post:
+      operationId: recordGateAction
+      tags: [gate]
+      summary: "SG-02: record what the Gate Officer did about an alert"
+      parameters:
+        - name: insightId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GateActionInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateAction"
+
+  /gate/overdue:
+    get:
+      operationId: listOverdueReturns
+      tags: [gate]
+      summary: "GI-06: items not back by their return date"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GateOverdue"
+
+  /verification-sessions:
+    get:
+      operationId: listVerificationSessions
+      tags: [gate]
+      summary: "SI-07: verification counts in the caller's scope"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationSession"
+    post:
+      operationId: startVerificationSession
+      tags: [gate]
+      summary: "SI-07: start a count of a location"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationStartInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
+  /verification-sessions/{id}:
+    get:
+      operationId: getVerificationSession
+      tags: [gate]
+      summary: "A count with its scans and results"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
+  /verification-sessions/{id}/scans:
+    post:
+      operationId: addVerificationScans
+      tags: [gate]
+      summary: "Record scanned codes in an open count"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationScanInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
+  /verification-sessions/{id}/close:
+    post:
+      operationId: closeVerificationSession
+      tags: [gate]
+      summary: "Close a count: found, missing and unrecorded items"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
+  /verification-sessions/{id}/results/{resultId}/resolve:
+    post:
+      operationId: resolveVerificationResult
+      tags: [gate]
+      summary: "SF-06: SBU Finance resolves a difference with a comment"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationResolveInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
 components:
   parameters:
     IdPath:
@@ -2668,7 +3579,7 @@ components:
           type: string
         status:
           type: string
-          enum: [in_store, in_use, out_on_gate_pass, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
+          enum: [in_store, in_use, out_on_gate_pass, repair_requested, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
           description: Through the state machine (409 when not allowed); lost_stolen needs POST /assets/{id}/status (GI-07)
         condition:
           $ref: "#/components/schemas/AssetCondition"
@@ -2986,6 +3897,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        items:
+          type: array
+          description: Phase 4c - the items of the pass and each one's exit / return
+          items:
+            $ref: "#/components/schemas/GatePassItem"
 
     GatePassInput:
       type: object
@@ -3004,6 +3920,11 @@ components:
         returnDate:
           type: string
           format: date
+        itemAssetIds:
+          type: array
+          description: Phase 4c - further items leaving under the same pass (same SBU)
+          items:
+            type: integer
 
     GatePassDecision:
       type: object
@@ -3309,7 +4230,7 @@ components:
     # ── Priority 1 schemas (AU-01 … AU-12) ────────────────────────────────────
     AssetStatus:
       type: string
-      enum: [pending_asset_number, in_store, in_use, out_on_gate_pass, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
+      enum: [pending_asset_number, in_store, in_use, out_on_gate_pass, repair_requested, in_repair, transfer_pending, pending_disposal, lost_stolen, disposed]
       description: >-
         Phase 3 state machine (docs/implementation-plan.md §11.1); a change not in the table is refused with 409.
         pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.
@@ -4085,15 +5006,15 @@ components:
 
     ApprovalItem:
       type: object
-      required: [id, type, assetId, assetDescription, summary, raisedAt, raisedBy]
+      required: [id, type, assetDescription, summary, raisedAt, raisedBy]
       properties:
         id:
           type: string
         type:
           type: string
-          enum: [upgrade, no_serial]
+          enum: [upgrade, no_serial, repair, disposal, transfer, gate_pass, equipment]
         assetId:
-          type: integer
+          type: ["integer", "null"]
         assetNumber:
           type: ["string", "null"]
         assetDescription:
@@ -4109,6 +5030,21 @@ components:
           type: string
         upgradeId:
           type: ["integer", "null"]
+        requestId:
+          type: ["integer", "null"]
+          description: Phase 4 requests - decide with POST /approval-requests/{id}/decision
+        stepLabel:
+          type: ["string", "null"]
+        needs:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: What the approver must add at this step (disposal method, proceeds, data-wipe note)
+        onBehalfOf:
+          type: ["string", "null"]
+          description: Decided for a colleague on leave (LM-03)
+        escalated:
+          type: boolean
 
     DepreciationRunInput:
       type: object
@@ -4498,6 +5434,10 @@ components:
         needsIncidentDetails:
           type: boolean
           description: lost_stolen needs lostDate, reporter and notes (GI-07)
+        workflow:
+          type: ["string", "null"]
+          enum: [repair, disposal, transfer, null]
+          description: The change is a request (POST /assets/{id}/repairs, /disposals, /transfers) decided in the approvals inbox
 
     StatusChangeInput:
       type: object
@@ -4538,3 +5478,1088 @@ components:
         status:
           type: string
           enum: [active, inactive]
+
+    Repair:
+      type: object
+      required: [id, assetId, fault, status, requestedBy, createdAt]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        fault:
+          type: string
+        action:
+          type: ["string", "null"]
+        parts:
+          type: ["string", "null"]
+        vendor:
+          type: ["string", "null"]
+        downtimeDays:
+          type: ["integer", "null"]
+        cost:
+          type: ["number", "null"]
+          description: USD, recorded by Finance; null for everyone else
+        status:
+          type: string
+          enum: [requested, approved, rejected, completed]
+        requestedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    RepairInput:
+      type: object
+      required: [fault]
+      properties:
+        fault:
+          type: string
+        action:
+          type: string
+        parts:
+          type: string
+        vendor:
+          type: string
+
+    RepairUpdate:
+      type: object
+      properties:
+        cost:
+          type: ["number", "null"]
+        action:
+          type: string
+        parts:
+          type: string
+        vendor:
+          type: string
+        downtimeDays:
+          type: integer
+
+    Disposal:
+      type: object
+      required: [id, assetId, reason, recommendedBy, status, createdAt]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        reason:
+          type: string
+        condition:
+          type: ["string", "null"]
+        recommendedBy:
+          type: string
+        method:
+          type: ["string", "null"]
+          enum: [sale, scrap, donation, write_off, null]
+        disposalDate:
+          type: ["string", "null"]
+          format: date
+        proceeds:
+          type: ["number", "null"]
+        buyer:
+          type: ["string", "null"]
+        nbvAtDisposal:
+          type: ["number", "null"]
+        gainLoss:
+          type: ["number", "null"]
+          description: proceeds - NBV at disposal
+        dataWipeNote:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, completed, rejected]
+        createdAt:
+          type: string
+          format: date-time
+
+    DisposalInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+        condition:
+          type: string
+
+    TransferInput:
+      type: object
+      required: [toSbuId, reason]
+      properties:
+        toSbuId:
+          type: integer
+        reason:
+          type: string
+
+    ApprovalStep:
+      type: object
+      required: [id, stepNo, role, label, status]
+      properties:
+        id:
+          type: integer
+        stepNo:
+          type: integer
+        role:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [waiting, pending, approved, rejected]
+        decidedBy:
+          type: ["string", "null"]
+        onBehalfOf:
+          type: ["string", "null"]
+        decidedAt:
+          type: ["string", "null"]
+          format: date-time
+        comment:
+          type: ["string", "null"]
+        escalatedToRole:
+          type: ["string", "null"]
+        remindedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    ApprovalRequest:
+      type: object
+      required: [id, kind, assetDescription, status, summary, requestedBy, createdAt, steps]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [repair, disposal, transfer, gate_pass, equipment]
+        assetId:
+          type: ["integer", "null"]
+        assetNumber:
+          type: ["string", "null"]
+        assetDescription:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        summary:
+          type: string
+        requestedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: ["string", "null"]
+          format: date-time
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApprovalStep"
+
+    ApprovalDecisionInput:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        comment:
+          type: string
+          description: Required when rejecting
+        cost:
+          type: number
+          description: Repair - the estimated cost (Finance)
+        method:
+          type: string
+          enum: [sale, scrap, donation, write_off]
+        disposalDate:
+          type: string
+          format: date
+        proceeds:
+          type: number
+        buyer:
+          type: string
+        dataWipeNote:
+          type: string
+          description: IT disposals, Group IT's step (GI-10)
+
+    Delegation:
+      type: object
+      required: [id, userId, userName, startsAt, endsAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        delegateUserId:
+          type: ["integer", "null"]
+        delegateName:
+          type: ["string", "null"]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        reason:
+          type: ["string", "null"]
+
+    DelegationInput:
+      type: object
+      required: [endsAt]
+      properties:
+        delegateUserId:
+          type: integer
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+
+    Notification:
+      type: object
+      required: [id, kind, title, body, createdAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        link:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: ["string", "null"]
+          format: date-time
+
+    NotificationReadInput:
+      type: object
+      description: The notification to mark read; leave out id to mark all
+      properties:
+        id:
+          type: integer
+
+    Colleague:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+
+    PurchaseOrderLine:
+      type: object
+      required: [id, categoryId, categoryName, description, quantity, receivedQuantity]
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        receivedQuantity:
+          type: integer
+        unitCost:
+          type: ["number", "null"]
+
+    GoodsReceiptLine:
+      type: object
+      required: [id, purchaseOrderLineId, description, quantityReceived, quantityDamaged, serials, registered]
+      properties:
+        id:
+          type: integer
+        purchaseOrderLineId:
+          type: integer
+        description:
+          type: string
+        quantityReceived:
+          type: integer
+        quantityDamaged:
+          type: integer
+        serials:
+          type: array
+          items:
+            type: string
+        condition:
+          type: ["string", "null"]
+        registered:
+          type: integer
+
+    GoodsReceipt:
+      type: object
+      required: [id, receivedAt, receivedBy, flagged, lines]
+      properties:
+        id:
+          type: integer
+        receivedAt:
+          type: string
+          format: date-time
+        receivedBy:
+          type: string
+        flagged:
+          type: boolean
+        flagReason:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoodsReceiptLine"
+
+    PurchaseOrder:
+      type: object
+      required: [id, sbuId, sbuCode, poNo, supplier, status, createdBy, createdAt, lines, receipts]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        sbuCode:
+          type: string
+        poNo:
+          type: string
+        supplier:
+          type: string
+        status:
+          type: string
+          enum: [open, partly_received, received, closed]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseOrderLine"
+        receipts:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoodsReceipt"
+
+    PurchaseOrderLineInput:
+      type: object
+      required: [categoryId, description, quantity]
+      properties:
+        categoryId:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: integer
+        unitCost:
+          type: number
+
+    PurchaseOrderInput:
+      type: object
+      required: [poNo, supplier, lines]
+      properties:
+        sbuId:
+          type: integer
+        poNo:
+          type: string
+        supplier:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseOrderLineInput"
+
+    GoodsReceiptLineInput:
+      type: object
+      required: [purchaseOrderLineId, quantityReceived]
+      properties:
+        purchaseOrderLineId:
+          type: integer
+        quantityReceived:
+          type: integer
+        quantityDamaged:
+          type: integer
+        serials:
+          type: array
+          items:
+            type: string
+        condition:
+          type: string
+
+    GoodsReceiptInput:
+      type: object
+      required: [lines]
+      properties:
+        notes:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoodsReceiptLineInput"
+
+    StockLine:
+      type: object
+      required: [sbuCode, category, count, untagged]
+      properties:
+        sbuCode:
+          type: string
+        category:
+          type: string
+        subCategory:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        count:
+          type: integer
+        untagged:
+          type: integer
+
+    EquipmentRequest:
+      type: object
+      required: [id, sbuId, categoryId, categoryName, itemType, quantity, issuedQuantity, reason, urgency, status, source, requestedBy, createdAt]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        employeeId:
+          type: ["integer", "null"]
+        employeeName:
+          type: ["string", "null"]
+        departmentId:
+          type: ["integer", "null"]
+        departmentName:
+          type: ["string", "null"]
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        itemType:
+          type: string
+        quantity:
+          type: integer
+        issuedQuantity:
+          type: integer
+        reason:
+          type: string
+        urgency:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, fulfilled]
+        source:
+          type: string
+        requestedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    EquipmentRequestInput:
+      type: object
+      required: [categoryId, itemType, reason]
+      properties:
+        employeeId:
+          type: integer
+        departmentId:
+          type: integer
+        categoryId:
+          type: integer
+        itemType:
+          type: string
+        quantity:
+          type: integer
+        reason:
+          type: string
+        urgency:
+          type: string
+          enum: [low, normal, high]
+
+    IssueInput:
+      type: object
+      required: [assetId]
+      properties:
+        assetId:
+          type: integer
+        employeeId:
+          type: integer
+
+    ReturnInput:
+      type: object
+      required: [condition]
+      properties:
+        condition:
+          type: string
+          enum: [good, repair, scrap]
+        notes:
+          type: string
+
+    ReturnResult:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        assignedTo:
+          type: ["string", "null"]
+        condition:
+          type: ["string", "null"]
+
+    Acknowledgement:
+      type: object
+      required: [id, assetId, assetDescription, employeeId, issuedBy, issuedAt]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        assetDescription:
+          type: string
+        employeeId:
+          type: integer
+        issuedBy:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: ["string", "null"]
+          format: date-time
+        method:
+          type: ["string", "null"]
+
+    AcknowledgementLinkInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    ToolboxItem:
+      type: object
+      required: [assetId, description, category, status]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        tag:
+          type: ["string", "null"]
+        category:
+          type: string
+        condition:
+          type: ["string", "null"]
+        status:
+          type: string
+        issuedAt:
+          type: ["string", "null"]
+          format: date-time
+        acknowledgementId:
+          type: ["integer", "null"]
+        acknowledgedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    ToolboxHistory:
+      type: object
+      required: [assetId, description, returnedAt]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        returnedAt:
+          type: string
+          format: date-time
+
+    Toolbox:
+      type: object
+      required: [employeeId, employeeNo, name, active, items, history]
+      properties:
+        employeeId:
+          type: integer
+        employeeNo:
+          type: string
+        name:
+          type: string
+        jobRole:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolboxItem"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolboxHistory"
+        openExitClearanceId:
+          type: ["integer", "null"]
+
+    ExitClearanceItem:
+      type: object
+      required: [id, assetId, description, isIt, outcome]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        isIt:
+          type: boolean
+        outcome:
+          type: string
+          enum: [outstanding, returned, damaged, missing]
+        recordedBy:
+          type: ["string", "null"]
+        recordedAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+
+    ExitClearance:
+      type: object
+      required: [id, employeeId, employeeName, reason, status, createdAt, items]
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [open, completed]
+        exceptionApprovedBy:
+          type: ["string", "null"]
+        exceptionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExitClearanceItem"
+
+    ExitClearanceInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [resignation, termination, retirement, transfer]
+
+    ExitClearanceItemInput:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [returned, damaged, missing]
+        notes:
+          type: string
+
+    ExitClearanceCompleteInput:
+      type: object
+      properties:
+        exceptionApprovedBy:
+          type: string
+        exceptionReason:
+          type: string
+
+    HoldingItem:
+      type: object
+      required: [assetId, description, category, isIt, status]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        category:
+          type: string
+        isIt:
+          type: boolean
+        holder:
+          type: ["string", "null"]
+        employeeId:
+          type: ["integer", "null"]
+        status:
+          type: string
+        location:
+          type: ["string", "null"]
+        condition:
+          type: ["string", "null"]
+
+    EmployeeHolding:
+      type: object
+      required: [employeeId, name, items]
+      properties:
+        employeeId:
+          type: integer
+        name:
+          type: string
+        jobRole:
+          type: ["string", "null"]
+        items:
+          type: integer
+
+    DepartmentHoldings:
+      type: object
+      required: [departmentId, departmentName, items, employees]
+      properties:
+        departmentId:
+          type: integer
+        departmentName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HoldingItem"
+        employees:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeHolding"
+
+    # ── Phase 4c: gate officer, verification ──────────────────────────────────
+    GatePassItem:
+      type: object
+      required: [assetId, assetName]
+      properties:
+        assetId:
+          type: integer
+        assetName:
+          type: string
+        rfidTag:
+          type: ["string", "null"]
+        assetNumber:
+          type: ["string", "null"]
+        exitedAt:
+          type: ["string", "null"]
+          format: date-time
+        exitOfficer:
+          type: ["string", "null"]
+        returnedAt:
+          type: ["string", "null"]
+          format: date-time
+        returnOfficer:
+          type: ["string", "null"]
+        returnCondition:
+          type: ["string", "null"]
+        returnNotes:
+          type: ["string", "null"]
+
+    GateScan:
+      type: object
+      required: [verdict, message]
+      properties:
+        verdict:
+          type: string
+          enum: [clear, return, stop]
+          description: clear = may leave (green); return = expected back; stop = must not leave (red)
+        message:
+          type: string
+        assetId:
+          type: ["integer", "null"]
+        gatePass:
+          oneOf:
+            - $ref: "#/components/schemas/GatePass"
+            - type: "null"
+
+    GateExitInput:
+      type: object
+      required: [gateLocationId]
+      properties:
+        gateLocationId:
+          type: integer
+        assetIds:
+          type: array
+          description: Default - every item that has not left
+          items:
+            type: integer
+        notes:
+          type: string
+
+    GateReturnItemInput:
+      type: object
+      required: [assetId]
+      properties:
+        assetId:
+          type: integer
+        condition:
+          type: string
+          enum: [new, good, fair, poor, damaged]
+        notes:
+          type: string
+
+    GateReturnBody:
+      type: object
+      required: [gateLocationId]
+      properties:
+        gateLocationId:
+          type: integer
+        items:
+          type: array
+          description: Default - every item that is out
+          items:
+            $ref: "#/components/schemas/GateReturnItemInput"
+
+    GateAction:
+      type: object
+      required: [id, assetId, action, officer, at]
+      properties:
+        id:
+          type: integer
+        insightId:
+          type: ["integer", "null"]
+        assetId:
+          type: integer
+        gateLocationId:
+          type: ["integer", "null"]
+        action:
+          type: string
+          enum: [stopped, released_with_override, escalated]
+        notes:
+          type: ["string", "null"]
+        officer:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    GateActionInput:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [stopped, released_with_override, escalated]
+        notes:
+          type: string
+          description: Required unless stopped
+        gateLocationId:
+          type: integer
+
+    GateAlert:
+      type: object
+      required: [insightId, assetId, assetName, type, severity, message, createdAt, actions]
+      properties:
+        insightId:
+          type: integer
+        assetId:
+          type: integer
+        assetName:
+          type: string
+        rfidTag:
+          type: ["string", "null"]
+        assetNumber:
+          type: ["string", "null"]
+        type:
+          type: string
+        severity:
+          type: string
+        message:
+          type: string
+        gatePassId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/GateAction"
+
+    GateOverdue:
+      type: object
+      required: [gatePassId, assetId, assetName, requestedBy, returnDate, exitedAt]
+      properties:
+        gatePassId:
+          type: integer
+        assetId:
+          type: integer
+        assetName:
+          type: string
+        rfidTag:
+          type: ["string", "null"]
+        assetNumber:
+          type: ["string", "null"]
+        sbuId:
+          type: ["integer", "null"]
+        requestedBy:
+          type: string
+        destination:
+          type: ["string", "null"]
+        returnDate:
+          type: string
+          format: date
+        exitedAt:
+          type: string
+          format: date-time
+
+    VerificationStartInput:
+      type: object
+      required: [locationId]
+      properties:
+        locationId:
+          type: integer
+        scope:
+          type: string
+          enum: [it, non_it, all]
+
+    VerificationScanInput:
+      type: object
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          items:
+            type: string
+
+    VerificationResolveInput:
+      type: object
+      required: [resolution, comment]
+      properties:
+        resolution:
+          type: string
+          enum: [adjust, write_off, investigate, register]
+        comment:
+          type: string
+          minLength: 3
+
+    VerificationScan:
+      type: object
+      required: [code, scannedBy, scannedAt]
+      properties:
+        code:
+          type: string
+        assetId:
+          type: ["integer", "null"]
+        assetName:
+          type: ["string", "null"]
+        scannedBy:
+          type: string
+        scannedAt:
+          type: string
+          format: date-time
+
+    VerificationResult:
+      type: object
+      required: [id, result]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: ["integer", "null"]
+        assetName:
+          type: ["string", "null"]
+        assetNumber:
+          type: ["string", "null"]
+        rfidTag:
+          type: ["string", "null"]
+        code:
+          type: ["string", "null"]
+        result:
+          type: string
+          enum: [found, missing, unrecorded]
+        recordedLocationName:
+          type: ["string", "null"]
+        resolution:
+          type: ["string", "null"]
+          enum: [adjust, write_off, investigate, register, null]
+        comment:
+          type: ["string", "null"]
+        resolvedBy:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    VerificationSession:
+      type: object
+      required: [id, sbuId, sbuCode, locationId, locationName, scope, status, startedBy, startedAt, expectedCount, scanCount, foundCount, missingCount, unrecordedCount, unresolvedCount, canScan, canResolve, results, scans]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        sbuCode:
+          type: string
+        locationId:
+          type: integer
+        locationName:
+          type: string
+        scope:
+          type: string
+          enum: [it, non_it, all]
+        status:
+          type: string
+          enum: [open, closed, reconciled]
+        startedBy:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        expectedCount:
+          type: integer
+        scanCount:
+          type: integer
+        foundCount:
+          type: integer
+        missingCount:
+          type: integer
+        unrecordedCount:
+          type: integer
+        unresolvedCount:
+          type: integer
+        canScan:
+          type: boolean
+        canResolve:
+          type: boolean
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationResult"
+        scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationScan"

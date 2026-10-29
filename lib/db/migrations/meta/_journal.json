@@ -50,6 +50,34 @@
       "when": 1793271413358,
       "tag": "0006_map_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793274972671,
+      "tag": "0007_approvals_engine",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793277177295,
+      "tag": "0008_stores_and_toolbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793277323892,
+      "tag": "0009_equipment_requests_without_asset",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793278728069,
+      "tag": "0010_gate_and_verification",
+      "breakpoints": true
     }
   ]
 }

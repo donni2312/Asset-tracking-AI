@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreateDepartment, useCreateEmployee, useListDepartments, useListEmployees } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
@@ -50,7 +51,7 @@ export function People() {
             <TableBody>
               {(employees ?? []).map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell>{e.name} <span className="font-mono text-xs text-muted-foreground">{e.employeeNo}</span></TableCell>
+                  <TableCell><Link href={`/people/${e.id}`} className="text-primary hover:underline">{e.name}</Link> <span className="font-mono text-xs text-muted-foreground">{e.employeeNo}</span></TableCell>
                   <TableCell><SbuBadge code={e.sbuCode} /></TableCell>
                   <TableCell>{e.departmentName ?? "—"}</TableCell>
                   <TableCell>{e.jobRole ?? "—"}</TableCell>
@@ -128,10 +129,10 @@ export function Departments() {
         )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(data ?? []).map((d) => (
-            <div key={d.id} className="rounded-md border bg-card p-4">
+            <Link key={d.id} href={`/departments/${d.id}`} className="rounded-md border bg-card p-4 hover:border-primary">
               <div className="flex items-center justify-between gap-2"><span className="font-semibold">{d.name}</span><SbuBadge code={d.sbuCode} /></div>
-              <div className="mt-1 text-sm text-muted-foreground">{d.employeeCount} active employee{d.employeeCount === 1 ? "" : "s"}</div>
-            </div>
+              <div className="mt-1 text-sm text-muted-foreground">{d.employeeCount} active employee{d.employeeCount === 1 ? "" : "s"} · see holdings</div>
+            </Link>
           ))}
         </div>
       </div>

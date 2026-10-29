@@ -12,3 +12,6 @@ export * from "./asset_finance";
 export * from "./audit";
 export * from "./people";
 export * from "./attachments";
+export * from "./workflows";
+export * from "./stores";
+export * from "./gate_and_verification";

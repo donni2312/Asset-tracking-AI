@@ -1,3 +1,4 @@
+using AssetIQ.Api.Services.Approvals;
 using System.Text.Json;
 using AssetIQ.Api.Auth;
 using AssetIQ.Api.Contracts;
@@ -84,10 +85,18 @@ public sealed class FinanceController(
                 r.Gaps.Select(g => new CompletenessGapDto(g.Field, g.Message, g.Owner)).ToList())).ToList());
     }
 
+    /// <summary>
+    /// Phase 4: one inbox. SBU Finance's upgrade and "No serial" decisions, plus every open approval step the caller
+    /// may decide (repairs, disposals, transfers, gate passes), including a colleague's while they are on leave.
+    /// </summary>
     [HttpGet("approvals")]
-    [RequireRole(Roles.FinanceReaders)]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to load approvals")]
-    public Task<List<ApprovalItemDto>> Approvals() => reports.ApprovalsAsync(Caller, Aborted);
+    public async Task<List<ApprovalItemDto>> Approvals([FromServices] ApprovalService approvals, [FromServices] GatePassService gatePasses)
+    {
+        await gatePasses.EnsureApprovalRequestsAsync(Aborted);
+        return (await reports.ApprovalsAsync(Caller, Aborted)).Concat(await approvals.InboxAsync(Caller, Aborted)).OrderBy(x => x.RaisedAt).ToList();
+    }
 
     /// <summary>SF-03 / GF-03: the monthly run (SBU Finance for its SBU, Group Finance for any SBU or the Group).</summary>
     [HttpPost("depreciation/run")]

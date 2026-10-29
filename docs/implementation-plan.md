@@ -583,3 +583,115 @@ stolen with placeholder incident details).
 2. **Confirmed (C2):** disposals stay decided by SBU Finance / Group Finance directly until Phase 4 adds the Group
    sign-offs (GF-04 above threshold, GI-10 data wipe), as planned.
 
+---
+
+## 12. Phase 4 — workflows
+
+Decided with the product owner (29 Oct 2026): a 10th status **Repair requested** while Finance decides an IT repair;
+notifications **in-app now, email later** (every email is written to `outbound_emails` with status "logged"; replacing
+`IEmailSender` connects Microsoft 365 / SMTP); POs **entered in AssetIQ** (slice 4b); delivered in **four slices**, each
+tested and reported, carrying straight on: 4a approvals + repairs + disposals + transfers; 4b Stores, HR toolbox,
+departments; 4c gate officer, verification; 4d fleet, bulk import, remaining Must stories.
+
+### 12.1 Slice 4a: approvals engine, repairs, disposals, transfers, gate pass routing
+
+**Engine** (`Services/Approvals/ApprovalService.cs`): one request per thing to decide, with steps routed by role, SBU,
+department and threshold. Steps with the same number are open together (any order); later steps open when the earlier
+ones are approved; any rejection rejects the request (a comment is required). Every decision and comment, every
+reminder and escalation goes to the audit trail. **One inbox** (`GET /approvals`): Finance's upgrade / "No serial"
+items plus every step the caller may decide, including a colleague's while they are on leave.
+
+| Request | Steps | On approval | On rejection |
+|---|---|---|---|
+| Repair (SI-05) | SBU Finance (may record the estimate) | Repair requested → In repair; "repair returned" completes it | Back to In use / In store |
+| Disposal (SI-08, SF-04) | 1 SBU Finance: method, date, proceeds, buyer → gain / loss = proceeds − NBV; 2 Group IT data-wipe note (IT, GI-10) and Group Finance when NBV > `disposal_group_finance_threshold_usd` (GF-04) | Disposed, disposal date set, SBU Finance notified | Back to the SBU (previous status) |
+| Transfer (GI-05, SI-10, AM-08) | Group IT (IT) / receiving SBU's Admin Manager (non-IT) | Moves to the receiving SBU's register, In store with "{SBU} IT store", both SBU Finance teams notified | Back to In use / In store |
+| Gate pass (SI-04, SF-05) | Line manager (HOD of the asset's department; SBU Admin Manager when no HOD is available; Group IT / SBU IT for IT assets) + SBU Finance when high-value | The pass is approved (gate exit as before) | The pass is rejected (flag as before) |
+
+**Delegation (LM-03)**: an approver records leave (`POST /delegations`) and optionally a delegate of the same SBU; the
+delegate's inbox shows the steps "for … (on leave)", the decision records `onBehalfOf`. A HOD on leave counts as
+unavailable, so the SBU Admin Manager may also decide.
+
+**Reminders and escalation** (`ApprovalWorker`, every 5 minutes): a step open longer than `approval_reminder_hours`
+(24) gets a reminder; longer than `approval_escalation_hours` (48) it escalates: line manager → SBU Admin Manager,
+SBU IT → Group IT, SBU Finance → Group Finance, others → System Administrator. The escalated role may then decide.
+
+**Money stays with Finance**: repair costs and disposal proceeds / NBV / gain-loss are removed for every other role.
+
+Statuses owned by a workflow (Repair requested, Transfer pending, Pending disposal, Disposed) change only through it;
+the status endpoint and *Change status* send the request instead. The table (§11.1) gains *Repair requested* (from In
+store / In use; to In repair, In store, In use) and *Pending disposal → Lost / stolen* (a rejected write-off); an IT
+asset reaches In repair only from Repair requested.
+
+| Story | Status | Tests (`WorkflowTests`, unless noted) |
+|---|---|---|
+| Approvals engine, one inbox, audit | Done | all below; `LM_03_…` checks the audit entry |
+| SI-05 repair, Finance approval and cost | Done | `SI_05_an_it_repair_waits_for_finance_…`, `SI_05_a_rejected_repair_…`, `AssetStatusMachineTests.SI_05_…` |
+| SI-08 / SF-04 / GF-04 disposal | Done | `SF_04_and_GF_04_…`, `GF_04_a_rejected_disposal_…`, `AssetLifecycleTests.SI_08_…` |
+| GI-10 data wipe | Done | `GI_10_an_it_disposal_cannot_complete_without_…` |
+| GI-05 / SI-10 transfer | Done (AM-08 non-IT: receiving Admin Manager) | `GI_05_an_approved_transfer_moves_…` |
+| SF-05 / SI-04 gate pass routing | Done | `PermissionTests.Phase2_gate_passes_go_to_the_hod_…` |
+| LM-03 delegation | Done | `LM_03_an_approver_on_leave_delegates_…` |
+| Reminders, escalation, notifications, email outbox | Done | `Phase4_an_unanswered_step_gets_a_reminder_then_escalates_…` |
+| Equipment requests in the inbox | Slice 4b (with Stores issue, ST-04 / LM-05) | |
+
+Assumptions: **D1** a delegate is an active user of the same SBU (any SBU for Group roles); **D2** a rejection needs a
+comment; **D3** non-IT repairs (e.g. vehicle servicing) still go straight to In repair; Finance approval applies to IT
+assets (product owner); **D4** the estimate entered at approval and the final cost (PATCH /repairs/{id}) are
+Finance's only; **D5** a transfer's asset keeps its location until the receiving SBU moves it.
+
+Demo (after `pnpm db:migrate` and `pnpm seed --reset`): **tsas.it** → laptop card → *Change status* → *Request a
+repair*; **tsas.finance** → Approvals → Approve with an estimate; the card shows In repair. **tsas.it** recommends
+another laptop for disposal; **tsas.finance** approves as *scrap*; **group.it** signs off with a data-wipe note →
+Disposed. **tsas.hod** → Approvals → *On leave* with a delegate; the delegate sees the gate passes "for … (on leave)".
+
+### 12.2 Slice 4b: Stores, equipment requests, HR toolbox, departments
+
+| Story | Built | Tests (`StoresAndToolboxTests`) |
+|---|---|---|
+| ST-01 receive against a PO | POs entered by SBU Finance (`POST /purchase-orders`; unit cost Finance-only); Stores counts deliveries (`POST /purchase-orders/{id}/receipts`: quantity, damaged, serials, condition); over-receipt refused; short or damaged deliveries flagged and SBU Finance notified | `ST_01_…` |
+| ST-02 capture and tag | Registration takes `receiptLineId`: PO number and supplier come from the delivery; only the good items of a line can be registered; tagging as before (after the BC number) | `ST_02_and_ST_03_…` |
+| ST-03 stock | `GET /stores/stock` by SBU, category, type, location (in store, untagged count); SBU Finance told to capitalise each registered item | `ST_02_and_ST_03_…` |
+| LM-05 / HR-02 requests | `POST /equipment-requests` (Group IT, SBU IT, HOD; SBU HR = onboarding); line manager (skipped when the HOD asks for their own department), then SBU Finance, in the one inbox; Stores and SBU IT notified when approved | `LM_05_ST_04_HR_03_…` |
+| ST-04 issue | Only against an approved request, only an item in store, tagged and numbered; Stores' direct "deployment" is refused | `LM_05_ST_04_HR_03_…` |
+| HR-03 acknowledgement | Every issue to an employee (Stores issue or IT assignment, SI-02) asks the employee to acknowledge: in the app (*My items*) or through the emailed link (`/acknowledge/{token}`, no sign-in); the toolbox shows what is still unacknowledged | `LM_05_…`, `HR_03_an_employee_without_an_account_…` |
+| ST-05 returns | Stores takes back non-IT items (good → stock; repair → Admin Manager notified; scrap → disposal recommended) and IT items only once recommended for disposal; other IT returns go to SBU IT | `ST_05_…` |
+| HR-01 toolbox | `GET /employees/{id}/toolbox`: items held (tag, issue date, condition, acknowledged), past items | `HR_04_…` |
+| HR-04 exit clearance | Built from the toolbox; returned / damaged items go back to the SBU's Stores (IT items to SBU IT); missing → lost / stolen and SBU Finance notified (HR-05); cannot complete while items are outstanding unless SBU HR records an approved exception (approver and reason); the employee is then marked as left | `HR_04_exit_clearance_cannot_complete_…`, `HR_04_an_approved_exception_…` |
+| LM-01 / LM-02 departments | `GET /departments/{id}/holdings` (IT and non-IT, by person), Excel export | `LM_01_and_LM_02_…` |
+
+Assumptions: **E1** no Procurement role: SBU Finance (who enters the PO) receives the short / damaged flag; **E2** the
+toolbox shows no value (money stays with Finance; HR-05's NBV view is Phase 5 with the Finance owner); **E3** the HR-03
+rule "may not start working before acknowledging" is shown (toolbox, *My items*) and the employee is notified; nothing
+blocks work in the system; **E4** with an approved exception the employee is still marked as left, the outstanding
+items stay recorded against them.
+
+Demo: **tsas.stores** → Stores & Receiving → PO-TSAS-2026-0300 (flagged delivery) → record the rest; register a laptop
+with the receipt line (Asset Register → Register). **tsas.hod** → Equipment requests → request a laptop for John Doe;
+**tsas.finance** approves in Approvals; **tsas.stores** issues an item in store; **john.doe** → My items → acknowledge.
+**tsas.hr** → People → John Doe → Start exit clearance; record items; complete.
+
+### 12.3 Slice 4c: gate officer, verification and reconciliation
+
+| Story | Built | Tests (`GateAndVerificationTests`) |
+|---|---|---|
+| SG-01 gate check | `GET /gate/scan?code=` takes the pass QR (`GP-12`) or an item's tag / number / serial: **green** (approved, valid, items still to leave), **amber** (items expected back), **red** (pending, rejected, expired, used, or no pass); another SBU's pass is refused | `SG_01_…` |
+| SG-03 / SI-04 exits and returns | Multi-item passes (`itemAssetIds`, same SBU); `POST /gate-passes/{id}/exit` and `/return` per item (all by default), with the gate, the officer, condition and notes; partial returns; a returned item goes back to its holder or into store; the RFID reader marks items out and back too | `SG_03_…` |
+| SG-02 alerts | `GET /gate/alerts`; `POST /gate/alerts/{id}/actions`: *stopped*, *released with override*, *escalated* (a reason is required for the last two); each goes in the item's history; override and escalation notify the SBU Admin Manager (and SBU IT for IT items); an override closes the alert | `SG_02_…` |
+| GI-06 overdue returns | `GET /gate/overdue`; the worker flags each item once (warning alert) and tells the SBU Admin Manager and the gate; the flag closes when the item is back | `GI_06_…` |
+| SI-07 counts | `POST /verification-sessions` per location: SBU IT / Group IT count IT items, Stores / Admin Manager non-IT, Finance either; scans (duplicates once, unknown codes kept); closing gives found / missing / unrecorded against the register | `SI_07_and_SF_06_…` |
+| SF-06 reconciliation | SBU Finance resolves each difference with a comment: missing → adjust / write off (marked lost / stolen) / investigate; unrecorded → adjust (register moved to this location) / register (Stores and SBU IT told) / investigate; the count is *reconciled* (signed off) when nothing is open | `SI_07_and_SF_06_…` |
+
+Migration `0010_gate_and_verification` adds `gate_pass_items`, `gate_actions` and the three verification tables, and gives
+every existing pass its item (exit and return taken from its movements). Screens: **Gate** (phone-sized; the Gate
+Officer's home page) and the **Counts** tab of **Verification** (record gaps stay there for Finance).
+
+Assumptions: **G1** every item on one pass belongs to one SBU, and the first item's line manager decides; **G2** a
+release with override records the exit off the premises but no gate pass, so the status stays; **G3** a write-off from
+a count marks the item lost / stolen; the book value is then written off through the disposal workflow as for any lost
+item; **G4** "adjust" on a missing item only records the comment (where it really is); **G5** overdue items are flagged
+once and stay flagged until they are back (no new flag each day).
+
+Demo: **tsas.gate** → Gate → choose *TSAS Main Gate* → scan `GP-7` (amber: the desktop is overdue, the UPS is back) →
+Record return. A pending pass (`GP-5`) shows red. **tsas.finance** → Verification → Counts → count #1 → resolve the
+missing phone and the unknown tag. **tsas.it** → Verification → start a count of *TSAS House – IT Department*, scan tags, close.

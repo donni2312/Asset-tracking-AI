@@ -3,14 +3,15 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 import type { ApprovalItemType } from './approvalItemType';
 
 export interface ApprovalItem {
   id: string;
   type: ApprovalItemType;
-  assetId: number;
+  /** @nullable */
+  assetId?: number | null;
   /** @nullable */
   assetNumber?: string | null;
   assetDescription: string;
@@ -21,4 +22,22 @@ export interface ApprovalItem {
   raisedBy: string;
   /** @nullable */
   upgradeId?: number | null;
+  /**
+     * Phase 4 requests - decide with POST /approval-requests/{id}/decision
+     * @nullable
+     */
+  requestId?: number | null;
+  /** @nullable */
+  stepLabel?: string | null;
+  /**
+     * What the approver must add at this step (disposal method, proceeds, data-wipe note)
+     * @nullable
+     */
+  needs?: string[] | null;
+  /**
+     * Decided for a colleague on leave (LM-03)
+     * @nullable
+     */
+  onBehalfOf?: string | null;
+  escalated?: boolean;
 }

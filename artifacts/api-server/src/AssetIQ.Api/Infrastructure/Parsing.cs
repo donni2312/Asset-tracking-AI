@@ -62,4 +62,24 @@ public static class RequestValues
     /// <summary>A text filter restricted to <paramref name="allowed"/>; anything else means "no filter".</summary>
     public static string? OptionalChoice(string? raw, IReadOnlyList<string> allowed) =>
         raw is not null && allowed.Contains(raw, StringComparer.Ordinal) ? raw : null;
+
+    /// <summary>Phase 4c: an optional array of integers in a JSON body (non-integers are a 400).</summary>
+    public static List<int>? IntList(System.Text.Json.JsonElement? body, string name)
+    {
+        if (body is not { ValueKind: System.Text.Json.JsonValueKind.Object } b || !b.TryGetProperty(name, out var arr)
+            || arr.ValueKind == System.Text.Json.JsonValueKind.Null) return null;
+        if (arr.ValueKind != System.Text.Json.JsonValueKind.Array) throw new ApiException(400, $"{name}: Expected array");
+        return arr.EnumerateArray().Select(x => x.ValueKind == System.Text.Json.JsonValueKind.Number && x.TryGetInt32(out var v) ? v
+            : throw new ApiException(400, $"{name}: Expected integers")).ToList();
+    }
+
+    /// <summary>Phase 4c: an optional array of strings in a JSON body.</summary>
+    public static List<string>? StringList(System.Text.Json.JsonElement? body, string name)
+    {
+        if (body is not { ValueKind: System.Text.Json.JsonValueKind.Object } b || !b.TryGetProperty(name, out var arr)
+            || arr.ValueKind == System.Text.Json.JsonValueKind.Null) return null;
+        if (arr.ValueKind != System.Text.Json.JsonValueKind.Array) throw new ApiException(400, $"{name}: Expected array");
+        return arr.EnumerateArray().Select(x => x.ValueKind == System.Text.Json.JsonValueKind.String ? x.GetString()!
+            : throw new ApiException(400, $"{name}: Expected strings")).ToList();
+    }
 }

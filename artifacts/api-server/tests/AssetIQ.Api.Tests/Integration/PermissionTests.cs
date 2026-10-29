@@ -208,8 +208,10 @@ public sealed class PermissionTests(ApiFixture api) : IAsyncLifetime
         var passId = pass.Body.Int("id");
         Assert.Equal(403, (await api.CallAsync("POST", $"/gate-passes/{passId}/approve", new { }, r[Roles.Hod])).Status);
         var finance = await api.CallAsync("POST", $"/gate-passes/{passId}/approve", new { note = "High value, insured" }, r[Roles.SbuFinance]);
-        Assert.Equal(200, finance.Status);
-        Assert.Equal("SBU Finance TSAS", finance.Body.Str("approvedBy")); // the signed-in approver, not a typed name
+        Assert.Equal((200, "pending"), (finance.Status, finance.Body.Str("status"))); // Phase 4: the line manager's step is still open
+        var admin = await api.CallAsync("POST", $"/gate-passes/{passId}/approve", new { }, r[Roles.SbuAdmin]);
+        Assert.Equal((200, "approved"), (admin.Status, admin.Body.Str("status")));
+        Assert.Equal("SBU Admin Manager TSAS & SBU Finance TSAS", admin.Body.Str("approvedBy")); // in step order // the signed-in approvers, not a typed name
 
         // The laptop's department has an HOD: the Admin Manager may not step in; the HOD may.
         Assert.Equal(403, (await api.CallAsync("POST", $"/gate-passes/{r.TsasPass.Id}/reject", new { }, r[Roles.SbuAdmin])).Status);

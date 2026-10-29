@@ -1,3 +1,4 @@
+using AssetIQ.Api.Services.Approvals;
 using AssetIQ.Api.Auth;
 using System.Globalization;
 using AssetIQ.Api.Configuration;
@@ -14,7 +15,8 @@ namespace AssetIQ.Api.Services;
 /// <param name="Reason">Business reason.</param>
 /// <param name="Destination">Where the asset is going, if known.</param>
 /// <param name="ReturnDate">When it is due back (date part, UTC — as the dashboard sends YYYY-MM-DD).</param>
-public sealed record GatePassRequest(int AssetId, string RequestedBy, string Reason, string? Destination, DateTime? ReturnDate);
+/// <param name="ItemAssetIds">Phase 4c: further items leaving under the same pass (same SBU).</param>
+public sealed record GatePassRequest(int AssetId, string RequestedBy, string Reason, string? Destination, DateTime? ReturnDate, IReadOnlyList<int>? ItemAssetIds = null);
 
 /// <param name="DecidedBy">Name of the approver taking the decision.</param>
 /// <param name="Note">Optional note recorded with the decision.</param>
@@ -36,7 +38,7 @@ public sealed class GatePassService(
     AppConfig config,
     MovementService movements,
     InsightService insights,
-    ILogger<GatePassService> logger)
+    ILogger<GatePassService> logger, ApprovalService approvals)
 {
     /// <summary>Passes with asset, SBU and gate names, and when the asset left under them.</summary>
     public IQueryable<GatePassDto> Project(IQueryable<GatePass> passes) => passes.Select(p => new GatePassDto
@@ -63,6 +65,19 @@ public sealed class GatePassService(
             .Max(m => (DateTime?)m.Timestamp),
         CreatedAt = p.CreatedAt,
         UpdatedAt = p.UpdatedAt,
+        Items = db.GatePassItems.Where(i => i.GatePassId == p.Id).OrderBy(i => i.Id).Select(i => new GatePassItemDto
+        {
+            AssetId = i.AssetId,
+            AssetName = i.Asset.Name,
+            RfidTag = i.Asset.RfidTag,
+            AssetNumber = i.Asset.AssetNumber,
+            ExitedAt = i.ExitedAt,
+            ExitOfficer = i.ExitOfficer,
+            ReturnedAt = i.ReturnedAt,
+            ReturnOfficer = i.ReturnOfficer,
+            ReturnCondition = i.ReturnCondition,
+            ReturnNotes = i.ReturnNotes,
+        }).ToList(),
     });
 
     /// <summary>The passes with these ids as API objects, in the given order.</summary>
@@ -92,42 +107,76 @@ public sealed class GatePassService(
     /// Matrix "Raise gate pass": 404 for an unknown asset, 403 unless the caller may raise one for it
     /// (<see cref="AccessPolicy.CanRaiseGatePass"/>).
     /// </summary>
-    public async Task AuthorizeRaiseAsync(AuthUser user, int assetId, CancellationToken ct)
+    public async Task AuthorizeRaiseAsync(AuthUser user, int assetId, CancellationToken ct, IReadOnlyList<int>? itemAssetIds = null)
     {
         var asset = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
         if (!AccessPolicy.CanRaiseGatePass(user, asset, asset.AssetCategory.IsIt)) throw AccessPolicy.Deny(user, "raise a gate pass for this asset");
-    }
-
-    /// <summary>
-    /// Matrix "Approve gate pass" (also used for rejections): 404 for an unknown pass, 403 unless
-    /// <see cref="AccessPolicy.CanDecideGatePass"/> allows the caller. A pass is high-value when the asset's USD
-    /// cost is above the <c>gate_pass_finance_threshold_usd</c> setting (SF-05).
-    /// </summary>
-    public async Task AuthorizeDecisionAsync(AuthUser user, int passId, CancellationToken ct)
-    {
-        var assetId = await db.GatePasses.IgnoreQueryFilters().Where(p => p.Id == passId).Select(p => (int?)p.AssetId).FirstOrDefaultAsync(ct)
-            ?? throw new ApiException(StatusCodes.Status404NotFound, "Gate pass not found");
-        var asset = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstAsync(a => a.Id == assetId, ct);
-        var threshold = await db.GroupSettings.AsNoTracking().Where(x => x.Key == "gate_pass_finance_threshold_usd").Select(x => x.Value).FirstOrDefaultAsync(ct);
-        var highValue = decimal.TryParse(threshold, NumberStyles.Number, CultureInfo.InvariantCulture, out var limit)
-            && (asset.CostUsd ?? asset.PurchaseValue ?? 0m) > limit;
-        var hodAvailable = asset.DepartmentId is { } department && await db.Users.AnyAsync(
-            u => u.Active && u.Role == Roles.Hod && u.SbuId == asset.SbuId && db.Employees.Any(e => e.Id == u.EmployeeId && e.DepartmentId == department), ct);
-        if (!AccessPolicy.CanDecideGatePass(user, asset, asset.AssetCategory.IsIt, highValue, hodAvailable))
+        foreach (var id in itemAssetIds ?? [])
         {
-            throw AccessPolicy.Deny(user, user.Role switch
-            {
-                Roles.SbuFinance => "decide this gate pass (SBU Finance decides high-value passes only, SF-05)",
-                Roles.SbuAdmin => "decide this gate pass while the department's HOD can",
-                Roles.Hod => "decide gate passes for another department's assets",
-                _ => "decide this gate pass",
-            });
+            var item = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == id, ct)
+                ?? throw new ApiException(StatusCodes.Status404NotFound, $"Asset {id} not found");
+            // ASSUMPTION: the items of one pass belong to one SBU, so one line manager (of the first item) decides it.
+            if (item.SbuId != asset.SbuId) throw new ApiException(StatusCodes.Status400BadRequest, "itemAssetIds: every item of a pass must belong to the same SBU");
+            if (!AccessPolicy.CanRaiseGatePass(user, item, item.AssetCategory.IsIt)) throw AccessPolicy.Deny(user, $"raise a gate pass for \"{item.Name}\"");
         }
     }
 
+    /// <summary>
+    /// Phase 4: a gate pass is decided through the approvals engine. The line manager decides (the HOD of the asset's
+    /// department, the SBU Admin Manager when there is no HOD available, Group IT / SBU IT for IT assets); a
+    /// high-value pass also needs SBU Finance (SF-05; asset cost above <c>gate_pass_finance_threshold_usd</c>).
+    /// Both are open at once and may decide in any order.
+    /// </summary>
+    public async Task<ApprovalRequest> OpenApprovalAsync(GatePass pass, Asset asset, AuthUser? requester, CancellationToken ct)
+    {
+        var threshold = await db.GroupSettings.AsNoTracking().Where(x => x.Key == "gate_pass_finance_threshold_usd").Select(x => x.Value).FirstOrDefaultAsync(ct);
+        var highValue = decimal.TryParse(threshold, NumberStyles.Number, CultureInfo.InvariantCulture, out var limit)
+            && (asset.CostUsd ?? asset.PurchaseValue ?? 0m) > limit;
+        List<StepSpec> steps = [new(1, StepRoles.LineManager, asset.SbuId, asset.DepartmentId, "Line manager")];
+        if (highValue) steps.Add(new(1, Roles.SbuFinance, asset.SbuId, null, "SBU Finance (high-value pass, SF-05)"));
+        var loaded = asset.AssetCategory is null
+            ? await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstAsync(a => a.Id == asset.Id, ct)
+            : asset;
+        return await approvals.OpenAsync(ApprovalKinds.GatePass, loaded, pass.Id, $"Gate pass #{pass.Id}: {asset.Name} — {pass.Reason}",
+            new { pass.Reason, pass.Destination, pass.ReturnDate }, steps, requester, pass.RequestedBy, ct);
+    }
+
+    /// <summary>Pending passes raised before the approvals engine (or by the seed) get their request, so they reach the inbox.</summary>
+    public async Task EnsureApprovalRequestsAsync(CancellationToken ct)
+    {
+        var withRequest = db.ApprovalRequests.Where(r => r.Kind == ApprovalKinds.GatePass).Select(r => r.SubjectId);
+        var missing = await db.GatePasses.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.Status == GatePassStatuses.Pending && !withRequest.Contains(p.Id)).ToListAsync(ct);
+        foreach (var pass in missing)
+        {
+            var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstAsync(a => a.Id == pass.AssetId, ct);
+            await OpenApprovalAsync(pass, asset, null, ct);
+        }
+    }
+
+    /// <summary>
+    /// The caller's decision on a gate pass: 404 unknown, 409 already decided, 403 nothing for the caller to decide.
+    /// The pass is approved (or rejected) once its request is; until then it stays pending.
+    /// </summary>
+    public async Task<GatePassDto> DecideAsync(AuthUser user, int passId, bool approve, string? note, JsonBody input, CancellationToken ct)
+    {
+        var pass = await db.GatePasses.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(p => p.Id == passId, ct)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Gate pass not found");
+        if (pass.Status != GatePassStatuses.Pending) throw new ApiException(StatusCodes.Status409Conflict, $"Gate pass #{passId} has already been {pass.Status}");
+        var request = await approvals.FindBySubjectAsync(ApprovalKinds.GatePass, passId, ct);
+        if (request is null || request.Status != ApprovalStatuses.Pending)
+        {
+            // Passes raised before the approvals engine get their request when first decided.
+            var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstAsync(a => a.Id == pass.AssetId, ct);
+            request = await OpenApprovalAsync(pass, asset, null, ct);
+        }
+        await approvals.DecideAsync(user, request.Id, approve, note, input, ct);
+        return await GetAsync(passId, ct);
+    }
+
     /// <summary>Manual request (the "Request gate pass" form). One pending pass per asset at a time.</summary>
-    public async Task<GatePassDto> CreateRequestAsync(GatePassRequest input, CancellationToken ct)
+    public async Task<GatePassDto> CreateRequestAsync(GatePassRequest input, CancellationToken ct, AuthUser? requester = null)
     {
         var now = clock.UtcNow;
         var requestedBy = input.RequestedBy.Trim();
@@ -166,6 +215,10 @@ public sealed class GatePassService(
         };
         db.GatePasses.Add(pass);
         await db.SaveChangesAsync(ct);
+        foreach (var itemId in new[] { asset.Id }.Concat(input.ItemAssetIds ?? []).Distinct())
+            db.GatePassItems.Add(new GatePassItem { GatePassId = pass.Id, AssetId = itemId });
+        await db.SaveChangesAsync(ct);
+        await OpenApprovalAsync(pass, asset, requester, ct);
         var dto = await ToDtoAsync(pass.Id, ct);
         await transaction.CommitAsync(ct);
         return dto;
@@ -183,7 +236,7 @@ public sealed class GatePassService(
 
         var (asset, location) = await LoadAssetWithLocationAsync(pass.AssetId, ct);
         var exit = location?.Type == LocationTypes.Gate
-            ? await movements.RecordGatePassExitAsync(pass, asset, location.Name, null, now, ct)
+            ? await movements.RecordGatePassExitAsync(pass, asset, location.Name, null, now, ct, location.Id)
             : null;
 
         var dto = await ToDtoAsync(pass.Id, ct);

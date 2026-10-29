@@ -13,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  useGetAsset, useGetAssetHistory, useUpdateAsset, useChangeAssetStatus, useCreateAssetLifecycleEvent,
+  useGetAsset, useGetAssetHistory, useUpdateAsset, useRecommendDisposal, useCreateAssetLifecycleEvent,
   getGetAssetQueryKey, getGetAssetHistoryQueryKey, useListInsights, useDismissInsight,
 } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
@@ -251,7 +251,7 @@ export default function AssetDetail() {
   });
 
   const updateAsset = useUpdateAsset();
-  const changeStatus = useChangeAssetStatus();
+  const recommendDisposal = useRecommendDisposal();
   const createLifecycle = useCreateAssetLifecycleEvent();
   const { data: insights } = useListInsights();
   const dismissInsight = useDismissInsight();
@@ -304,8 +304,8 @@ export default function AssetDetail() {
   function handleDispose() {
     if (!disposeBy.trim()) return;
     // Phase 3: IT recommends; SBU Finance decides the disposal (pending disposal → disposed) on the asset card.
-    changeStatus.mutate(
-      { id: assetId, data: { status: "pending_disposal", reason: `Recommended by ${disposeBy.trim()}${disposeReason.trim() ? `: ${disposeReason.trim()}` : ""}` } },
+    recommendDisposal.mutate(
+      { id: assetId, data: { reason: `Recommended by ${disposeBy.trim()}${disposeReason.trim() ? `: ${disposeReason.trim()}` : ""}` } },
       {
         onSuccess: () => {
           toast({ title: "Recommended for disposal", description: "SBU Finance decides on the asset card." });

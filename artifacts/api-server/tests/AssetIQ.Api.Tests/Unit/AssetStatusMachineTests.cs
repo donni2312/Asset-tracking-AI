@@ -9,18 +9,19 @@ namespace AssetIQ.Api.Tests.Unit;
 public sealed class AssetStatusMachineTests
 {
     private const string P = AssetStatuses.PendingAssetNumber, S = AssetStatuses.InStore, U = AssetStatuses.InUse, G = AssetStatuses.OutOnGatePass,
-        R = AssetStatuses.InRepair, T = AssetStatuses.TransferPending, D = AssetStatuses.PendingDisposal, L = AssetStatuses.LostStolen, X = AssetStatuses.Disposed;
+        Q = AssetStatuses.RepairRequested, R = AssetStatuses.InRepair, T = AssetStatuses.TransferPending, D = AssetStatuses.PendingDisposal, L = AssetStatuses.LostStolen, X = AssetStatuses.Disposed;
 
     /// <summary>The table, row by row: from → the statuses it may go to.</summary>
     private static readonly Dictionary<string, string[]> Allowed = new()
     {
         [P] = [S],
-        [S] = [U, G, R, T, D, L],
-        [U] = [S, G, R, T, D, L],
+        [S] = [U, G, Q, R, T, D, L],
+        [U] = [S, G, Q, R, T, D, L],
         [G] = [U, S, R, L],
+        [Q] = [R, S, U],
         [R] = [S, U, G, D, L],
         [T] = [S, U],
-        [D] = [S, U, X],
+        [D] = [S, U, X, L],
         [L] = [S, D],
         [X] = [],
     };
@@ -48,9 +49,9 @@ public sealed class AssetStatusMachineTests
     }
 
     [Fact]
-    public void Phase3_the_table_covers_all_nine_statuses_and_nothing_else()
+    public void Phase3_the_table_covers_all_ten_statuses_and_nothing_else()
     {
-        Assert.Equal(9, AssetStatuses.All.Count);
+        Assert.Equal(10, AssetStatuses.All.Count); // Phase 4 added "repair requested"
         Assert.Equal(AssetStatuses.All.Order(), AssetStatusMachine.Transitions.Keys.Order());
         Assert.All(AssetStatusMachine.Transitions.Values.SelectMany(v => v.Keys), to => Assert.Contains(to, AssetStatuses.All));
     }
@@ -69,11 +70,21 @@ public sealed class AssetStatusMachineTests
     [InlineData(false, false)]
     public void ST_02_an_item_cannot_be_issued_untagged_or_without_its_asset_number(bool numbered, bool tagged)
     {
-        foreach (var from in new[] { S, G, R, T, D })
+        foreach (var from in new[] { S, G, Q, R, T, D })
         {
             Assert.Contains("(ST-02)", AssetStatusMachine.Check(from, U, Ready with { HasAssetNumber = numbered, Tagged = tagged }));
         }
         Assert.Null(AssetStatusMachine.Check(S, R, Ready with { HasAssetNumber = numbered, Tagged = tagged })); // other moves are fine
+    }
+
+    [Fact]
+    public void SI_05_an_it_asset_goes_for_repair_only_through_finance_approval_and_a_non_it_asset_directly()
+    {
+        var it = Ready with { IsIt = true };
+        foreach (var from in new[] { S, U, G })
+            Assert.Equal("An IT asset goes for repair only once Finance approves the repair request (SI-05)", AssetStatusMachine.Check(from, R, it));
+        Assert.Null(AssetStatusMachine.Check(Q, R, it));
+        Assert.Null(AssetStatusMachine.Check(U, R, Ready)); // non-IT (e.g. a vehicle service)
     }
 
     [Fact]

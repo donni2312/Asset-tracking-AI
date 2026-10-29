@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 /**
  * The roles of the docs/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer / operator / admin roles were retired by migration 0004.
@@ -120,6 +120,7 @@ export const AssetStatus = {
   in_store: 'in_store',
   in_use: 'in_use',
   out_on_gate_pass: 'out_on_gate_pass',
+  repair_requested: 'repair_requested',
   in_repair: 'in_repair',
   transfer_pending: 'transfer_pending',
   pending_disposal: 'pending_disposal',
@@ -278,6 +279,7 @@ export const AssetUpdateStatus = {
   in_store: 'in_store',
   in_use: 'in_use',
   out_on_gate_pass: 'out_on_gate_pass',
+  repair_requested: 'repair_requested',
   in_repair: 'in_repair',
   transfer_pending: 'transfer_pending',
   pending_disposal: 'pending_disposal',
@@ -604,6 +606,27 @@ export const GatePassSource = {
   rfid_gate: 'rfid_gate',
 } as const;
 
+export interface GatePassItem {
+  assetId: number;
+  assetName: string;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  assetNumber?: string | null;
+  /** @nullable */
+  exitedAt?: string | null;
+  /** @nullable */
+  exitOfficer?: string | null;
+  /** @nullable */
+  returnedAt?: string | null;
+  /** @nullable */
+  returnOfficer?: string | null;
+  /** @nullable */
+  returnCondition?: string | null;
+  /** @nullable */
+  returnNotes?: string | null;
+}
+
 export interface GatePass {
   id: number;
   assetId: number;
@@ -639,6 +662,8 @@ export interface GatePass {
   exitedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
+  /** Phase 4c - the items of the pass and each one's exit / return */
+  items?: GatePassItem[];
 }
 
 export interface GatePassInput {
@@ -649,6 +674,8 @@ export interface GatePassInput {
   reason: string;
   destination?: string;
   returnDate?: string;
+  /** Phase 4c - further items leaving under the same pass (same SBU) */
+  itemAssetIds?: number[];
 }
 
 export interface GatePassDecision {
@@ -1463,12 +1490,18 @@ export type ApprovalItemType = typeof ApprovalItemType[keyof typeof ApprovalItem
 export const ApprovalItemType = {
   upgrade: 'upgrade',
   no_serial: 'no_serial',
+  repair: 'repair',
+  disposal: 'disposal',
+  transfer: 'transfer',
+  gate_pass: 'gate_pass',
+  equipment: 'equipment',
 } as const;
 
 export interface ApprovalItem {
   id: string;
   type: ApprovalItemType;
-  assetId: number;
+  /** @nullable */
+  assetId?: number | null;
   /** @nullable */
   assetNumber?: string | null;
   assetDescription: string;
@@ -1479,6 +1512,24 @@ export interface ApprovalItem {
   raisedBy: string;
   /** @nullable */
   upgradeId?: number | null;
+  /**
+     * Phase 4 requests - decide with POST /approval-requests/{id}/decision
+     * @nullable
+     */
+  requestId?: number | null;
+  /** @nullable */
+  stepLabel?: string | null;
+  /**
+     * What the approver must add at this step (disposal method, proceeds, data-wipe note)
+     * @nullable
+     */
+  needs?: string[] | null;
+  /**
+     * Decided for a colleague on leave (LM-03)
+     * @nullable
+     */
+  onBehalfOf?: string | null;
+  escalated?: boolean;
 }
 
 export interface DepreciationRunInput {
@@ -1749,6 +1800,19 @@ export interface AttachmentUpload {
   upgradeId?: number;
 }
 
+/**
+ * The change is a request (POST /assets/{id}/repairs, /disposals, /transfers) decided in the approvals inbox
+ * @nullable
+ */
+export type StatusTransitionWorkflow = typeof StatusTransitionWorkflow[keyof typeof StatusTransitionWorkflow] | null;
+
+
+export const StatusTransitionWorkflow = {
+  repair: 'repair',
+  disposal: 'disposal',
+  transfer: 'transfer',
+} as const;
+
 export interface StatusTransition {
   status: AssetStatus;
   label: string;
@@ -1762,6 +1826,11 @@ export interface StatusTransition {
   reason?: string | null;
   /** lost_stolen needs lostDate, reporter and notes (GI-07) */
   needsIncidentDetails: boolean;
+  /**
+     * The change is a request (POST /assets/{id}/repairs, /disposals, /transfers) decided in the approvals inbox
+     * @nullable
+     */
+  workflow?: StatusTransitionWorkflow;
 }
 
 export interface StatusChangeInput {
@@ -1799,6 +1868,870 @@ export interface RFIDReaderUpdate {
   name?: string;
   locationId?: number;
   status?: RFIDReaderUpdateStatus;
+}
+
+export type RepairStatus = typeof RepairStatus[keyof typeof RepairStatus];
+
+
+export const RepairStatus = {
+  requested: 'requested',
+  approved: 'approved',
+  rejected: 'rejected',
+  completed: 'completed',
+} as const;
+
+export interface Repair {
+  id: number;
+  assetId: number;
+  fault: string;
+  /** @nullable */
+  action?: string | null;
+  /** @nullable */
+  parts?: string | null;
+  /** @nullable */
+  vendor?: string | null;
+  /** @nullable */
+  downtimeDays?: number | null;
+  /**
+     * USD, recorded by Finance; null for everyone else
+     * @nullable
+     */
+  cost?: number | null;
+  status: RepairStatus;
+  requestedBy: string;
+  createdAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
+export interface RepairInput {
+  fault: string;
+  action?: string;
+  parts?: string;
+  vendor?: string;
+}
+
+export interface RepairUpdate {
+  /** @nullable */
+  cost?: number | null;
+  action?: string;
+  parts?: string;
+  vendor?: string;
+  downtimeDays?: number;
+}
+
+/**
+ * @nullable
+ */
+export type DisposalMethod = typeof DisposalMethod[keyof typeof DisposalMethod] | null;
+
+
+export const DisposalMethod = {
+  sale: 'sale',
+  scrap: 'scrap',
+  donation: 'donation',
+  write_off: 'write_off',
+} as const;
+
+export type DisposalStatus = typeof DisposalStatus[keyof typeof DisposalStatus];
+
+
+export const DisposalStatus = {
+  pending: 'pending',
+  completed: 'completed',
+  rejected: 'rejected',
+} as const;
+
+export interface Disposal {
+  id: number;
+  assetId: number;
+  reason: string;
+  /** @nullable */
+  condition?: string | null;
+  recommendedBy: string;
+  /** @nullable */
+  method?: DisposalMethod;
+  /** @nullable */
+  disposalDate?: string | null;
+  /** @nullable */
+  proceeds?: number | null;
+  /** @nullable */
+  buyer?: string | null;
+  /** @nullable */
+  nbvAtDisposal?: number | null;
+  /**
+     * proceeds - NBV at disposal
+     * @nullable
+     */
+  gainLoss?: number | null;
+  /** @nullable */
+  dataWipeNote?: string | null;
+  status: DisposalStatus;
+  createdAt: string;
+}
+
+export interface DisposalInput {
+  reason: string;
+  condition?: string;
+}
+
+export interface TransferInput {
+  toSbuId: number;
+  reason: string;
+}
+
+export type ApprovalStepStatus = typeof ApprovalStepStatus[keyof typeof ApprovalStepStatus];
+
+
+export const ApprovalStepStatus = {
+  waiting: 'waiting',
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface ApprovalStep {
+  id: number;
+  stepNo: number;
+  role: string;
+  label: string;
+  status: ApprovalStepStatus;
+  /** @nullable */
+  decidedBy?: string | null;
+  /** @nullable */
+  onBehalfOf?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  comment?: string | null;
+  /** @nullable */
+  escalatedToRole?: string | null;
+  /** @nullable */
+  remindedAt?: string | null;
+}
+
+export type ApprovalRequestKind = typeof ApprovalRequestKind[keyof typeof ApprovalRequestKind];
+
+
+export const ApprovalRequestKind = {
+  repair: 'repair',
+  disposal: 'disposal',
+  transfer: 'transfer',
+  gate_pass: 'gate_pass',
+  equipment: 'equipment',
+} as const;
+
+export type ApprovalRequestStatus = typeof ApprovalRequestStatus[keyof typeof ApprovalRequestStatus];
+
+
+export const ApprovalRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface ApprovalRequest {
+  id: number;
+  kind: ApprovalRequestKind;
+  /** @nullable */
+  assetId?: number | null;
+  /** @nullable */
+  assetNumber?: string | null;
+  assetDescription: string;
+  status: ApprovalRequestStatus;
+  summary: string;
+  requestedBy: string;
+  createdAt: string;
+  /** @nullable */
+  decidedAt?: string | null;
+  steps: ApprovalStep[];
+}
+
+export type ApprovalDecisionInputDecision = typeof ApprovalDecisionInputDecision[keyof typeof ApprovalDecisionInputDecision];
+
+
+export const ApprovalDecisionInputDecision = {
+  approve: 'approve',
+  reject: 'reject',
+} as const;
+
+export type ApprovalDecisionInputMethod = typeof ApprovalDecisionInputMethod[keyof typeof ApprovalDecisionInputMethod];
+
+
+export const ApprovalDecisionInputMethod = {
+  sale: 'sale',
+  scrap: 'scrap',
+  donation: 'donation',
+  write_off: 'write_off',
+} as const;
+
+export interface ApprovalDecisionInput {
+  decision: ApprovalDecisionInputDecision;
+  /** Required when rejecting */
+  comment?: string;
+  /** Repair - the estimated cost (Finance) */
+  cost?: number;
+  method?: ApprovalDecisionInputMethod;
+  disposalDate?: string;
+  proceeds?: number;
+  buyer?: string;
+  /** IT disposals, Group IT's step (GI-10) */
+  dataWipeNote?: string;
+}
+
+export interface Delegation {
+  id: number;
+  userId: number;
+  userName: string;
+  /** @nullable */
+  delegateUserId?: number | null;
+  /** @nullable */
+  delegateName?: string | null;
+  startsAt: string;
+  endsAt: string;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface DelegationInput {
+  delegateUserId?: number;
+  startsAt?: string;
+  endsAt: string;
+  reason?: string;
+}
+
+export interface Notification {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  /** @nullable */
+  link?: string | null;
+  createdAt: string;
+  /** @nullable */
+  readAt?: string | null;
+}
+
+/**
+ * The notification to mark read; leave out id to mark all
+ */
+export interface NotificationReadInput {
+  id?: number;
+}
+
+export interface Colleague {
+  id: number;
+  name: string;
+  role: string;
+}
+
+export interface PurchaseOrderLine {
+  id: number;
+  categoryId: number;
+  categoryName: string;
+  description: string;
+  quantity: number;
+  receivedQuantity: number;
+  /** @nullable */
+  unitCost?: number | null;
+}
+
+export interface GoodsReceiptLine {
+  id: number;
+  purchaseOrderLineId: number;
+  description: string;
+  quantityReceived: number;
+  quantityDamaged: number;
+  serials: string[];
+  /** @nullable */
+  condition?: string | null;
+  registered: number;
+}
+
+export interface GoodsReceipt {
+  id: number;
+  receivedAt: string;
+  receivedBy: string;
+  flagged: boolean;
+  /** @nullable */
+  flagReason?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  lines: GoodsReceiptLine[];
+}
+
+export type PurchaseOrderStatus = typeof PurchaseOrderStatus[keyof typeof PurchaseOrderStatus];
+
+
+export const PurchaseOrderStatus = {
+  open: 'open',
+  partly_received: 'partly_received',
+  received: 'received',
+  closed: 'closed',
+} as const;
+
+export interface PurchaseOrder {
+  id: number;
+  sbuId: number;
+  sbuCode: string;
+  poNo: string;
+  supplier: string;
+  status: PurchaseOrderStatus;
+  createdBy: string;
+  createdAt: string;
+  lines: PurchaseOrderLine[];
+  receipts: GoodsReceipt[];
+}
+
+export interface PurchaseOrderLineInput {
+  categoryId: number;
+  description: string;
+  quantity: number;
+  unitCost?: number;
+}
+
+export interface PurchaseOrderInput {
+  sbuId?: number;
+  poNo: string;
+  supplier: string;
+  lines: PurchaseOrderLineInput[];
+}
+
+export interface GoodsReceiptLineInput {
+  purchaseOrderLineId: number;
+  quantityReceived: number;
+  quantityDamaged?: number;
+  serials?: string[];
+  condition?: string;
+}
+
+export interface GoodsReceiptInput {
+  notes?: string;
+  lines: GoodsReceiptLineInput[];
+}
+
+export interface StockLine {
+  sbuCode: string;
+  category: string;
+  /** @nullable */
+  subCategory?: string | null;
+  /** @nullable */
+  location?: string | null;
+  count: number;
+  untagged: number;
+}
+
+export type EquipmentRequestStatus = typeof EquipmentRequestStatus[keyof typeof EquipmentRequestStatus];
+
+
+export const EquipmentRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  fulfilled: 'fulfilled',
+} as const;
+
+export interface EquipmentRequest {
+  id: number;
+  sbuId: number;
+  /** @nullable */
+  employeeId?: number | null;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  departmentId?: number | null;
+  /** @nullable */
+  departmentName?: string | null;
+  categoryId: number;
+  categoryName: string;
+  itemType: string;
+  quantity: number;
+  issuedQuantity: number;
+  reason: string;
+  urgency: string;
+  status: EquipmentRequestStatus;
+  source: string;
+  requestedBy: string;
+  createdAt: string;
+}
+
+export type EquipmentRequestInputUrgency = typeof EquipmentRequestInputUrgency[keyof typeof EquipmentRequestInputUrgency];
+
+
+export const EquipmentRequestInputUrgency = {
+  low: 'low',
+  normal: 'normal',
+  high: 'high',
+} as const;
+
+export interface EquipmentRequestInput {
+  employeeId?: number;
+  departmentId?: number;
+  categoryId: number;
+  itemType: string;
+  quantity?: number;
+  reason: string;
+  urgency?: EquipmentRequestInputUrgency;
+}
+
+export interface IssueInput {
+  assetId: number;
+  employeeId?: number;
+}
+
+export type ReturnInputCondition = typeof ReturnInputCondition[keyof typeof ReturnInputCondition];
+
+
+export const ReturnInputCondition = {
+  good: 'good',
+  repair: 'repair',
+  scrap: 'scrap',
+} as const;
+
+export interface ReturnInput {
+  condition: ReturnInputCondition;
+  notes?: string;
+}
+
+export interface ReturnResult {
+  id: number;
+  status: string;
+  /** @nullable */
+  assignedTo?: string | null;
+  /** @nullable */
+  condition?: string | null;
+}
+
+export interface Acknowledgement {
+  id: number;
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  assetDescription: string;
+  employeeId: number;
+  issuedBy: string;
+  issuedAt: string;
+  /** @nullable */
+  acknowledgedAt?: string | null;
+  /** @nullable */
+  method?: string | null;
+}
+
+export interface AcknowledgementLinkInput {
+  token: string;
+}
+
+export interface ToolboxItem {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  /** @nullable */
+  tag?: string | null;
+  category: string;
+  /** @nullable */
+  condition?: string | null;
+  status: string;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  acknowledgementId?: number | null;
+  /** @nullable */
+  acknowledgedAt?: string | null;
+}
+
+export interface ToolboxHistory {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  returnedAt: string;
+}
+
+export interface Toolbox {
+  employeeId: number;
+  employeeNo: string;
+  name: string;
+  /** @nullable */
+  jobRole?: string | null;
+  active: boolean;
+  items: ToolboxItem[];
+  history: ToolboxHistory[];
+  /** @nullable */
+  openExitClearanceId?: number | null;
+}
+
+export type ExitClearanceItemOutcome = typeof ExitClearanceItemOutcome[keyof typeof ExitClearanceItemOutcome];
+
+
+export const ExitClearanceItemOutcome = {
+  outstanding: 'outstanding',
+  returned: 'returned',
+  damaged: 'damaged',
+  missing: 'missing',
+} as const;
+
+export interface ExitClearanceItem {
+  id: number;
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  isIt: boolean;
+  outcome: ExitClearanceItemOutcome;
+  /** @nullable */
+  recordedBy?: string | null;
+  /** @nullable */
+  recordedAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type ExitClearanceStatus = typeof ExitClearanceStatus[keyof typeof ExitClearanceStatus];
+
+
+export const ExitClearanceStatus = {
+  open: 'open',
+  completed: 'completed',
+} as const;
+
+export interface ExitClearance {
+  id: number;
+  employeeId: number;
+  employeeName: string;
+  reason: string;
+  status: ExitClearanceStatus;
+  /** @nullable */
+  exceptionApprovedBy?: string | null;
+  /** @nullable */
+  exceptionReason?: string | null;
+  createdAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  items: ExitClearanceItem[];
+}
+
+export type ExitClearanceInputReason = typeof ExitClearanceInputReason[keyof typeof ExitClearanceInputReason];
+
+
+export const ExitClearanceInputReason = {
+  resignation: 'resignation',
+  termination: 'termination',
+  retirement: 'retirement',
+  transfer: 'transfer',
+} as const;
+
+export interface ExitClearanceInput {
+  reason: ExitClearanceInputReason;
+}
+
+export type ExitClearanceItemInputOutcome = typeof ExitClearanceItemInputOutcome[keyof typeof ExitClearanceItemInputOutcome];
+
+
+export const ExitClearanceItemInputOutcome = {
+  returned: 'returned',
+  damaged: 'damaged',
+  missing: 'missing',
+} as const;
+
+export interface ExitClearanceItemInput {
+  outcome: ExitClearanceItemInputOutcome;
+  notes?: string;
+}
+
+export interface ExitClearanceCompleteInput {
+  exceptionApprovedBy?: string;
+  exceptionReason?: string;
+}
+
+export interface HoldingItem {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  category: string;
+  isIt: boolean;
+  /** @nullable */
+  holder?: string | null;
+  /** @nullable */
+  employeeId?: number | null;
+  status: string;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  condition?: string | null;
+}
+
+export interface EmployeeHolding {
+  employeeId: number;
+  name: string;
+  /** @nullable */
+  jobRole?: string | null;
+  items: number;
+}
+
+export interface DepartmentHoldings {
+  departmentId: number;
+  departmentName: string;
+  items: HoldingItem[];
+  employees: EmployeeHolding[];
+}
+
+/**
+ * clear = may leave (green); return = expected back; stop = must not leave (red)
+ */
+export type GateScanVerdict = typeof GateScanVerdict[keyof typeof GateScanVerdict];
+
+
+export const GateScanVerdict = {
+  clear: 'clear',
+  return: 'return',
+  stop: 'stop',
+} as const;
+
+export interface GateScan {
+  /** clear = may leave (green); return = expected back; stop = must not leave (red) */
+  verdict: GateScanVerdict;
+  message: string;
+  /** @nullable */
+  assetId?: number | null;
+  gatePass?: GatePass | null;
+}
+
+export interface GateExitInput {
+  gateLocationId: number;
+  /** Default - every item that has not left */
+  assetIds?: number[];
+  notes?: string;
+}
+
+export type GateReturnItemInputCondition = typeof GateReturnItemInputCondition[keyof typeof GateReturnItemInputCondition];
+
+
+export const GateReturnItemInputCondition = {
+  new: 'new',
+  good: 'good',
+  fair: 'fair',
+  poor: 'poor',
+  damaged: 'damaged',
+} as const;
+
+export interface GateReturnItemInput {
+  assetId: number;
+  condition?: GateReturnItemInputCondition;
+  notes?: string;
+}
+
+export interface GateReturnBody {
+  gateLocationId: number;
+  /** Default - every item that is out */
+  items?: GateReturnItemInput[];
+}
+
+export type GateActionAction = typeof GateActionAction[keyof typeof GateActionAction];
+
+
+export const GateActionAction = {
+  stopped: 'stopped',
+  released_with_override: 'released_with_override',
+  escalated: 'escalated',
+} as const;
+
+export interface GateAction {
+  id: number;
+  /** @nullable */
+  insightId?: number | null;
+  assetId: number;
+  /** @nullable */
+  gateLocationId?: number | null;
+  action: GateActionAction;
+  /** @nullable */
+  notes?: string | null;
+  officer: string;
+  at: string;
+}
+
+export type GateActionInputAction = typeof GateActionInputAction[keyof typeof GateActionInputAction];
+
+
+export const GateActionInputAction = {
+  stopped: 'stopped',
+  released_with_override: 'released_with_override',
+  escalated: 'escalated',
+} as const;
+
+export interface GateActionInput {
+  action: GateActionInputAction;
+  /** Required unless stopped */
+  notes?: string;
+  gateLocationId?: number;
+}
+
+export interface GateAlert {
+  insightId: number;
+  assetId: number;
+  assetName: string;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  assetNumber?: string | null;
+  type: string;
+  severity: string;
+  message: string;
+  /** @nullable */
+  gatePassId?: number | null;
+  createdAt: string;
+  actions: GateAction[];
+}
+
+export interface GateOverdue {
+  gatePassId: number;
+  assetId: number;
+  assetName: string;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  assetNumber?: string | null;
+  /** @nullable */
+  sbuId?: number | null;
+  requestedBy: string;
+  /** @nullable */
+  destination?: string | null;
+  returnDate: string;
+  exitedAt: string;
+}
+
+export type VerificationStartInputScope = typeof VerificationStartInputScope[keyof typeof VerificationStartInputScope];
+
+
+export const VerificationStartInputScope = {
+  it: 'it',
+  non_it: 'non_it',
+  all: 'all',
+} as const;
+
+export interface VerificationStartInput {
+  locationId: number;
+  scope?: VerificationStartInputScope;
+}
+
+export interface VerificationScanInput {
+  codes: string[];
+}
+
+export type VerificationResolveInputResolution = typeof VerificationResolveInputResolution[keyof typeof VerificationResolveInputResolution];
+
+
+export const VerificationResolveInputResolution = {
+  adjust: 'adjust',
+  write_off: 'write_off',
+  investigate: 'investigate',
+  register: 'register',
+} as const;
+
+export interface VerificationResolveInput {
+  resolution: VerificationResolveInputResolution;
+  /** @minLength 3 */
+  comment: string;
+}
+
+export interface VerificationScan {
+  code: string;
+  /** @nullable */
+  assetId?: number | null;
+  /** @nullable */
+  assetName?: string | null;
+  scannedBy: string;
+  scannedAt: string;
+}
+
+export type VerificationResultResult = typeof VerificationResultResult[keyof typeof VerificationResultResult];
+
+
+export const VerificationResultResult = {
+  found: 'found',
+  missing: 'missing',
+  unrecorded: 'unrecorded',
+} as const;
+
+/**
+ * @nullable
+ */
+export type VerificationResultResolution = typeof VerificationResultResolution[keyof typeof VerificationResultResolution] | null;
+
+
+export const VerificationResultResolution = {
+  adjust: 'adjust',
+  write_off: 'write_off',
+  investigate: 'investigate',
+  register: 'register',
+} as const;
+
+export interface VerificationResult {
+  id: number;
+  /** @nullable */
+  assetId?: number | null;
+  /** @nullable */
+  assetName?: string | null;
+  /** @nullable */
+  assetNumber?: string | null;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  code?: string | null;
+  result: VerificationResultResult;
+  /** @nullable */
+  recordedLocationName?: string | null;
+  /** @nullable */
+  resolution?: VerificationResultResolution;
+  /** @nullable */
+  comment?: string | null;
+  /** @nullable */
+  resolvedBy?: string | null;
+  /** @nullable */
+  resolvedAt?: string | null;
+}
+
+export type VerificationSessionScope = typeof VerificationSessionScope[keyof typeof VerificationSessionScope];
+
+
+export const VerificationSessionScope = {
+  it: 'it',
+  non_it: 'non_it',
+  all: 'all',
+} as const;
+
+export type VerificationSessionStatus = typeof VerificationSessionStatus[keyof typeof VerificationSessionStatus];
+
+
+export const VerificationSessionStatus = {
+  open: 'open',
+  closed: 'closed',
+  reconciled: 'reconciled',
+} as const;
+
+export interface VerificationSession {
+  id: number;
+  sbuId: number;
+  sbuCode: string;
+  locationId: number;
+  locationName: string;
+  scope: VerificationSessionScope;
+  status: VerificationSessionStatus;
+  startedBy: string;
+  startedAt: string;
+  /** @nullable */
+  closedAt?: string | null;
+  expectedCount: number;
+  scanCount: number;
+  foundCount: number;
+  missingCount: number;
+  unrecordedCount: number;
+  unresolvedCount: number;
+  canScan: boolean;
+  canResolve: boolean;
+  results: VerificationResult[];
+  scans: VerificationScan[];
 }
 
 /**
@@ -1844,10 +2777,15 @@ export type ListAssetsStatus = typeof ListAssetsStatus[keyof typeof ListAssetsSt
 
 export const ListAssetsStatus = {
   pending_asset_number: 'pending_asset_number',
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+  in_store: 'in_store',
+  in_use: 'in_use',
+  out_on_gate_pass: 'out_on_gate_pass',
+  repair_requested: 'repair_requested',
+  in_repair: 'in_repair',
+  transfer_pending: 'transfer_pending',
+  pending_disposal: 'pending_disposal',
+  lost_stolen: 'lost_stolen',
+  disposed: 'disposed',
 } as const;
 
 export type ListLifecycleEventsParams = {
@@ -1968,10 +2906,15 @@ export type DownloadAssetsReportStatus = typeof DownloadAssetsReportStatus[keyof
 
 export const DownloadAssetsReportStatus = {
   pending_asset_number: 'pending_asset_number',
-  active: 'active',
-  maintenance: 'maintenance',
-  retired: 'retired',
-  missing: 'missing',
+  in_store: 'in_store',
+  in_use: 'in_use',
+  out_on_gate_pass: 'out_on_gate_pass',
+  repair_requested: 'repair_requested',
+  in_repair: 'in_repair',
+  transfer_pending: 'transfer_pending',
+  pending_disposal: 'pending_disposal',
+  lost_stolen: 'lost_stolen',
+  disposed: 'disposed',
 } as const;
 
 export type DownloadMovementsReportParams = {
@@ -2151,6 +3094,26 @@ includeLeavers?: boolean;
 };
 
 export type ScanCodeParams = {
+code: string;
+};
+
+export type ListNotificationsParams = {
+unread?: boolean;
+};
+
+export type ListPurchaseOrdersParams = {
+status?: string;
+};
+
+export type ListEquipmentRequestsParams = {
+status?: string;
+};
+
+export type ListAcknowledgementsParams = {
+employeeId?: number;
+};
+
+export type GateScanParams = {
 code: string;
 };
 

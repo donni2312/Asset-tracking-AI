@@ -139,7 +139,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     public async Task Group_finance_is_refused_a_technical_edit_with_403_and_the_asset_is_untouched()
     {
         await CreateUser("nyasha", Roles.GroupFinance);
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_repair" }, await TokenFor("nyasha"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_store" }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
         Assert.Equal("in_use", (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}")).Body.Str("status"));
@@ -150,10 +150,10 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     {
         await CreateUser("tendai", Roles.SbuIt);
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}",
-            new { status = "in_repair", assignedTo = "Rudo Chikwanha", notes = "In for a battery" }, await TokenFor("tendai"));
+            new { status = "in_store", assignedTo = "Rudo Chikwanha", notes = "In for a battery" }, await TokenFor("tendai"));
 
         Assert.Equal(200, res.Status);
-        Assert.Equal(("in_repair", "Rudo Chikwanha"), (res.Body.Str("status"), res.Body.Str("assignedTo")));
+        Assert.Equal(("in_store", "Rudo Chikwanha"), (res.Body.Str("status"), res.Body.Str("assignedTo")));
     }
 
     [Fact]
@@ -162,10 +162,10 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
         await CreateUser("tendai", Roles.SbuIt);
         await CreateUser("kudzai", Roles.GroupIt);
         Assert.Equal(403, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id }, await TokenFor("tendai"))).Status);
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id, status = "in_repair" }, await TokenFor("kudzai"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id, status = "in_store" }, await TokenFor("kudzai"));
 
         Assert.Equal(200, res.Status);
-        Assert.Equal((w.Bak.Id, "in_repair"), (res.Body.Int("sbuId"), res.Body.Str("status")));
+        Assert.Equal((w.Bak.Id, "in_store"), (res.Body.Int("sbuId"), res.Body.Str("status")));
     }
 
     [Fact]
@@ -187,12 +187,12 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     {
         await CreateUser("nyasha", Roles.GroupFinance);
         await CreateUser("bak", Roles.SbuAdmin);
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_repair", sbuId = w.Bak.Id }, await TokenFor("nyasha"));
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_store", sbuId = w.Bak.Id }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
         Assert.Equal("Your role (Group Finance Executive) may not do this.", res.Error());
         // A role that edits technical records, but not IT ones: the record-level rule says why.
-        var admin = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_repair" }, await TokenFor("bak"));
+        var admin = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "in_store" }, await TokenFor("bak"));
         Assert.Equal("Your role (SBU Admin Manager) may not edit this asset's technical fields.", admin.Error());
         var after = await api.CallAsync("GET", $"/assets/{w.Laptop.Id}");
         Assert.Equal(("in_use", w.Tsas.Id), (after.Body.Str("status"), after.Body.Int("sbuId"))); // nothing was applied

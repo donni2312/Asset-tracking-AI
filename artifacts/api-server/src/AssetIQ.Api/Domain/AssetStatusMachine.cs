@@ -19,6 +19,7 @@ public static class AssetStatusMachine
             {
                 [AssetStatuses.InUse] = "issue",
                 [AssetStatuses.OutOnGatePass] = "leave on a gate pass",
+                [AssetStatuses.RepairRequested] = "request a repair",
                 [AssetStatuses.InRepair] = "send for repair",
                 [AssetStatuses.TransferPending] = "request a transfer",
                 [AssetStatuses.PendingDisposal] = "recommend for disposal",
@@ -28,6 +29,7 @@ public static class AssetStatusMachine
             {
                 [AssetStatuses.InStore] = "return",
                 [AssetStatuses.OutOnGatePass] = "leave on a gate pass",
+                [AssetStatuses.RepairRequested] = "request a repair",
                 [AssetStatuses.InRepair] = "send for repair",
                 [AssetStatuses.TransferPending] = "request a transfer",
                 [AssetStatuses.PendingDisposal] = "recommend for disposal",
@@ -39,6 +41,12 @@ public static class AssetStatusMachine
                 [AssetStatuses.InStore] = "return through the gate",
                 [AssetStatuses.InRepair] = "send for repair",
                 [AssetStatuses.LostStolen] = "report lost or stolen",
+            },
+            [AssetStatuses.RepairRequested] = new Dictionary<string, string>
+            {
+                [AssetStatuses.InRepair] = "repair approved",
+                [AssetStatuses.InStore] = "repair rejected",
+                [AssetStatuses.InUse] = "repair rejected",
             },
             [AssetStatuses.InRepair] = new Dictionary<string, string>
             {
@@ -58,6 +66,7 @@ public static class AssetStatusMachine
                 [AssetStatuses.InStore] = "reject the disposal",
                 [AssetStatuses.InUse] = "reject the disposal",
                 [AssetStatuses.Disposed] = "approve the disposal",
+                [AssetStatuses.LostStolen] = "reject the write-off",
             },
             [AssetStatuses.LostStolen] = new Dictionary<string, string>
             {
@@ -73,7 +82,8 @@ public static class AssetStatusMachine
         Transitions.TryGetValue(from, out var next) ? next.Keys.ToList() : [];
 
     /// <summary>The facts the guards need about the asset and the change.</summary>
-    public sealed record Facts(bool HasAssetNumber, bool Tagged, string? LostDate = null, string? Reporter = null, string? Notes = null);
+    /// <param name="IsIt">Phase 4: an IT asset reaches "in repair" only through Finance's approval (repair requested).</param>
+    public sealed record Facts(bool HasAssetNumber, bool Tagged, string? LostDate = null, string? Reporter = null, string? Notes = null, bool IsIt = false);
 
     /// <summary>
     /// Null when <paramref name="from"/> → <paramref name="to"/> may happen, otherwise why not: not in the table,
@@ -86,6 +96,8 @@ public static class AssetStatusMachine
         if (!IsAllowed(from, to)) return $"An asset cannot go from {Label(from)} to {Label(to)}";
         if (to == AssetStatuses.InUse && (!facts.HasAssetNumber || !facts.Tagged))
             return "An item cannot be issued while it is untagged or waiting for its asset number (ST-02)";
+        if (to == AssetStatuses.InRepair && facts.IsIt && from != AssetStatuses.RepairRequested)
+            return "An IT asset goes for repair only once Finance approves the repair request (SI-05)";
         if (to == AssetStatuses.LostStolen)
         {
             var missing = new List<string>();
@@ -99,7 +111,7 @@ public static class AssetStatusMachine
 
     /// <summary>Counted as active (dashboards, AI answers): not lost / stolen, disposed or waiting for disposal (GI-07).</summary>
     public static readonly IReadOnlyList<string> Active =
-        [AssetStatuses.InStore, AssetStatuses.InUse, AssetStatuses.OutOnGatePass, AssetStatuses.InRepair, AssetStatuses.TransferPending];
+        [AssetStatuses.InStore, AssetStatuses.InUse, AssetStatuses.OutOnGatePass, AssetStatuses.RepairRequested, AssetStatuses.InRepair, AssetStatuses.TransferPending];
 
     public static string Label(string status) => status switch
     {
@@ -107,6 +119,7 @@ public static class AssetStatusMachine
         AssetStatuses.InStore => "In store",
         AssetStatuses.InUse => "In use",
         AssetStatuses.OutOnGatePass => "Out on gate pass",
+        AssetStatuses.RepairRequested => "Repair requested",
         AssetStatuses.InRepair => "In repair",
         AssetStatuses.TransferPending => "Transfer pending",
         AssetStatuses.PendingDisposal => "Pending disposal",

@@ -30,9 +30,10 @@ public sealed class AssetLifecycleTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Phase3_a_transition_not_in_the_table_is_refused_with_409_and_changes_nothing()
     {
-        var res = await Status(r.W.Projector.Id, new { status = "disposed", reason = "Broken" }, Roles.SbuIt);
-        Assert.Equal((409, "An asset cannot go from In store to Disposed"), (res.Status, res.Error()));
-        Assert.Equal("in_store", await StatusOf(r.W.Projector.Id));
+        Assert.Equal(200, (await Status(r.W.Projector.Id, new { status = "lost_stolen", reason = "Gone", lostDate = "2026-10-13", reporter = "Farai", notes = "Not in the store room" }, Roles.SbuIt)).Status);
+        var res = await Status(r.W.Projector.Id, new { status = "in_use", reason = "Found with John" }, Roles.SbuIt);
+        Assert.Equal((409, "An asset cannot go from Lost / stolen to In use"), (res.Status, res.Error()));
+        Assert.Equal("lost_stolen", await StatusOf(r.W.Projector.Id));
         var pending = await Status(r.W.Projector.Id, new { status = "pending_asset_number", reason = "x" }, Roles.SbuIt);
         Assert.Equal(400, pending.Status); // nobody asks for "pending asset number"
     }
@@ -54,23 +55,16 @@ public sealed class AssetLifecycleTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task SI_08_and_SF_04_a_disposal_is_recommended_decided_by_finance_and_final_and_the_asset_cannot_be_reassigned_meanwhile()
+    public async Task SI_08_a_recommended_disposal_blocks_reassignment_and_the_status_moves_only_through_the_workflow()
     {
-        Assert.Equal(200, (await Status(r.W.Laptop.Id, new { status = "pending_disposal", reason = "Cracked screen and board fault" }, Roles.SbuIt)).Status);
-        Assert.Equal(403, (await Status(r.W.Laptop.Id, new { status = "disposed", reason = "Approve" }, Roles.SbuIt)).Status); // IT recommends, Finance decides
+        Assert.Equal(409, (await Status(r.W.Laptop.Id, new { status = "pending_disposal", reason = "Cracked screen" }, Roles.SbuIt)).Status); // use the request
+        Assert.Equal(201, (await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/disposals", new { reason = "Cracked screen and board fault", condition = "poor" }, r[Roles.SbuIt])).Status);
+        Assert.Equal("pending_disposal", await StatusOf(r.W.Laptop.Id));
 
         var reassign = await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/lifecycle", new { eventType = "deployment", performedBy = "Farai", custodianEmployeeId = r.TsasHodEmployee.Id }, r[Roles.SbuIt]);
         Assert.Equal((409, "The asset is pending disposal and cannot be reassigned (SI-08)"), (reassign.Status, reassign.Error()));
         Assert.Equal(409, (await api.CallAsync("PATCH", $"/assets/{r.W.Laptop.Id}", new { assignedTo = "Someone Else" }, r[Roles.SbuIt])).Status);
-
-        var disposed = await Status(r.W.Laptop.Id, new { status = "disposed", reason = "Scrapped via e-waste vendor" }, Roles.SbuFinance);
-        Assert.Equal(200, disposed.Status);
-        Assert.Equal("2026-10-14", disposed.Body.Str("disposalDate"));
-        var after = await Status(r.W.Laptop.Id, new { status = "in_store", reason = "Undo" }, Roles.SystemAdmin);
-        Assert.Equal((409, "A disposed asset is final; its status cannot change"), (after.Status, after.Error()));
-        await using var db = api.NewDbContext();
-        Assert.Equal(["in_use→pending_disposal", "pending_disposal→disposed"],
-            await db.AuditLog.Where(e => e.AssetId == r.W.Laptop.Id && e.Action == "status_changed").OrderBy(e => e.Id).Select(e => e.OldValue + "→" + e.NewValue).ToListAsync());
+        Assert.Equal(409, (await Status(r.W.Laptop.Id, new { status = "disposed", reason = "Approve" }, Roles.SbuFinance)).Status); // decided in the inbox
     }
 
     [Fact]
@@ -100,7 +94,7 @@ public sealed class AssetLifecycleTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(("in_store", "TSAS IT store"), (laptop.Str("status"), laptop.Str("assignedTo")));
         Assert.Equal(403, (await api.CallAsync("GET", $"/assets/{r.W.Laptop.Id}", token: r[Roles.Stores])).Status); // stays with SBU IT
 
-        Assert.Equal(200, (await Status(r.W.Laptop.Id, new { status = "pending_disposal", reason = "Beyond economic repair" }, Roles.SbuIt)).Status);
+        Assert.Equal(201, (await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/disposals", new { reason = "Beyond economic repair" }, r[Roles.SbuIt])).Status);
         Assert.Equal(200, (await api.CallAsync("GET", $"/assets/{r.W.Laptop.Id}", token: r[Roles.Stores])).Status); // now Stores may receive it
     }
 
@@ -121,25 +115,14 @@ public sealed class AssetLifecycleTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Phase3_a_transfer_request_waits_for_group_it_and_repairs_return_to_the_holder()
-    {
-        Assert.Equal(200, (await Status(r.W.Projector.Id, new { status = "transfer_pending", reason = "Surplus, BAK needs one" }, Roles.SbuIt)).Status);
-        Assert.Equal(403, (await Status(r.W.Projector.Id, new { status = "in_store", reason = "Approved" }, Roles.SbuIt)).Status); // request only
-        Assert.Equal(201, (await api.CallAsync("POST", $"/assets/{r.W.Projector.Id}/lifecycle", new { eventType = "sbu_transfer", performedBy = "Group IT", fromSbuId = r.W.Tsas.Id, toSbuId = r.W.Bak.Id }, r[Roles.GroupIt])).Status);
-        Assert.Equal("in_store", await StatusOf(r.W.Projector.Id));
-
-        Assert.Equal(201, (await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/lifecycle", new { eventType = "repair_sent", performedBy = "Farai", vendor = "Dell Service" }, r[Roles.SbuIt])).Status);
-        Assert.Equal("in_repair", await StatusOf(r.W.Laptop.Id));
-        Assert.Equal(201, (await api.CallAsync("POST", $"/assets/{r.W.Laptop.Id}/lifecycle", new { eventType = "repair_returned", performedBy = "Farai" }, r[Roles.SbuIt])).Status);
-        Assert.Equal("in_use", await StatusOf(r.W.Laptop.Id)); // it has a holder
-    }
-
-    [Fact]
     public async Task Phase3_the_caller_sees_which_changes_they_may_make()
     {
         var it = await api.CallAsync("GET", $"/assets/{r.W.Laptop.Id}/transitions", token: r[Roles.SbuIt]);
         var allowed = it.Body.Items().Where(o => o.Bool("allowed")).Select(o => o.Str("status")).Order().ToList();
-        Assert.Equal(["in_repair", "in_store", "lost_stolen", "out_on_gate_pass", "pending_disposal", "transfer_pending"], allowed);
+        Assert.Equal(["in_store", "lost_stolen", "out_on_gate_pass", "pending_disposal", "repair_requested", "transfer_pending"], allowed);
+        var direct = it.Body.Items().Single(o => o.Str("status") == "in_repair");
+        Assert.Equal((false, "Request the repair; Finance approves it first (SI-05)"), (direct.Bool("allowed"), direct.Str("reason")));
+        Assert.Equal("repair", it.Body.Items().Single(o => o.Str("status") == "repair_requested").Str("workflow"));
         Assert.True(it.Body.Items().Single(o => o.Str("status") == "lost_stolen").Bool("needsIncidentDetails"));
         var hod = await api.CallAsync("GET", $"/assets/{r.W.Laptop.Id}/transitions", token: r[Roles.Hod]);
         Assert.DoesNotContain(hod.Body.Items(), o => o.Bool("allowed"));

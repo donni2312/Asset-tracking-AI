@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 import * as zod from 'zod';
 
@@ -181,7 +181,7 @@ export const GetSbuAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -218,7 +218,7 @@ export const GetSbuAssetsResponse = zod.array(GetSbuAssetsResponseItem)
  * @summary List all assets
  */
 export const ListAssetsQueryParams = zod.object({
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).optional(),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).optional(),
   "locationId": zod.coerce.number().nullish(),
   "sbuId": zod.coerce.number().nullish(),
   "category": zod.coerce.string().optional(),
@@ -239,7 +239,7 @@ export const ListAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -307,7 +307,7 @@ export const CreateAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -360,7 +360,7 @@ export const GetAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -404,7 +404,7 @@ export const UpdateAssetBody = zod.object({
   "subCategory": zod.string().optional(),
   "attributes": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)'),
   "noSerialReason": zod.string().optional(),
-  "status": zod.enum(['in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).optional().describe('Through the state machine (409 when not allowed); lost_stolen needs POST \/assets\/{id}\/status (GI-07)'),
+  "status": zod.enum(['in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).optional().describe('Through the state machine (409 when not allowed); lost_stolen needs POST \/assets\/{id}\/status (GI-07)'),
   "condition": zod.enum(['new', 'good', 'fair', 'poor', 'damaged']).optional(),
   "assignedTo": zod.string().nullish(),
   "currentLocationId": zod.number().nullish(),
@@ -430,7 +430,7 @@ export const UpdateAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -732,7 +732,7 @@ export const GetLocationAssetsResponseItem = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -882,7 +882,19 @@ export const ListGatePassesResponseItem = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })
 export const ListGatePassesResponse = zod.array(ListGatePassesResponseItem)
 
@@ -899,7 +911,8 @@ export const CreateGatePassBody = zod.object({
   "requestedBy": zod.string().min(1),
   "reason": zod.string().min(1),
   "destination": zod.string().optional(),
-  "returnDate": zod.coerce.date().optional()
+  "returnDate": zod.coerce.date().optional(),
+  "itemAssetIds": zod.array(zod.number()).optional().describe('Phase 4c - further items leaving under the same pass (same SBU)')
 })
 
 export const CreateGatePassResponse = zod.object({
@@ -922,7 +935,19 @@ export const CreateGatePassResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })
 
 
@@ -953,7 +978,19 @@ export const GetGatePassResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })
 
 
@@ -990,7 +1027,19 @@ export const ApproveGatePassResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })
 
 
@@ -1027,7 +1076,19 @@ export const RejectGatePassResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })
 
 
@@ -1089,7 +1150,19 @@ export const SimulateRfidReadResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 }).optional()
 }),
   "insights": zod.array(zod.object({
@@ -1324,7 +1397,7 @@ export const AiQueryResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -1374,7 +1447,19 @@ export const AiQueryResponse = zod.object({
   "decidedAt": zod.coerce.date().nullish(),
   "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date().optional()
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
 })).optional(),
   "intent": zod.string().optional().describe('Intent the question was mapped to (e.g. locate_asset, not_moved, gate_passes)'),
   "source": zod.enum(['rules', 'openai']).optional().describe('Which parser understood the question (OpenAI when configured, rules as the fallback)'),
@@ -1386,7 +1471,7 @@ export const AiQueryResponse = zod.object({
  * @summary Asset register as CSV (same filters as listAssets)
  */
 export const DownloadAssetsReportQueryParams = zod.object({
-  "status": zod.enum(['pending_asset_number', 'active', 'maintenance', 'retired', 'missing']).optional(),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).optional(),
   "locationId": zod.coerce.number().optional(),
   "sbuId": zod.coerce.number().optional(),
   "category": zod.coerce.string().optional(),
@@ -1789,7 +1874,7 @@ export const GetAssetCardResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -1970,7 +2055,7 @@ export const ChangeAssetCategoryResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2036,7 +2121,7 @@ export const UpdateAssetFinancialResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2093,7 +2178,7 @@ export const CapitaliseAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2151,7 +2236,7 @@ export const DecideNoSerialResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2208,7 +2293,7 @@ export const TagAssetResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -2617,15 +2702,20 @@ export const GetCompletenessReportResponse = zod.object({
  */
 export const ListApprovalsResponseItem = zod.object({
   "id": zod.string(),
-  "type": zod.enum(['upgrade', 'no_serial']),
-  "assetId": zod.number(),
+  "type": zod.enum(['upgrade', 'no_serial', 'repair', 'disposal', 'transfer', 'gate_pass', 'equipment']),
+  "assetId": zod.number().nullish(),
   "assetNumber": zod.string().nullish(),
   "assetDescription": zod.string(),
   "sbuCode": zod.string().nullish(),
   "summary": zod.string(),
   "raisedAt": zod.coerce.date(),
   "raisedBy": zod.string(),
-  "upgradeId": zod.number().nullish()
+  "upgradeId": zod.number().nullish(),
+  "requestId": zod.number().nullish().describe('Phase 4 requests - decide with POST \/approval-requests\/{id}\/decision'),
+  "stepLabel": zod.string().nullish(),
+  "needs": zod.array(zod.string()).nullish().describe('What the approver must add at this step (disposal method, proceeds, data-wipe note)'),
+  "onBehalfOf": zod.string().nullish().describe('Decided for a colleague on leave (LM-03)'),
+  "escalated": zod.boolean().optional()
 })
 export const ListApprovalsResponse = zod.array(ListApprovalsResponseItem)
 
@@ -3121,12 +3211,13 @@ export const ListAssetTransitionsParams = zod.object({
 })
 
 export const ListAssetTransitionsResponseItem = zod.object({
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "label": zod.string(),
   "action": zod.string().describe('What the change is called (\"issue\", \"recommend for disposal\", …)'),
   "allowed": zod.boolean(),
   "reason": zod.string().nullish().describe('Why it is refused, when it is'),
-  "needsIncidentDetails": zod.boolean().describe('lost_stolen needs lostDate, reporter and notes (GI-07)')
+  "needsIncidentDetails": zod.boolean().describe('lost_stolen needs lostDate, reporter and notes (GI-07)'),
+  "workflow": zod.union([zod.literal('repair'),zod.literal('disposal'),zod.literal('transfer'),zod.literal(null)]).nullish().describe('The change is a request (POST \/assets\/{id}\/repairs, \/disposals, \/transfers) decided in the approvals inbox')
 })
 export const ListAssetTransitionsResponse = zod.array(ListAssetTransitionsResponseItem)
 
@@ -3143,7 +3234,7 @@ export const changeAssetStatusBodyReasonMin = 3;
 
 
 export const ChangeAssetStatusBody = zod.object({
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "reason": zod.string().min(changeAssetStatusBodyReasonMin),
   "lostDate": zod.coerce.date().optional(),
   "reporter": zod.string().optional(),
@@ -3164,7 +3255,7 @@ export const ChangeAssetStatusResponse = zod.object({
   "rfidTag": zod.string().nullish().describe('Null until tagged (only after the asset number is issued)'),
   "assetNumber": zod.string().nullish().describe('Business Central fixed-asset number; null while pending (AU-03). Never changes once issued.'),
   "previousAssetNumber": zod.string().nullish(),
-  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
+  "status": zod.enum(['pending_asset_number', 'in_store', 'in_use', 'out_on_gate_pass', 'repair_requested', 'in_repair', 'transfer_pending', 'pending_disposal', 'lost_stolen', 'disposed']).describe('Phase 3 state machine (docs\/implementation-plan.md §11.1); a change not in the table is refused with 409. pending_asset_number = waiting for the Business Central asset number (AU-03); disposed is final.'),
   "condition": zod.string().nullish(),
   "assignedTo": zod.string().nullish().describe('The custodian'),
   "currentLocationId": zod.number().nullish(),
@@ -3219,6 +3310,1467 @@ export const UpdateRfidReaderResponse = zod.object({
   "sbuName": zod.string().nullish(),
   "status": zod.enum(['active', 'inactive']),
   "lastReadAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary The asset's repairs (cost only for Finance)
+ */
+export const ListAssetRepairsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAssetRepairsResponseItem = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "fault": zod.string(),
+  "action": zod.string().nullish(),
+  "parts": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "downtimeDays": zod.number().nullish(),
+  "cost": zod.number().nullish().describe('USD, recorded by Finance; null for everyone else'),
+  "status": zod.enum(['requested', 'approved', 'rejected', 'completed']),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish()
+})
+export const ListAssetRepairsResponse = zod.array(ListAssetRepairsResponseItem)
+
+
+/**
+ * @summary Report a fault and request a repair (SI-05); SBU Finance approves it before the asset goes for repair
+ */
+export const RequestRepairParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RequestRepairBody = zod.object({
+  "fault": zod.string(),
+  "action": zod.string().optional(),
+  "parts": zod.string().optional(),
+  "vendor": zod.string().optional()
+})
+
+export const RequestRepairResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "fault": zod.string(),
+  "action": zod.string().nullish(),
+  "parts": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "downtimeDays": zod.number().nullish(),
+  "cost": zod.number().nullish().describe('USD, recorded by Finance; null for everyone else'),
+  "status": zod.enum(['requested', 'approved', 'rejected', 'completed']),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Finance records the cost; IT the work, parts, vendor and downtime
+ */
+export const UpdateRepairParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRepairBody = zod.object({
+  "cost": zod.number().nullish(),
+  "action": zod.string().optional(),
+  "parts": zod.string().optional(),
+  "vendor": zod.string().optional(),
+  "downtimeDays": zod.number().optional()
+})
+
+export const UpdateRepairResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "fault": zod.string(),
+  "action": zod.string().nullish(),
+  "parts": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "downtimeDays": zod.number().nullish(),
+  "cost": zod.number().nullish().describe('USD, recorded by Finance; null for everyone else'),
+  "status": zod.enum(['requested', 'approved', 'rejected', 'completed']),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary The asset's disposals (money only for Finance)
+ */
+export const ListAssetDisposalsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAssetDisposalsResponseItem = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "reason": zod.string(),
+  "condition": zod.string().nullish(),
+  "recommendedBy": zod.string(),
+  "method": zod.union([zod.literal('sale'),zod.literal('scrap'),zod.literal('donation'),zod.literal('write_off'),zod.literal(null)]).nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "proceeds": zod.number().nullish(),
+  "buyer": zod.string().nullish(),
+  "nbvAtDisposal": zod.number().nullish(),
+  "gainLoss": zod.number().nullish().describe('proceeds - NBV at disposal'),
+  "dataWipeNote": zod.string().nullish(),
+  "status": zod.enum(['pending', 'completed', 'rejected']),
+  "createdAt": zod.coerce.date()
+})
+export const ListAssetDisposalsResponse = zod.array(ListAssetDisposalsResponseItem)
+
+
+/**
+ * @summary Recommend a disposal (SI-08); SBU Finance completes it, Group IT signs off IT data wipes, Group Finance above the threshold
+ */
+export const RecommendDisposalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecommendDisposalBody = zod.object({
+  "reason": zod.string(),
+  "condition": zod.string().optional()
+})
+
+export const RecommendDisposalResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "reason": zod.string(),
+  "condition": zod.string().nullish(),
+  "recommendedBy": zod.string(),
+  "method": zod.union([zod.literal('sale'),zod.literal('scrap'),zod.literal('donation'),zod.literal('write_off'),zod.literal(null)]).nullish(),
+  "disposalDate": zod.coerce.date().nullish(),
+  "proceeds": zod.number().nullish(),
+  "buyer": zod.string().nullish(),
+  "nbvAtDisposal": zod.number().nullish(),
+  "gainLoss": zod.number().nullish().describe('proceeds - NBV at disposal'),
+  "dataWipeNote": zod.string().nullish(),
+  "status": zod.enum(['pending', 'completed', 'rejected']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Request a transfer to another SBU (SI-10); Group IT (IT) or the receiving Admin Manager (non-IT) approves
+ */
+export const RequestTransferParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RequestTransferBody = zod.object({
+  "toSbuId": zod.number(),
+  "reason": zod.string()
+})
+
+export const RequestTransferResponse = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['repair', 'disposal', 'transfer', 'gate_pass', 'equipment']),
+  "assetId": zod.number().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "summary": zod.string(),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "steps": zod.array(zod.object({
+  "id": zod.number(),
+  "stepNo": zod.number(),
+  "role": zod.string(),
+  "label": zod.string(),
+  "status": zod.enum(['waiting', 'pending', 'approved', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "onBehalfOf": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "comment": zod.string().nullish(),
+  "escalatedToRole": zod.string().nullish(),
+  "remindedAt": zod.coerce.date().nullish()
+}))
+})
+
+
+/**
+ * @summary A request and its steps
+ */
+export const GetApprovalRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetApprovalRequestResponse = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['repair', 'disposal', 'transfer', 'gate_pass', 'equipment']),
+  "assetId": zod.number().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "summary": zod.string(),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "steps": zod.array(zod.object({
+  "id": zod.number(),
+  "stepNo": zod.number(),
+  "role": zod.string(),
+  "label": zod.string(),
+  "status": zod.enum(['waiting', 'pending', 'approved', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "onBehalfOf": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "comment": zod.string().nullish(),
+  "escalatedToRole": zod.string().nullish(),
+  "remindedAt": zod.coerce.date().nullish()
+}))
+})
+
+
+/**
+ * @summary Approve or reject the caller's step (403 none for the caller; 409 already decided)
+ */
+export const DecideApprovalRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DecideApprovalRequestBody = zod.object({
+  "decision": zod.enum(['approve', 'reject']),
+  "comment": zod.string().optional().describe('Required when rejecting'),
+  "cost": zod.number().optional().describe('Repair - the estimated cost (Finance)'),
+  "method": zod.enum(['sale', 'scrap', 'donation', 'write_off']).optional(),
+  "disposalDate": zod.coerce.date().optional(),
+  "proceeds": zod.number().optional(),
+  "buyer": zod.string().optional(),
+  "dataWipeNote": zod.string().optional().describe('IT disposals, Group IT\'s step (GI-10)')
+})
+
+export const DecideApprovalRequestResponse = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['repair', 'disposal', 'transfer', 'gate_pass', 'equipment']),
+  "assetId": zod.number().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "summary": zod.string(),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "steps": zod.array(zod.object({
+  "id": zod.number(),
+  "stepNo": zod.number(),
+  "role": zod.string(),
+  "label": zod.string(),
+  "status": zod.enum(['waiting', 'pending', 'approved', 'rejected']),
+  "decidedBy": zod.string().nullish(),
+  "onBehalfOf": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "comment": zod.string().nullish(),
+  "escalatedToRole": zod.string().nullish(),
+  "remindedAt": zod.coerce.date().nullish()
+}))
+})
+
+
+/**
+ * @summary My leave and who decides for me, and whom I decide for (LM-03)
+ */
+export const ListDelegationsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "delegateUserId": zod.number().nullish(),
+  "delegateName": zod.string().nullish(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date(),
+  "reason": zod.string().nullish()
+})
+export const ListDelegationsResponse = zod.array(ListDelegationsResponseItem)
+
+
+/**
+ * @summary Record leave and the delegate who decides my approvals meanwhile (LM-03)
+ */
+export const CreateDelegationBody = zod.object({
+  "delegateUserId": zod.number().optional(),
+  "startsAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date(),
+  "reason": zod.string().optional()
+})
+
+export const CreateDelegationResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "delegateUserId": zod.number().nullish(),
+  "delegateName": zod.string().nullish(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date(),
+  "reason": zod.string().nullish()
+})
+
+
+/**
+ * @summary Colleagues the caller may name as delegate
+ */
+export const ListDelegationCandidatesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "role": zod.string()
+})
+export const ListDelegationCandidatesResponse = zod.array(ListDelegationCandidatesResponseItem)
+
+
+/**
+ * @summary My in-app notifications, newest first
+ */
+export const ListNotificationsQueryParams = zod.object({
+  "unread": zod.coerce.boolean().optional()
+})
+
+export const ListNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "kind": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "link": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullish()
+})
+export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary Mark one (id) or all of my notifications read
+ */
+export const MarkNotificationsReadBody = zod.object({
+  "id": zod.number().optional()
+}).describe('The notification to mark read; leave out id to mark all')
+
+export const MarkNotificationsReadResponse = zod.void()
+
+
+/**
+ * @summary Purchase orders (unit cost only for Finance)
+ */
+export const ListPurchaseOrdersQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListPurchaseOrdersResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "poNo": zod.string(),
+  "supplier": zod.string(),
+  "status": zod.enum(['open', 'partly_received', 'received', 'closed']),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "receivedQuantity": zod.number(),
+  "unitCost": zod.number().nullish()
+})),
+  "receipts": zod.array(zod.object({
+  "id": zod.number(),
+  "receivedAt": zod.coerce.date(),
+  "receivedBy": zod.string(),
+  "flagged": zod.boolean(),
+  "flagReason": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "purchaseOrderLineId": zod.number(),
+  "description": zod.string(),
+  "quantityReceived": zod.number(),
+  "quantityDamaged": zod.number(),
+  "serials": zod.array(zod.string()),
+  "condition": zod.string().nullish(),
+  "registered": zod.number()
+}))
+}))
+})
+export const ListPurchaseOrdersResponse = zod.array(ListPurchaseOrdersResponseItem)
+
+
+/**
+ * @summary Enter a purchase order (SBU Finance; until Business Central's feed)
+ */
+export const CreatePurchaseOrderBody = zod.object({
+  "sbuId": zod.number().optional(),
+  "poNo": zod.string(),
+  "supplier": zod.string(),
+  "lines": zod.array(zod.object({
+  "categoryId": zod.number(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "unitCost": zod.number().optional()
+}))
+})
+
+export const CreatePurchaseOrderResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "poNo": zod.string(),
+  "supplier": zod.string(),
+  "status": zod.enum(['open', 'partly_received', 'received', 'closed']),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "receivedQuantity": zod.number(),
+  "unitCost": zod.number().nullish()
+})),
+  "receipts": zod.array(zod.object({
+  "id": zod.number(),
+  "receivedAt": zod.coerce.date(),
+  "receivedBy": zod.string(),
+  "flagged": zod.boolean(),
+  "flagReason": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "purchaseOrderLineId": zod.number(),
+  "description": zod.string(),
+  "quantityReceived": zod.number(),
+  "quantityDamaged": zod.number(),
+  "serials": zod.array(zod.string()),
+  "condition": zod.string().nullish(),
+  "registered": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary A purchase order with its deliveries
+ */
+export const GetPurchaseOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPurchaseOrderResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "poNo": zod.string(),
+  "supplier": zod.string(),
+  "status": zod.enum(['open', 'partly_received', 'received', 'closed']),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "receivedQuantity": zod.number(),
+  "unitCost": zod.number().nullish()
+})),
+  "receipts": zod.array(zod.object({
+  "id": zod.number(),
+  "receivedAt": zod.coerce.date(),
+  "receivedBy": zod.string(),
+  "flagged": zod.boolean(),
+  "flagReason": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "purchaseOrderLineId": zod.number(),
+  "description": zod.string(),
+  "quantityReceived": zod.number(),
+  "quantityDamaged": zod.number(),
+  "serials": zod.array(zod.string()),
+  "condition": zod.string().nullish(),
+  "registered": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Record a delivery against the PO (Stores, ST-01); short or damaged deliveries are flagged
+ */
+export const ReceiveGoodsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReceiveGoodsBody = zod.object({
+  "notes": zod.string().optional(),
+  "lines": zod.array(zod.object({
+  "purchaseOrderLineId": zod.number(),
+  "quantityReceived": zod.number(),
+  "quantityDamaged": zod.number().optional(),
+  "serials": zod.array(zod.string()).optional(),
+  "condition": zod.string().optional()
+}))
+})
+
+export const ReceiveGoodsResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "poNo": zod.string(),
+  "supplier": zod.string(),
+  "status": zod.enum(['open', 'partly_received', 'received', 'closed']),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number(),
+  "receivedQuantity": zod.number(),
+  "unitCost": zod.number().nullish()
+})),
+  "receipts": zod.array(zod.object({
+  "id": zod.number(),
+  "receivedAt": zod.coerce.date(),
+  "receivedBy": zod.string(),
+  "flagged": zod.boolean(),
+  "flagReason": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.number(),
+  "purchaseOrderLineId": zod.number(),
+  "description": zod.string(),
+  "quantityReceived": zod.number(),
+  "quantityDamaged": zod.number(),
+  "serials": zod.array(zod.string()),
+  "condition": zod.string().nullish(),
+  "registered": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Items in store by category, type and location (ST-03)
+ */
+export const ListStockResponseItem = zod.object({
+  "sbuCode": zod.string(),
+  "category": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "count": zod.number(),
+  "untagged": zod.number()
+})
+export const ListStockResponse = zod.array(ListStockResponseItem)
+
+
+/**
+ * @summary Equipment requests in the caller's scope
+ */
+export const ListEquipmentRequestsQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListEquipmentRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "itemType": zod.string(),
+  "quantity": zod.number(),
+  "issuedQuantity": zod.number(),
+  "reason": zod.string(),
+  "urgency": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
+  "source": zod.string(),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListEquipmentRequestsResponse = zod.array(ListEquipmentRequestsResponseItem)
+
+
+/**
+ * @summary Request equipment (LM-05; SBU HR onboarding kits, HR-02); approved in the inbox
+ */
+export const RequestEquipmentBody = zod.object({
+  "employeeId": zod.number().optional(),
+  "departmentId": zod.number().optional(),
+  "categoryId": zod.number(),
+  "itemType": zod.string(),
+  "quantity": zod.number().optional(),
+  "reason": zod.string(),
+  "urgency": zod.enum(['low', 'normal', 'high']).optional()
+})
+
+export const RequestEquipmentResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "itemType": zod.string(),
+  "quantity": zod.number(),
+  "issuedQuantity": zod.number(),
+  "reason": zod.string(),
+  "urgency": zod.string(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'fulfilled']),
+  "source": zod.string(),
+  "requestedBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Issue an item in store against an approved request (ST-04); the recipient acknowledges it (HR-03)
+ */
+export const IssueEquipmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const IssueEquipmentBody = zod.object({
+  "assetId": zod.number(),
+  "employeeId": zod.number().optional()
+})
+
+export const IssueEquipmentResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "employeeId": zod.number(),
+  "issuedBy": zod.string(),
+  "issuedAt": zod.coerce.date(),
+  "acknowledgedAt": zod.coerce.date().nullish(),
+  "method": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stores takes an item back and records its condition (ST-05; IT items only once recommended for disposal)
+ */
+export const ReceiveReturnParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReceiveReturnBody = zod.object({
+  "condition": zod.enum(['good', 'repair', 'scrap']),
+  "notes": zod.string().optional()
+})
+
+export const ReceiveReturnResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "assignedTo": zod.string().nullish(),
+  "condition": zod.string().nullish()
+})
+
+
+/**
+ * @summary Items issued to me (or to an employee in my scope) and whether they are acknowledged
+ */
+export const ListAcknowledgementsQueryParams = zod.object({
+  "employeeId": zod.coerce.number().optional()
+})
+
+export const ListAcknowledgementsResponseItem = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "employeeId": zod.number(),
+  "issuedBy": zod.string(),
+  "issuedAt": zod.coerce.date(),
+  "acknowledgedAt": zod.coerce.date().nullish(),
+  "method": zod.string().nullish()
+})
+export const ListAcknowledgementsResponse = zod.array(ListAcknowledgementsResponseItem)
+
+
+/**
+ * @summary Acknowledge an item issued to me (HR-03)
+ */
+export const AcceptAcknowledgementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcceptAcknowledgementResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "assetDescription": zod.string(),
+  "employeeId": zod.number(),
+  "issuedBy": zod.string(),
+  "issuedAt": zod.coerce.date(),
+  "acknowledgedAt": zod.coerce.date().nullish(),
+  "method": zod.string().nullish()
+})
+
+
+/**
+ * @summary Acknowledge by the emailed link (no sign-in)
+ */
+export const AcceptAcknowledgementLinkBody = zod.object({
+  "token": zod.string()
+})
+
+export const AcceptAcknowledgementLinkResponse = zod.void()
+
+
+/**
+ * @summary An employee's toolbox: items held, acknowledgements, past items (HR-01)
+ */
+export const GetToolboxParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetToolboxResponse = zod.object({
+  "employeeId": zod.number(),
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "active": zod.boolean(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "tag": zod.string().nullish(),
+  "category": zod.string(),
+  "condition": zod.string().nullish(),
+  "status": zod.string(),
+  "issuedAt": zod.coerce.date().nullish(),
+  "acknowledgementId": zod.number().nullish(),
+  "acknowledgedAt": zod.coerce.date().nullish()
+})),
+  "history": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "returnedAt": zod.coerce.date()
+})),
+  "openExitClearanceId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Start the exit clearance from the toolbox (SBU HR, HR-04)
+ */
+export const StartExitClearanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const StartExitClearanceBody = zod.object({
+  "reason": zod.enum(['resignation', 'termination', 'retirement', 'transfer'])
+})
+
+export const StartExitClearanceResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['open', 'completed']),
+  "exceptionApprovedBy": zod.string().nullish(),
+  "exceptionReason": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "isIt": zod.boolean(),
+  "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
+  "recordedBy": zod.string().nullish(),
+  "recordedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary An exit clearance and its items
+ */
+export const GetExitClearanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetExitClearanceResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['open', 'completed']),
+  "exceptionApprovedBy": zod.string().nullish(),
+  "exceptionReason": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "isIt": zod.boolean(),
+  "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
+  "recordedBy": zod.string().nullish(),
+  "recordedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Record an item returned, damaged or missing
+ */
+export const RecordExitClearanceItemParams = zod.object({
+  "id": zod.coerce.number(),
+  "itemId": zod.coerce.number()
+})
+
+export const RecordExitClearanceItemBody = zod.object({
+  "outcome": zod.enum(['returned', 'damaged', 'missing']),
+  "notes": zod.string().optional()
+})
+
+export const RecordExitClearanceItemResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['open', 'completed']),
+  "exceptionApprovedBy": zod.string().nullish(),
+  "exceptionReason": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "isIt": zod.boolean(),
+  "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
+  "recordedBy": zod.string().nullish(),
+  "recordedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Complete the clearance (409 while items are outstanding, unless an approved exception is recorded)
+ */
+export const CompleteExitClearanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CompleteExitClearanceBody = zod.object({
+  "exceptionApprovedBy": zod.string().optional(),
+  "exceptionReason": zod.string().optional()
+})
+
+export const CompleteExitClearanceResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['open', 'completed']),
+  "exceptionApprovedBy": zod.string().nullish(),
+  "exceptionReason": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "isIt": zod.boolean(),
+  "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
+  "recordedBy": zod.string().nullish(),
+  "recordedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary What the department holds, by person (LM-01, LM-02)
+ */
+export const GetDepartmentHoldingsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetDepartmentHoldingsResponse = zod.object({
+  "departmentId": zod.number(),
+  "departmentName": zod.string(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "isIt": zod.boolean(),
+  "holder": zod.string().nullish(),
+  "employeeId": zod.number().nullish(),
+  "status": zod.string(),
+  "location": zod.string().nullish(),
+  "condition": zod.string().nullish()
+})),
+  "employees": zod.array(zod.object({
+  "employeeId": zod.number(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "items": zod.number()
+}))
+})
+
+
+/**
+ * @summary The department's holdings as Excel
+ */
+export const ExportDepartmentHoldingsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ExportDepartmentHoldingsResponse = zod.unknown()
+
+
+/**
+ * @summary SG-01: check a gate pass QR (GP-12) or an item tag at the gate
+ */
+export const GateScanQueryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const GateScanResponse = zod.object({
+  "verdict": zod.enum(['clear', 'return', 'stop']).describe('clear = may leave (green); return = expected back; stop = must not leave (red)'),
+  "message": zod.string(),
+  "assetId": zod.number().nullish(),
+  "gatePass": zod.union([zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().optional(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "requestedBy": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary SG-03: record items leaving under an approved pass
+ */
+export const RecordGateExitParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordGateExitBody = zod.object({
+  "gateLocationId": zod.number(),
+  "assetIds": zod.array(zod.number()).optional().describe('Default - every item that has not left'),
+  "notes": zod.string().optional()
+})
+
+export const RecordGateExitResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().optional(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "requestedBy": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
+})
+
+
+/**
+ * @summary SG-03 / SI-04: record items coming back (partial returns)
+ */
+export const RecordGateReturnParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordGateReturnBody = zod.object({
+  "gateLocationId": zod.number(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "condition": zod.enum(['new', 'good', 'fair', 'poor', 'damaged']).optional(),
+  "notes": zod.string().optional()
+})).optional().describe('Default - every item that is out')
+})
+
+export const RecordGateReturnResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().optional(),
+  "sbuId": zod.number().nullish(),
+  "sbuName": zod.string().nullish(),
+  "requestedBy": zod.string(),
+  "approvedBy": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "reason": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date().nullish(),
+  "decisionNote": zod.string().nullish(),
+  "source": zod.enum(['manual', 'rfid_gate']).optional().describe('manual = requested in advance; rfid_gate = raised automatically by a gate reader'),
+  "gateLocationId": zod.number().nullish(),
+  "gateLocationName": zod.string().nullish(),
+  "decidedAt": zod.coerce.date().nullish(),
+  "exitedAt": zod.coerce.date().nullish().describe('When the asset left the premises under this pass (latest gate_pass movement); null = not used yet'),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "exitedAt": zod.coerce.date().nullish(),
+  "exitOfficer": zod.string().nullish(),
+  "returnedAt": zod.coerce.date().nullish(),
+  "returnOfficer": zod.string().nullish(),
+  "returnCondition": zod.string().nullish(),
+  "returnNotes": zod.string().nullish()
+})).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
+})
+
+
+/**
+ * @summary SG-02: open alerts at the caller's SBU's gates
+ */
+export const ListGateAlertsResponseItem = zod.object({
+  "insightId": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "type": zod.string(),
+  "severity": zod.string(),
+  "message": zod.string(),
+  "gatePassId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "actions": zod.array(zod.object({
+  "id": zod.number(),
+  "insightId": zod.number().nullish(),
+  "assetId": zod.number(),
+  "gateLocationId": zod.number().nullish(),
+  "action": zod.enum(['stopped', 'released_with_override', 'escalated']),
+  "notes": zod.string().nullish(),
+  "officer": zod.string(),
+  "at": zod.coerce.date()
+}))
+})
+export const ListGateAlertsResponse = zod.array(ListGateAlertsResponseItem)
+
+
+/**
+ * @summary SG-02: record what the Gate Officer did about an alert
+ */
+export const RecordGateActionParams = zod.object({
+  "insightId": zod.coerce.number()
+})
+
+export const RecordGateActionBody = zod.object({
+  "action": zod.enum(['stopped', 'released_with_override', 'escalated']),
+  "notes": zod.string().optional().describe('Required unless stopped'),
+  "gateLocationId": zod.number().optional()
+})
+
+export const RecordGateActionResponse = zod.object({
+  "id": zod.number(),
+  "insightId": zod.number().nullish(),
+  "assetId": zod.number(),
+  "gateLocationId": zod.number().nullish(),
+  "action": zod.enum(['stopped', 'released_with_override', 'escalated']),
+  "notes": zod.string().nullish(),
+  "officer": zod.string(),
+  "at": zod.coerce.date()
+})
+
+
+/**
+ * @summary GI-06: items not back by their return date
+ */
+export const ListOverdueReturnsResponseItem = zod.object({
+  "gatePassId": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "rfidTag": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "sbuId": zod.number().nullish(),
+  "requestedBy": zod.string(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.coerce.date(),
+  "exitedAt": zod.coerce.date()
+})
+export const ListOverdueReturnsResponse = zod.array(ListOverdueReturnsResponseItem)
+
+
+/**
+ * @summary SI-07: verification counts in the caller's scope
+ */
+export const ListVerificationSessionsResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
+})
+export const ListVerificationSessionsResponse = zod.array(ListVerificationSessionsResponseItem)
+
+
+/**
+ * @summary SI-07: start a count of a location
+ */
+export const StartVerificationSessionBody = zod.object({
+  "locationId": zod.number(),
+  "scope": zod.enum(['it', 'non_it', 'all']).optional()
+})
+
+export const StartVerificationSessionResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary A count with its scans and results
+ */
+export const GetVerificationSessionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetVerificationSessionResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Record scanned codes in an open count
+ */
+export const AddVerificationScansParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddVerificationScansBody = zod.object({
+  "codes": zod.array(zod.string())
+})
+
+export const AddVerificationScansResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Close a count: found, missing and unrecorded items
+ */
+export const CloseVerificationSessionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CloseVerificationSessionResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary SF-06: SBU Finance resolves a difference with a comment
+ */
+export const ResolveVerificationResultParams = zod.object({
+  "id": zod.coerce.number(),
+  "resultId": zod.coerce.number()
+})
+
+export const resolveVerificationResultBodyCommentMin = 3;
+
+
+
+export const ResolveVerificationResultBody = zod.object({
+  "resolution": zod.enum(['adjust', 'write_off', 'investigate', 'register']),
+  "comment": zod.string().min(resolveVerificationResultBodyCommentMin)
+})
+
+export const ResolveVerificationResultResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "locationId": zod.number(),
+  "locationName": zod.string(),
+  "scope": zod.enum(['it', 'non_it', 'all']),
+  "status": zod.enum(['open', 'closed', 'reconciled']),
+  "startedBy": zod.string(),
+  "startedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullish(),
+  "expectedCount": zod.number(),
+  "scanCount": zod.number(),
+  "foundCount": zod.number(),
+  "missingCount": zod.number(),
+  "unrecordedCount": zod.number(),
+  "unresolvedCount": zod.number(),
+  "canScan": zod.boolean(),
+  "canResolve": zod.boolean(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "code": zod.string().nullish(),
+  "result": zod.enum(['found', 'missing', 'unrecorded']),
+  "recordedLocationName": zod.string().nullish(),
+  "resolution": zod.union([zod.literal('adjust'),zod.literal('write_off'),zod.literal('investigate'),zod.literal('register'),zod.literal(null)]).nullish(),
+  "comment": zod.string().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "resolvedAt": zod.coerce.date().nullish()
+})),
+  "scans": zod.array(zod.object({
+  "code": zod.string(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "scannedBy": zod.string(),
+  "scannedAt": zod.coerce.date()
+}))
 })
 
 

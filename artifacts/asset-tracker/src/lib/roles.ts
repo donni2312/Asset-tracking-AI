@@ -64,6 +64,9 @@ export const ROLE_GROUPS = {
   peopleManagers: ["sbu_hr"],
   administrators: ["group_finance", "group_it", "sbu_admin", "system_admin"],
   scanners: ALL.filter((r) => r !== "system_admin"),
+  // Phase 4c (Values.cs GateOfficers, VerificationReaders).
+  gateOfficers: ["gate_officer", "group_it", "sbu_it", "sbu_admin"],
+  verificationReaders: ["group_it", "sbu_it", "stores", "sbu_admin", "sbu_finance", "group_finance", "auditor"],
 } satisfies Record<string, UserRole[]>;
 
 export type RoleGroup = keyof typeof ROLE_GROUPS;

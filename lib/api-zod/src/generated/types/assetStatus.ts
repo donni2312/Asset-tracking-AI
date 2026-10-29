@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 
 /**
@@ -17,6 +17,7 @@ export const AssetStatus = {
   in_store: 'in_store',
   in_use: 'in_use',
   out_on_gate_pass: 'out_on_gate_pass',
+  repair_requested: 'repair_requested',
   in_repair: 'in_repair',
   transfer_pending: 'transfer_pending',
   pending_disposal: 'pending_disposal',

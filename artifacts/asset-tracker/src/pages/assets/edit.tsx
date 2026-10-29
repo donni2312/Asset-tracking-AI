@@ -55,7 +55,7 @@ export default function EditAsset() {
   const [reason, setReason] = useState("");
 
   const [form, setForm] = useState({
-    status: "active" as string,
+    status: "in_use" as string,
     assignedTo: "", currentLocationId: "", sbuId: "", notes: "",
   });
   const [error, setError] = useState<string | null>(null);

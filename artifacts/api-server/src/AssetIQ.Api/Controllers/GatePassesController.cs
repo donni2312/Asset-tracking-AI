@@ -32,10 +32,11 @@ public sealed class GatePassesController(GatePassService gatePasses, AssetIqDbCo
             input.RequiredString("requestedBy", minLength: 1),
             input.RequiredString("reason", minLength: 1),
             input.OptionalString("destination"),
-            input.OptionalDate("returnDate"));
+            input.OptionalDate("returnDate"),
+            RequestValues.IntList(body, "itemAssetIds"));
         input.ThrowIfInvalid();
-        await gatePasses.AuthorizeRaiseAsync(Caller, request.AssetId, Aborted);
-        return Status201(await gatePasses.CreateRequestAsync(request, Aborted));
+        await gatePasses.AuthorizeRaiseAsync(Caller, request.AssetId, Aborted, request.ItemAssetIds);
+        return Status201(await gatePasses.CreateRequestAsync(request, Aborted, Caller));
     }
 
     [HttpGet("gate-passes/{id}")]
@@ -65,10 +66,9 @@ public sealed class GatePassesController(GatePassService gatePasses, AssetIqDbCo
     [FailureMessage("Failed to approve gate pass")]
     public async Task<GatePassDto> Approve(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
-        var passId = RequestValues.Id(id);
-        var decision = ReadDecision(body);
-        await gatePasses.AuthorizeDecisionAsync(Caller, passId, Aborted);
-        return await gatePasses.ApproveAsync(passId, decision, Aborted);
+        var input = JsonBody.From(body);
+        input.OptionalString("decidedBy"); // accepted from older dashboard builds, ignored: the signed-in approver is recorded
+        return await gatePasses.DecideAsync(Caller, RequestValues.Id(id), true, input.OptionalString("note"), input, Aborted);
     }
 
     /// <summary>Flags the asset: an unauthorised-movement alert plus an audit note in its history.</summary>
@@ -77,20 +77,8 @@ public sealed class GatePassesController(GatePassService gatePasses, AssetIqDbCo
     [FailureMessage("Failed to reject gate pass")]
     public async Task<GatePassDto> Reject(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
-        var passId = RequestValues.Id(id);
-        var decision = ReadDecision(body);
-        await gatePasses.AuthorizeDecisionAsync(Caller, passId, Aborted);
-        return await gatePasses.RejectAsync(passId, decision, Aborted);
-    }
-
-    /// <summary>The decision is recorded against the signed-in approver; a typed "decidedBy" is no longer trusted.</summary>
-    // ASSUMPTION: "decidedBy" stays accepted (older dashboard builds send it) but the signed-in user's name is recorded.
-    private GatePassDecision ReadDecision(JsonElement? body)
-    {
         var input = JsonBody.From(body);
         input.OptionalString("decidedBy");
-        var decision = new GatePassDecision(Caller.Name, input.OptionalString("note"));
-        input.ThrowIfInvalid();
-        return decision;
+        return await gatePasses.DecideAsync(Caller, RequestValues.Id(id), false, input.OptionalString("note"), input, Aborted);
     }
 }

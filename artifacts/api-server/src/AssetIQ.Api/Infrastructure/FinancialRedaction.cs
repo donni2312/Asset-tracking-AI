@@ -18,6 +18,10 @@ public static class FinancialRedaction
 
     public static AssetUpgradeDto Redact(AssetUpgradeDto u) => u with { Cost = null, InvoiceAmount = null, ExchangeRate = null };
 
+    public static RepairDto Redact(RepairDto r) => r with { Cost = null };
+
+    public static DisposalDto Redact(DisposalDto d) => d with { Proceeds = null, NbvAtDisposal = null, GainLoss = null };
+
     public static AssetCardDto Redact(AssetCardDto c) => c with
     {
         Asset = Redact(c.Asset),
@@ -32,7 +36,11 @@ public static class FinancialRedaction
         AssetDto a => Redact(a),
         AssetCardDto c => Redact(c),
         AssetUpgradeDto u => Redact(u),
+        RepairDto r => Redact(r),
+        DisposalDto d => Redact(d),
         IEnumerable<AssetDto> list => list.Select(Redact).ToList(),
+        IEnumerable<RepairDto> list => list.Select(Redact).ToList(),
+        IEnumerable<DisposalDto> list => list.Select(Redact).ToList(),
         IEnumerable<AssetUpgradeDto> list => list.Select(Redact).ToList(),
         _ => value,
     };

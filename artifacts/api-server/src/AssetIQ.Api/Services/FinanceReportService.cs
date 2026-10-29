@@ -162,12 +162,12 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
         var upgrades = await db.AssetUpgrades.AsNoTracking()
             .Where(u => u.Status == UpgradeStatuses.Pending && u.Asset.SbuId == sbu)
             .Select(u => new ApprovalItemDto($"upgrade-{u.Id}", "upgrade", u.AssetId, u.Asset.AssetNumber, u.Asset.Name, u.Asset.Sbu!.Code,
-                u.Description + ": " + u.BeforeText + " → " + u.AfterText, u.CreatedAt, u.LoggedBy, u.Id))
+                u.Description + ": " + u.BeforeText + " → " + u.AfterText, u.CreatedAt, u.LoggedBy, u.Id, null, null, null, null, false))
             .ToListAsync(ct);
         var noSerial = await db.Assets.AsNoTracking()
             .Where(a => a.SbuId == sbu && a.NoSerialStatus == NoSerialStatuses.Pending)
             .Select(a => new ApprovalItemDto($"no-serial-{a.Id}", "no_serial", a.Id, a.AssetNumber, a.Name, a.Sbu!.Code,
-                "\"No serial\": " + a.NoSerialReason, a.CreatedAt, "", null))
+                "\"No serial\": " + a.NoSerialReason, a.CreatedAt, "", null, null, null, null, null, false))
             .ToListAsync(ct);
         return upgrades.Concat(noSerial).OrderBy(x => x.RaisedAt).ToList();
     }

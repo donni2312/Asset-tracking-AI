@@ -13,7 +13,8 @@ using Microsoft.EntityFrameworkCore;
 namespace AssetIQ.Api.Controllers;
 
 /// <summary>Business-meaningful asset events: deployments, returns, repairs, SBU transfers and notes.</summary>
-public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, AssetAccess access, AssetRegistrationService registration, AssetStatusService statuses) : ApiControllerBase
+public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, AssetAccess access, AssetRegistrationService registration, AssetStatusService statuses,
+    AssetIQ.Api.Services.Approvals.WorkflowService workflows, AssetIQ.Api.Services.Stores.StoresService stores) : ApiControllerBase
 {
 
     private static readonly Expression<Func<AssetLifecycleEvent, LifecycleEventDto>> ToDto = e => new LifecycleEventDto
@@ -82,8 +83,15 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
             throw AccessPolicy.Deny(Caller, eventType == LifecycleEventTypes.SbuTransfer
                 ? "move an asset to another SBU (Group IT approves IT transfers, GI-05; SBU IT may only request one)"
                 : $"record a {eventType.Replace('_', ' ')} for this asset");
-        if (eventType == LifecycleEventTypes.SbuTransfer && toSbuId is not null && !await db.Sbus.AnyAsync(x => x.Id == toSbuId, Aborted))
-            throw new ApiException(StatusCodes.Status404NotFound, "SBU not found");
+        // Phase 4: a transfer is a request Group IT (or the receiving Admin Manager) approves; an IT repair needs Finance first.
+        if (eventType == LifecycleEventTypes.SbuTransfer)
+            throw new ApiException(StatusCodes.Status409Conflict, "Request the transfer with POST /assets/{id}/transfers; it moves once approved (GI-05)");
+        if (eventType == LifecycleEventTypes.RepairSent && asset.AssetCategory.IsIt)
+        {
+            await workflows.RequestRepairAsync(Caller, assetId, new AssetIQ.Api.Services.Approvals.RepairRequestInput(
+                notes ?? conditionBefore ?? "Fault reported", conditionAfter, null, vendor), Aborted);
+            asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstAsync(a => a.Id == assetId, Aborted);
+        }
 
         var now = clock.UtcNow;
         var lifecycleEvent = new AssetLifecycleEvent
@@ -107,11 +115,13 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
         // Phase 3: the status each event implies, through the state machine (409 when the table forbids it).
         // A deployment of an asset already in use is a reassignment: its status stays.
         if (eventType == LifecycleEventTypes.Deployment) AssetRegistrationService.EnsureReassignable(asset);
+        if (eventType == LifecycleEventTypes.Deployment && Caller.Role == Roles.Stores)
+            throw new ApiException(StatusCodes.Status409Conflict, "Stores issues items only against an approved request (ST-04): POST /equipment-requests/{id}/issue");
         var status = eventType switch
         {
             LifecycleEventTypes.Deployment when asset.Status != AssetStatuses.InUse => AssetStatuses.InUse,
             LifecycleEventTypes.ReturnToIt => AssetStatuses.InStore,
-            LifecycleEventTypes.RepairSent => AssetStatuses.InRepair,
+            LifecycleEventTypes.RepairSent when !asset.AssetCategory.IsIt => AssetStatuses.InRepair,
             LifecycleEventTypes.RepairReturned => null, // decided below, once the holder is known
             LifecycleEventTypes.SbuTransfer when asset.Status == AssetStatuses.TransferPending => "decided below",
             _ => null,
@@ -126,6 +136,7 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
             // Issued to an employee record: the holder's name and department follow the employee.
             await registration.AssignCustodianAsync(Caller, asset, custodianEmployeeId.Value, notes, Aborted);
             lifecycleEvent.AssignedTo = asset.AssignedTo;
+            await stores.RequestAcknowledgementAsync(Caller, asset, custodianEmployeeId.Value.Value, null, Aborted);
             assetChanged = true;
         }
         else if (eventType == LifecycleEventTypes.Deployment && !string.IsNullOrEmpty(assignedTo))
@@ -146,8 +157,9 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, Ass
             asset.SbuId = toSbuId;
             assetChanged = true;
         }
-        if (eventType == LifecycleEventTypes.RepairReturned || (eventType == LifecycleEventTypes.SbuTransfer && asset.Status == AssetStatuses.TransferPending))
+        if (eventType == LifecycleEventTypes.RepairReturned)
         {
+            await workflows.CompleteRepairAsync(asset.Id, null, Aborted);
             statuses.Change(Caller, asset, new StatusChange(AssetStatusService.ReturnStatus(asset), notes));
             assetChanged = true;
         }

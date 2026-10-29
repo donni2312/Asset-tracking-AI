@@ -13,6 +13,7 @@ import {
   db,
   pool,
   aiInsightsTable,
+  assetAcknowledgementsTable,
   assetAttachmentsTable,
   assetAttributeValuesTable,
   assetCategoriesTable,
@@ -25,12 +26,20 @@ import {
   categoryTemplateFieldsTable,
   departmentsTable,
   employeesTable,
+  gatePassItemsTable,
   gatePassesTable,
+  goodsReceiptLinesTable,
+  goodsReceiptsTable,
+  purchaseOrderLinesTable,
+  purchaseOrdersTable,
   locationsTable,
   movementsTable,
   rfidReadersTable,
   sbusTable,
   usersTable,
+  verificationResultsTable,
+  verificationScansTable,
+  verificationSessionsTable,
 } from "@workspace/db";
 import { createHash, randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
@@ -120,6 +129,10 @@ async function main() {
         // TRUNCATE is not stopped by the append-only / asset-number triggers (they guard UPDATE and DELETE).
         sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
             depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
+            approval_steps, approval_requests, delegations, notifications, outbound_emails, asset_repairs, asset_disposals,
+            gate_pass_items, gate_actions, verification_results, verification_scans, verification_sessions,
+            exit_clearance_items, exit_clearances, asset_acknowledgements, equipment_requests, goods_receipt_lines, goods_receipts,
+            purchase_order_lines, purchase_orders,
             asset_attachments, assets, users, employees, departments, rfid_readers, locations, sbus RESTART IDENTITY CASCADE`,
       );
     }
@@ -327,6 +340,25 @@ async function main() {
       }),
     );
     const asset = (key: string) => assetRows[ASSETS.findIndex((a) => a.key === key)];
+
+    // Phase 4b: a TSAS purchase order with a short and damaged delivery (ST-01), and John Doe's laptop waiting for his
+    // acknowledgement (HR-03).
+    const [po] = await tx.insert(purchaseOrdersTable).values({
+      sbuId: sbuId("TSAS"), poNo: "PO-TSAS-2026-0300", supplier: "Axis Solutions (Pvt) Ltd", status: "partly_received", createdBy: "Chipo Mlambo",
+    }).returning();
+    const [poLine] = await tx.insert(purchaseOrderLinesTable).values([
+      { purchaseOrderId: po.id, categoryId: categoryOf("COMP").id, description: "Dell Latitude 5450 laptop", quantity: 3, unitCost: "1250.00", receivedQuantity: 2 },
+      { purchaseOrderId: po.id, categoryId: categoryOf("PER").id, description: "Epson EB-X51 projector", quantity: 1, unitCost: "640.00", receivedQuantity: 0 },
+    ]).returning();
+    const [receipt] = await tx.insert(goodsReceiptsTable).values({
+      purchaseOrderId: po.id, receivedBy: "Tinashe Mukanya", flagged: true, flagReason: "1 damaged: Dell Latitude 5450 laptop; short 1: Dell Latitude 5450 laptop; short 1: Epson EB-X51 projector",
+    }).returning();
+    await tx.insert(goodsReceiptLinesTable).values({
+      receiptId: receipt.id, purchaseOrderLineId: poLine.id, quantityReceived: 2, quantityDamaged: 1, serials: ["5CG4100AB1", "5CG4100AB2"], condition: "new",
+    });
+    await tx.insert(assetAcknowledgementsTable).values({
+      assetId: asset("dell-5440").id, employeeId: employeeNo("TSAS-0002").id, token: randomBytes(16).toString("hex"), issuedBy: "Farai Ncube",
+    });
 
     // The supplier invoice of the first TSAS laptop, as SBU Finance would attach it (AU-04).
     const invoiced = asset("dell-5440");
@@ -568,6 +600,61 @@ async function main() {
     const mapping = readFileSync(resolve(import.meta.dirname, "..", "..", "lib", "db", "migrations", "0006_map_statuses.sql"), "utf8");
     for (const statement of mapping.split("--> statement-breakpoint")) await tx.execute(sql.raw(statement));
 
+    // Phase 4c. Every pass above gets its item (as migration 0010 does on an existing database), then a two-item TSAS
+    // pass: the UPS came back yesterday, the desktop is still out and overdue (SG-03, GI-06).
+    const backfill = readFileSync(resolve(import.meta.dirname, "..", "..", "lib", "db", "migrations", "0010_gate_and_verification.sql"), "utf8");
+    await tx.execute(sql.raw(backfill.slice(backfill.indexOf('INSERT INTO "gate_pass_items"'))));
+    const desktop = asset("optiplex");
+    const printer = asset("apc-ups");
+    const tsasGate = loc("tsas-gate").id;
+    const gp7Decided = at(4, 9, 15);
+    const gp7Due = dateKey(new Date(NOW.getTime() - DAY));
+    const gp7 = await insertPass({
+      assetId: desktop.id, requestedBy: "Farai Ncube", reason: "Desktop and UPS for the grower centre registration desk",
+      destination: "Marondera Grower Centre", returnDate: gp7Due, status: "approved", approvedBy: APPROVERS.tsas, source: "manual",
+      decidedAt: gp7Decided, createdAt: new Date(gp7Decided.getTime() - 2 * 60 * 60 * 1000), updatedAt: gp7Decided,
+    });
+    const gp7Out = at(3, 7, 40);
+    const gp7Back = at(1, 16, 5);
+    await tx.insert(movementsTable).values([
+      { assetId: desktop.id, fromLocationId: tsasGate, toLocationId: null, triggeredBy: "gate_pass", gatePassId: gp7.id, movedBy: "Farai Ncube",
+        notes: `${exitNote(gp7.id, "TSAS Main Gate", APPROVERS.tsas, "Marondera Grower Centre", gp7Due)} — checked by Gift Mahachi`, timestamp: gp7Out },
+      { assetId: printer.id, fromLocationId: tsasGate, toLocationId: null, triggeredBy: "gate_pass", gatePassId: gp7.id, movedBy: "Farai Ncube",
+        notes: `${exitNote(gp7.id, "TSAS Main Gate", APPROVERS.tsas, "Marondera Grower Centre", gp7Due)} — checked by Gift Mahachi`, timestamp: gp7Out },
+      { assetId: printer.id, fromLocationId: null, toLocationId: tsasGate, triggeredBy: "manual", gatePassId: gp7.id, movedBy: "Gift Mahachi",
+        notes: `Returned through TSAS Main Gate under gate pass #${gp7.id} (good)`, timestamp: gp7Back },
+    ]);
+    await tx.insert(gatePassItemsTable).values([
+      { gatePassId: gp7.id, assetId: desktop.id, exitedAt: gp7Out, exitGateId: tsasGate, exitOfficer: "Gift Mahachi" },
+      { gatePassId: gp7.id, assetId: printer.id, exitedAt: gp7Out, exitGateId: tsasGate, exitOfficer: "Gift Mahachi",
+        returnedAt: gp7Back, returnGateId: tsasGate, returnOfficer: "Gift Mahachi", returnCondition: "good" },
+    ]);
+    await tx.update(assetsTable).set({ status: "out_on_gate_pass", currentLocationId: null }).where(eq(assetsTable.id, desktop.id));
+    await tx.update(assetsTable).set({ currentLocationId: tsasGate }).where(eq(assetsTable.id, printer.id));
+    await tx.insert(aiInsightsTable).values({
+      type: "missing_asset", severity: "warning", assetId: desktop.id, gatePassId: gp7.id,
+      message: `Overdue: "${desktop.name}" was due back on ${gp7Due} under gate pass #${gp7.id} (Farai Ncube)`, createdAt: at(0, 6, 0),
+    });
+
+    // A closed count of the TSAS IT Department (SI-07): one phone not found and an untagged item, waiting for SBU Finance (SF-06).
+    const tsasIt = loc("tsas-it").id;
+    const [count] = await tx.insert(verificationSessionsTable).values({
+      sbuId: sbuId("TSAS"), locationId: tsasIt, scope: "it", status: "closed", startedBy: "Farai Ncube", startedAt: at(1, 9, 0), closedAt: at(1, 9, 40),
+    }).returning();
+    const expected = await tx.select({ id: assetsTable.id, rfidTag: assetsTable.rfidTag }).from(assetsTable)
+      .innerJoin(assetCategoriesTable, eq(assetCategoriesTable.id, assetsTable.categoryId))
+      .where(sql`${assetsTable.currentLocationId} = ${tsasIt} AND ${assetCategoriesTable.isIt} AND ${assetsTable.status} NOT IN ('out_on_gate_pass', 'lost_stolen', 'disposed')`);
+    const notFound = asset("galaxy-s23").id;
+    const seen = expected.filter((e) => e.id !== notFound);
+    await tx.insert(verificationScansTable).values([
+      ...seen.map((e, i) => ({ sessionId: count.id, code: e.rfidTag ?? `ID-${e.id}`, assetId: e.id, scannedBy: "Farai Ncube", scannedAt: at(1, 9, 5 + i) })),
+      { sessionId: count.id, code: "TAG-UNKNOWN-0417", scannedBy: "Farai Ncube", scannedAt: at(1, 9, 30) },
+    ]);
+    await tx.insert(verificationResultsTable).values([
+      ...expected.map((e) => ({ sessionId: count.id, assetId: e.id, result: e.id === notFound ? "missing" : "found" })),
+      { sessionId: count.id, code: "TAG-UNKNOWN-0417", result: "unrecorded" },
+    ]);
+
     console.log("Seeded AssetIQ demo data:");
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);
     console.log(`  ${movements.length} movements, 6 gate passes (2 pending, 3 approved, 1 rejected), 5 insights`);
@@ -578,6 +665,7 @@ async function main() {
     console.log("\nDemo pointers:");
     console.log(`  • Gate pass #${gp6.id} (auto-raised at TSL Head Office Gate) is waiting for approval.`);
     console.log(`  • Gate pass #${gp5.id} (manual request for ${epson.name}) is waiting for approval.`);
+    console.log(`  • Gate pass GP-${gp7.id}: ${desktop.name} is overdue (tsas.gate → Gate); count #${count.id} waits for TSAS Finance (Verification).`);
     console.log('  • Ask the AI assistant: "Where is the Dell laptop assigned to John Doe?"');
     console.log(`  • RFID tag for John Doe's laptop: ${asset("dell-5440").rfidTag} — scan it at "TSAS Main Gate Reader" to raise a pass.`);
   });

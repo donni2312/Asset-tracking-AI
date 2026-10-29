@@ -123,7 +123,8 @@ public sealed record AssetCardDto
 }
 
 /// <summary>A status change the caller could ask for (Phase 3); <c>Reason</c> says why it is refused, when it is.</summary>
-public sealed record StatusTransitionDto(string Status, string Label, string Action, bool Allowed, string? Reason, bool NeedsIncidentDetails);
+/// <param name="Workflow">repair | disposal | transfer: the change is a request (POST /assets/{id}/repairs …) decided in the approvals inbox.</param>
+public sealed record StatusTransitionDto(string Status, string Label, string Action, bool Allowed, string? Reason, bool NeedsIncidentDetails, string? Workflow = null);
 
 public sealed record AssetCardPermissionsDto(bool EditTechnical, bool EditFinancial, bool LogUpgrade, bool DecideUpgrades, bool ChangeCategory, bool Tag, bool Attach);
 
@@ -191,7 +192,11 @@ public sealed record CompletenessReportDto(int Assets, int Complete, decimal Per
 
 // ── approvals, depreciation runs, users ──────────────────────────────────────
 
-public sealed record ApprovalItemDto(string Id, string Type, int AssetId, string? AssetNumber, string AssetDescription, string? SbuCode, string Summary, DateTime RaisedAt, string RaisedBy, int? UpgradeId);
+/// <param name="RequestId">Phase 4 requests (repair, disposal, transfer, gate pass): decided with POST /approval-requests/{id}/decision.</param>
+/// <param name="Needs">What the approver must add at this step (disposal method and proceeds, the data-wipe note …).</param>
+/// <param name="OnBehalfOf">Decided for a colleague on leave (LM-03).</param>
+public sealed record ApprovalItemDto(string Id, string Type, int? AssetId, string? AssetNumber, string AssetDescription, string? SbuCode, string Summary, DateTime RaisedAt, string RaisedBy, int? UpgradeId,
+    int? RequestId = null, string? StepLabel = null, IReadOnlyList<string>? Needs = null, string? OnBehalfOf = null, bool Escalated = false);
 
 public sealed record DepreciationRunDto(string Period, int? SbuId, int Assets, int MonthsWritten, decimal ChargeForPeriod);
 

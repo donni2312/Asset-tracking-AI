@@ -10,6 +10,8 @@ public static class AssetStatuses
     public const string InStore = "in_store";
     public const string InUse = "in_use";
     public const string OutOnGatePass = "out_on_gate_pass";
+    /// <summary>Phase 4: an IT repair waiting for Finance's approval (product owner, 29 Oct 2026).</summary>
+    public const string RepairRequested = "repair_requested";
     public const string InRepair = "in_repair";
     public const string TransferPending = "transfer_pending";
     public const string PendingDisposal = "pending_disposal";
@@ -19,9 +21,57 @@ public static class AssetStatuses
     public const string Disposed = "disposed";
     /// <summary>Phase 3 statuses; the transitions between them are <see cref="AssetStatusMachine"/>.</summary>
     public static readonly IReadOnlyList<string> All =
-        [PendingAssetNumber, InStore, InUse, OutOnGatePass, InRepair, TransferPending, PendingDisposal, LostStolen, Disposed];
+        [PendingAssetNumber, InStore, InUse, OutOnGatePass, RepairRequested, InRepair, TransferPending, PendingDisposal, LostStolen, Disposed];
     /// <summary>Statuses a user may ask for; leaving <see cref="PendingAssetNumber"/> happens only when BC issues the number.</summary>
     public static readonly IReadOnlyList<string> Settable = All.Where(s => s != PendingAssetNumber).ToList();
+}
+
+/// <summary>Phase 4c: the Gate Officer's verdict on a scan (SG-01) and action on an alert (SG-02).</summary>
+public static class GateVerdicts
+{
+    public const string Clear = "clear";
+    public const string Return = "return";
+    public const string Stop = "stop";
+}
+
+public static class GateActions
+{
+    public const string Stopped = "stopped";
+    public const string ReleasedWithOverride = "released_with_override";
+    public const string Escalated = "escalated";
+    public static readonly IReadOnlyList<string> All = [Stopped, ReleasedWithOverride, Escalated];
+}
+
+/// <summary>Phase 4c: verification counts (SI-07) and their reconciliation (SF-06).</summary>
+public static class VerificationScopes
+{
+    public const string It = "it";
+    public const string NonIt = "non_it";
+    public const string All = "all";
+    public static readonly IReadOnlyList<string> Values = [It, NonIt, All];
+}
+
+public static class VerificationStatuses
+{
+    public const string Open = "open";
+    public const string Closed = "closed";
+    public const string Reconciled = "reconciled";
+}
+
+public static class VerificationResults
+{
+    public const string Found = "found";
+    public const string Missing = "missing";
+    public const string Unrecorded = "unrecorded";
+}
+
+public static class VerificationResolutions
+{
+    public const string Adjust = "adjust";
+    public const string WriteOff = "write_off";
+    public const string Investigate = "investigate";
+    public const string Register = "register";
+    public static readonly IReadOnlyList<string> All = [Adjust, WriteOff, Investigate, Register];
 }
 
 public static class AssetConditions
@@ -201,6 +251,18 @@ public static class Roles
     /// <summary>Issue / assign, returns, repairs, transfers, notes (per-event rules in AccessPolicy.CanRecordLifecycle).</summary>
     public const string LifecycleWriters = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin;
     public const string TechnicalEditors = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Phase 4: repairs (IT records the work, Finance the cost).</summary>
+    public const string RepairEditors = TechnicalEditors + "," + GroupFinance + "," + SbuFinance;
+    /// <summary>Phase 4: recommend a disposal (technical owner, Stores "return as scrap", SBU Finance writing off a lost item).</summary>
+    public const string DisposalRecommenders = TechnicalEditors + "," + Stores + "," + SbuFinance;
+    /// <summary>Phase 4: roles that decide approval steps and may delegate while on leave (LM-03).</summary>
+    /// <summary>Phase 4b: purchase orders, receipts and stock.</summary>
+    public const string StoresReaders = GroupFinance + "," + GroupIt + "," + SbuFinance + "," + SbuIt + "," + Stores + "," + SbuAdmin + "," + Auditor;
+    /// <summary>Matrix "Request equipment": Group IT, SBU IT, HOD; SBU HR for onboarding kits (HR-02).</summary>
+    public const string EquipmentRequesters = GroupIt + "," + SbuIt + "," + Hod + "," + SbuHr;
+    /// <summary>HR-04 / SI-09: who records an item of an exit clearance (record-level rules in ToolboxService).</summary>
+    public const string ClearanceRecorders = SbuHr + "," + SbuIt + "," + SbuAdmin + "," + Stores;
+    public const string Approvers = Hod + "," + SbuAdmin + "," + SbuIt + "," + GroupIt + "," + SbuFinance + "," + GroupFinance;
     /// <summary>Phase 3 status changes (record-level rules: AccessPolicy.CanChangeStatus).</summary>
     public const string StatusChangers = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + GateOfficer + "," + Stores + "," + SbuAdmin;
     /// <summary>Matrix "Register / tag asset" plus SBU Finance ("Capitalise only", checked per action).</summary>
@@ -231,6 +293,11 @@ public static class Roles
     public const string FieldOwners = GroupIt + "," + SbuAdmin;
     /// <summary>Group settings name the role that edits them (Group Finance or Group IT); the System Administrator edits all.</summary>
     public const string SettingOwners = GroupFinance + "," + GroupIt + "," + SystemAdmin;
+    /// <summary>Phase 4c: the gate screen (scan, exits / returns, alerts); Group IT and SBU IT see it as the log readers do.</summary>
+    public const string GateOfficers = GateOfficer + "," + GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Phase 4c: who counts a location (SI-07): SBU IT / Group IT (IT), Stores / Admin Manager (non-IT), Finance (any).</summary>
+    public const string VerificationRunners = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin + "," + SbuFinance + "," + GroupFinance;
+    public const string VerificationReaders = VerificationRunners + "," + Auditor;
     /// <summary>Everyone who may scan a tag (SI-03, SG-01): every role except the System Administrator.</summary>
     public const string Scanners = AssetReaders + "," + GateOfficer;
 

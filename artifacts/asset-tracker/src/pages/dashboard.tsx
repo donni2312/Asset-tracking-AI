@@ -141,7 +141,7 @@ export default function Dashboard() {
             caption={`${summary?.activeAssets ?? 0} active`}
           />
           <StatCard
-            href="/assets?status=missing"
+            href="/assets?status=lost_stolen"
             title="Missing Assets"
             icon={<AlertCircle className="w-4 h-4 text-destructive" />}
             value={summary?.missingAssets}

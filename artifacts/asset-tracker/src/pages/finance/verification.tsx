@@ -7,24 +7,47 @@ import { ReportFilters, toParams, type ReportFilterValues } from "@/components/r
 import { SbuBadge } from "@/components/sbu-badge";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { currentPeriod } from "@/lib/finance";
+import { inGroup } from "@/lib/roles";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VerificationCounts } from "@/components/verification-counts";
 
 /**
- * Record gaps before audit (AU-11): every asset missing a Priority 1 item, who fixes it, and % complete
- * per SBU. Scan sessions and reconciliation (SI-07, SF-06) are added to this screen in Phase 4.
+ * Verification: counts of a location with their reconciliation (SI-07, SF-06, Phase 4c), and the record gaps before
+ * audit (AU-11) for the Finance roles.
  */
 export default function Verification() {
+  const user = useCurrentUser();
+  const finance = inGroup(user, "financeReaders");
+  return (
+    <Layout>
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Verification</h1>
+          <p className="text-sm text-muted-foreground">Count a location, then reconcile what was found, missing or not in the register.{finance ? " Fix record gaps before the audit." : ""}</p>
+        </div>
+        <Tabs defaultValue="counts">
+          <TabsList>
+            <TabsTrigger value="counts">Counts</TabsTrigger>
+            {finance && <TabsTrigger value="gaps">Record gaps</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="counts"><VerificationCounts /></TabsContent>
+          {finance && <TabsContent value="gaps"><RecordGaps /></TabsContent>}
+        </Tabs>
+      </div>
+    </Layout>
+  );
+}
+
+/** Record gaps before audit (AU-11): every asset missing a Priority 1 item, who fixes it, and % complete per SBU. */
+function RecordGaps() {
   const user = useCurrentUser();
   const [filters, setFilters] = useState<ReportFilterValues>({ period: currentPeriod(), sbuId: "", locationId: "", categoryId: "" });
   const { sbuId, categoryId } = toParams(filters);
   const { data } = useGetCompletenessReport({ sbuId, categoryId }, { query: { enabled: !!user, queryKey: ["completeness", sbuId, categoryId] } });
 
   return (
-    <Layout>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Verification</h1>
-          <p className="text-sm text-muted-foreground">Fix record gaps before the audit; target zero gaps by year-end. Room-by-room scan sessions arrive in Phase 4.</p>
-        </div>
+        <p className="text-sm text-muted-foreground">Target zero gaps by year-end.</p>
         <ReportFilters value={filters} onChange={setFilters} show={["sbu", "category"]} />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
           {data && (
@@ -64,6 +87,5 @@ export default function Verification() {
           </div>
         </section>
       </div>
-    </Layout>
   );
 }

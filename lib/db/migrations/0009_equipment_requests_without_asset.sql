@@ -1,0 +1,1 @@
+ALTER TABLE "approval_requests" ALTER COLUMN "asset_id" DROP NOT NULL;

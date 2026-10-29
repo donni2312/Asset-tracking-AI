@@ -180,24 +180,25 @@ public sealed class ScreensTests(ApiFixture api) : IAsyncLifetime
         });
         Assert.Equal(201, created.Status);
         Assert.Equal(("repair_sent", "Epson EB-X51 Projector", "TAG-EP-001"), (created.Body.Str("eventType"), created.Body.Str("assetName"), created.Body.Str("rfidTag")));
-        Assert.Equal("in_repair", (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Str("status"));
+        Assert.Equal("repair_requested", (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Str("status")); // Phase 4: Finance approves IT repairs
 
         api.Clock.Advance(TimeSpan.FromMinutes(1));
+        // Phase 4: an inter-SBU transfer is a request decided in the approvals inbox (WorkflowTests), not an event.
         var transfer = await api.CallAsync("POST", $"/assets/{w.Projector.Id}/lifecycle", new
         {
             eventType = "sbu_transfer", performedBy = "IT Helpdesk", fromSbuId = w.Tsas.Id, toSbuId = w.Bak.Id,
         });
-        Assert.Equal(("Tobacco Sales Administration Services", "Bak Logistics"), (transfer.Body.Str("fromSbuName"), transfer.Body.Str("toSbuName")));
-        Assert.Equal(w.Bak.Id, (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Int("sbuId"));
+        Assert.Equal(409, transfer.Status);
+        Assert.Equal(w.Tsas.Id, (await api.CallAsync("GET", $"/assets/{w.Projector.Id}")).Body.Int("sbuId"));
 
         Assert.Equal(400, (await api.CallAsync("POST", $"/assets/{w.Projector.Id}/lifecycle", new { eventType = "note" })).Status);
         Assert.Equal(404, (await api.CallAsync("POST", "/assets/999/lifecycle", new { eventType = "note", performedBy = "x" })).Status);
 
         var history = await api.CallAsync("GET", $"/assets/{w.Projector.Id}/history");
-        Assert.Equal(["lc-2", "lc-1"], history.Body.Items().Select(e => e.Str("id")));
-        Assert.Equal(2, (await api.CallAsync("GET", "/lifecycle")).Body.Items().Count);
-        Assert.Single((await api.CallAsync("GET", "/lifecycle?eventType=sbu_transfer")).Body.Items());
-        Assert.Equal(2, (await api.CallAsync("GET", $"/lifecycle?sbuId={w.Bak.Id}")).Body.Items().Count);
-        Assert.Empty((await api.CallAsync("GET", $"/lifecycle?sbuId={w.Tsas.Id}")).Body.Items());
+        Assert.Equal(["lc-1"], history.Body.Items().Select(e => e.Str("id"))); // the refused transfer left no event
+        Assert.Single((await api.CallAsync("GET", "/lifecycle")).Body.Items());
+        Assert.Empty((await api.CallAsync("GET", "/lifecycle?eventType=sbu_transfer")).Body.Items());
+        Assert.Empty((await api.CallAsync("GET", $"/lifecycle?sbuId={w.Bak.Id}")).Body.Items());
+        Assert.Single((await api.CallAsync("GET", $"/lifecycle?sbuId={w.Tsas.Id}")).Body.Items());
     }
 }

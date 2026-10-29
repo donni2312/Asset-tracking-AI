@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.6.0
+ * OpenAPI spec version: 0.8.0
  */
 
 export type ListLifecycleEventsEventType = typeof ListLifecycleEventsEventType[keyof typeof ListLifecycleEventsEventType];

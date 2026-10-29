@@ -28,6 +28,10 @@ import Verification from './pages/finance/verification';
 import Administration from './pages/finance/administration';
 import Planned from './pages/planned';
 import Scan from './pages/scan';
+import Gate from './pages/gate';
+import Stores from './pages/stores';
+import { AcknowledgeLink, DepartmentHoldingsPage, MyItems, ToolboxPage } from './pages/toolbox';
+import { useLocation } from 'wouter';
 import { Departments, People } from './pages/people';
 import { SignInScreen } from './components/sign-in';
 import { useCurrentUser } from './hooks/use-auth';
@@ -40,8 +44,8 @@ function Home() {
   const user = useCurrentUser();
   if (!user) return null;
   if (['group_finance', 'sbu_finance', 'auditor'].includes(user.role)) return <AssetPosition />;
-  if (user.role === 'gate_officer') return <Scan />;
-  if (user.role === 'employee') return <AssetList />;
+  if (user.role === 'gate_officer') return <Gate />;
+  if (user.role === 'employee') return <MyItems />;
   if (user.role === 'system_admin') return <Administration />;
   return <Dashboard />;
 }
@@ -51,6 +55,9 @@ const queryClient = new QueryClient();
 function Router() {
   // Phase 2: every screen needs a sign-in (the API answers 401 otherwise).
   const user = useCurrentUser();
+  const [location] = useLocation();
+  // HR-03: the emailed acknowledgement link works without signing in.
+  if (location.startsWith('/acknowledge/')) return <Route path="/acknowledge/:token" component={AcknowledgeLink} />;
   if (!user) return <SignInScreen />;
   return (
     <Switch>
@@ -62,10 +69,14 @@ function Router() {
       <Route path="/approvals" component={Approvals} />
       <Route path="/verification" component={Verification} />
       <Route path="/administration" component={Administration} />
-      <Route path="/stores">{() => <Planned screen="stores" />}</Route>
+      <Route path="/stores" component={Stores} />
+      <Route path="/my-items" component={MyItems} />
+      <Route path="/people/:id" component={ToolboxPage} />
+      <Route path="/departments/:id" component={DepartmentHoldingsPage} />
       <Route path="/people" component={People} />
       <Route path="/departments" component={Departments} />
       <Route path="/scan" component={Scan} />
+      <Route path="/gate" component={Gate} />
       <Route path="/fleet">{() => <Planned screen="fleet" />}</Route>
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />
