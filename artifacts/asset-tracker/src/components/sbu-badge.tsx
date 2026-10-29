@@ -1,7 +1,7 @@
 import { useListSbus } from "@workspace/api-client-react";
 
 /** The approved SBU badge colours (UI standard); other SBUs use the colour stored on the SBU. */
-const SBU_COLOURS: Record<string, string> = { AGRI: "#16A34A", BAK: "#DC2626", PROP: "#7C3AED", TSAS: "#2563EB", TSF: "#D97706" };
+const SBU_COLOURS: Record<string, string> = { AGRI: "#16A34A", BAK: "#DC2626", PROP: "#7C3AED", TSAS: "#2563EB", TSF: "#D97706", "PROP-H": "#65A30D" };
 
 /** SBU code badge in the SBU's colour. */
 export function SbuBadge({ code, color }: { code: string; color?: string | null }) {

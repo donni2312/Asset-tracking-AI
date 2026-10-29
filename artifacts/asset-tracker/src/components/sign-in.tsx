@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLogin, type UserRole } from "@workspace/api-client-react";
+import { useLogin } from "@workspace/api-client-react";
+import { ROLE_SUMMARY, roleName } from "@/lib/roles";
 import { LogIn, LogOut, ShieldCheck } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,32 +12,14 @@ import { Label } from "@/components/ui/label";
 import { apiErrorMessage } from "@/lib/api-error";
 import { endSession, startSession, useCurrentUser } from "@/hooks/use-auth";
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  viewer: "Viewer — view, download reports, record movements",
-  operator: "Operator — everything except RFID simulator and BC sync",
-  admin: "Administrator — full access",
-  group_finance: "Group Finance — all SBUs, categories and depreciation policy",
-  group_it: "Group IT — IT assets of every SBU",
-  sbu_it: "SBU IT — IT assets of your SBU",
-  sbu_finance: "SBU Finance — cost, capitalisation and upgrades of your SBU",
-  sbu_admin: "SBU Admin Manager — non-IT assets of your SBU",
-  stores: "Stores — receiving and tagging for your SBU",
-  auditor: "Auditor — read only, all SBUs, until your access expires",
-};
 
-export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const qc = useQueryClient();
+/** Username and password; on success the session starts and every query reloads. */
+function SignInForm({ onDone, onCancel, autoFocus = true }: { onDone?: () => void; onCancel?: () => void; autoFocus?: boolean }) {
   const login = useLogin();
+  const qc = useQueryClient();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setUsername("");
-    setPassword("");
-    setError(null);
-  }, [open]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +30,7 @@ export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         onSuccess: (result) => {
           startSession(result);
           qc.invalidateQueries();
-          onOpenChange(false);
+          onDone?.();
         },
         // The API answers a wrong password and an unknown user identically;
         // don't invent a more specific message here either.
@@ -57,58 +40,64 @@ export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }
 
   return (
+    <form onSubmit={submit}>
+      <div className="space-y-4 py-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="auth-username">Username</Label>
+          <Input id="auth-username" autoFocus={autoFocus} autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="auth-password">Password</Label>
+          <Input id="auth-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </div>
+        {error && (
+          <p className="rounded-md border border-destructive/20 bg-destructive/10 p-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className="flex justify-end gap-2">
+        {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>}
+        <Button type="submit" disabled={login.isPending || !username.trim() || !password}>
+          {login.isPending ? "Signing in…" : "Sign in"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function SignInDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              Sign in
-            </DialogTitle>
-            <DialogDescription>
-              Anyone can read the dashboard. Sign in to make changes or download CSV reports.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="auth-username">Username</Label>
-              <Input
-                id="auth-username"
-                autoFocus
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="auth-password">Password</Label>
-              <Input
-                id="auth-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <p className="rounded-md border border-destructive/20 bg-destructive/10 p-2 text-sm text-destructive">
-                {error}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={login.isPending || !username.trim() || !password}>
-              {login.isPending ? "Signing in…" : "Sign in"}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Sign in
+          </DialogTitle>
+          <DialogDescription>Sign in with your AssetIQ account. What you see follows your role and SBU.</DialogDescription>
+        </DialogHeader>
+        {open && <SignInForm onDone={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Phase 2: nothing is readable signed out, so a signed-out visitor sees only this. */
+export function SignInScreen() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background p-4 text-foreground">
+      <div className="w-full max-w-sm rounded-lg border bg-card p-6 shadow-sm">
+        <div className="mb-2 flex items-center gap-3">
+          <img src="/tsl-logo.png" alt="TSL Limited" className="h-10 w-10 object-contain" />
+          <div className="leading-tight">
+            <div className="text-lg font-bold tracking-tight">TSL AssetIQ</div>
+            <div className="text-xs text-muted-foreground">Sign in to continue. What you see follows your role and SBU.</div>
+          </div>
+        </div>
+        <SignInForm />
+      </div>
+    </div>
   );
 }
 
@@ -129,7 +118,7 @@ export function AccountBadge() {
           <LogIn className="h-4 w-4 flex-shrink-0 text-sidebar-foreground/60" />
           <span className="min-w-0 flex-1">
             <span className="block text-[10px] uppercase tracking-wider text-sidebar-foreground/40">Not signed in</span>
-            <span className="block truncate font-medium">Sign in to edit &amp; export</span>
+            <span className="block truncate font-medium">Sign in to continue</span>
           </span>
         </button>
         <SignInDialog open={open} onOpenChange={setOpen} />
@@ -156,7 +145,7 @@ export function AccountBadge() {
           qc.invalidateQueries();
         }}
         className="rounded-md p-1.5 hover:bg-sidebar-accent"
-        title={`Sign out of ${user.username} (${ROLE_LABEL[user.role]})`}
+        title={`Sign out of ${user.username} (${roleName(user.role)}: ${ROLE_SUMMARY[user.role] ?? ""})`}
         aria-label="Sign out"
       >
         <LogOut className="h-4 w-4 text-sidebar-foreground/70" />

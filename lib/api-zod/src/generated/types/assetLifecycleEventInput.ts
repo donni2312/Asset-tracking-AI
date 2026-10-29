@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { AssetLifecycleEventInputEventType } from './assetLifecycleEventInputEventType';
 
@@ -13,6 +13,8 @@ export interface AssetLifecycleEventInput {
   fromSbuId?: number;
   toSbuId?: number;
   assignedTo?: string;
+  /** deployment - issue to this employee record (holder name and department follow) */
+  custodianEmployeeId?: number;
   vendor?: string;
   ticketRef?: string;
   conditionBefore?: string;

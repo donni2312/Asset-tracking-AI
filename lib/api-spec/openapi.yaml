@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.4.0
+  version: 0.5.0
   description: TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
 servers:
   - url: /api
@@ -46,10 +46,25 @@ tags:
     description: Upgrades and Finance's capitalise / expense decision (AU-07)
   - name: finance
     description: Register, category report, dashboard, completeness, approvals, depreciation runs (AU-05, AU-09 … AU-11)
+  - name: users
+    description: User accounts and roles (GI-08; Phase 2 permissions matrix)
+  - name: people
+    description: Departments and employees (Phase 2; HR toolbox stories build on them)
+  - name: attachments
+    description: Invoices, photos and documents on an asset (AU-01, AU-04, AU-07)
+  - name: scan
+    description: Tag / number scans at the gate or on the floor (SG-01, SI-03)
+
+# Phase 2: every endpoint needs a signed-in user except the health check and sign-in. What each role may do is
+# the Permissions matrix of docs/user-stories.md, enforced by the API (403 otherwise); lists and exports hold
+# only the caller's scope (SBU, IT / non-IT, department, own items).
+security:
+  - bearerAuth: []
 
 paths:
   /healthz:
     get:
+      security: []
       operationId: healthCheck
       tags: [health]
       summary: Health check
@@ -64,6 +79,7 @@ paths:
   # ── Authentication ───────────────────────────────────────────────────────────
   /auth/login:
     post:
+      security: []
       operationId: login
       tags: [auth]
       summary: Sign in and receive a bearer token
@@ -119,7 +135,6 @@ paths:
       operationId: createSbu
       tags: [sbus]
       summary: Create an SBU
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -132,7 +147,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "201":
           description: Created
           content:
@@ -164,7 +179,6 @@ paths:
       operationId: updateSbu
       tags: [sbus]
       summary: Update an SBU
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       parameters:
@@ -183,7 +197,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Updated
           content:
@@ -258,8 +272,8 @@ paths:
         There is no generic form: the category's template decides the fields. The API rejects a missing
         category, a missing required field or a field of another category (400), a serial / MAC used anywhere
         in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not
-        register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original
-        operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated
+        register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU; non-IT assets by
+        that SBU's Admin Manager or its Stores at receipt). The description is generated
         and the Business Central asset number is requested; until it is issued the status is
         pending_asset_number.
       security:
@@ -342,7 +356,7 @@ paths:
       tags: [assets]
       summary: Delete a mistaken registration
       description: >-
-        Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset
+        Needs edit rights on the asset. An asset with a Business Central asset
         number can never be deleted (409), so its number is never reused; nor can one with history.
       security:
         - bearerAuth: []
@@ -405,7 +419,6 @@ paths:
       operationId: createAssetLifecycleEvent
       tags: [lifecycle]
       summary: Record a lifecycle event for an asset
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       parameters:
@@ -424,7 +437,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "201":
           description: Created
           content:
@@ -492,7 +505,6 @@ paths:
       operationId: createLocation
       tags: [locations]
       summary: Create a location
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -505,7 +517,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "201":
           description: Created
           content:
@@ -535,7 +547,6 @@ paths:
       operationId: updateLocation
       tags: [locations]
       summary: Update a location
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       parameters:
@@ -554,7 +565,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Updated
           content:
@@ -616,7 +627,6 @@ paths:
       operationId: createMovement
       tags: [movements]
       summary: Record a manual movement event
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -629,7 +639,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `viewer` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "201":
           description: Created
           content:
@@ -689,7 +699,6 @@ paths:
       operationId: createGatePass
       tags: [gate-passes]
       summary: Submit a gate pass request
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       requestBody:
@@ -702,7 +711,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "201":
           description: Created
           content:
@@ -759,7 +768,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Approved
           content:
@@ -795,7 +804,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Rejected
           content:
@@ -831,7 +840,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `admin` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Scan result (movement, gate check outcome and any insights raised)
           content:
@@ -987,7 +996,6 @@ paths:
       operationId: dismissInsight
       tags: [insights]
       summary: Dismiss an insight
-      description: Requires the `operator` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1000,7 +1008,7 @@ paths:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `operator` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Dismissed
           content:
@@ -1035,7 +1043,6 @@ paths:
       operationId: downloadAssetsReport
       tags: [reports]
       summary: Asset register as CSV (same filters as listAssets)
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1075,7 +1082,6 @@ paths:
       operationId: downloadMovementsReport
       tags: [reports]
       summary: Movement log as CSV, oldest first
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1106,7 +1112,6 @@ paths:
       operationId: downloadGatePassesReport
       tags: [reports]
       summary: Gate passes requested in a period as CSV, newest first
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1138,7 +1143,6 @@ paths:
       operationId: downloadInsightsReport
       tags: [reports]
       summary: AI alerts as CSV, newest first
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1162,7 +1166,6 @@ paths:
       operationId: downloadLifecycleReport
       tags: [reports]
       summary: Lifecycle events in a period as CSV, oldest first
-      description: Requires the `viewer` role.
       security:
         - bearerAuth: []
       parameters:
@@ -1208,14 +1211,13 @@ paths:
       operationId: triggerBcSync
       tags: [bc]
       summary: Trigger a sync with Business Central
-      description: Requires the `admin` role.
       security:
         - bearerAuth: []
       responses:
         "401":
           description: Not signed in
         "403":
-          description: Signed in without the `admin` role
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
         "200":
           description: Sync triggered
           content:
@@ -1989,6 +1991,274 @@ paths:
                 items:
                   $ref: "#/components/schemas/AccessLogEntry"
 
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [users]
+      summary: The roles, their display names and whether they need an SBU / employee link
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoleInfo"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: User accounts (Group IT - all; SBU IT - its own SBU; GI-08)
+      parameters:
+        - $ref: "#/components/parameters/SbuFilter"
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserAccount"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create an account (Group IT any role but auditor; SBU IT - SBU roles of its own SBU)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAccountInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAccount"
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Change role, SBU, employee link, name, access or password (audit-logged; nobody changes their own role)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAccountUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAccount"
+
+  /departments:
+    get:
+      operationId: listDepartments
+      tags: [people]
+      summary: Departments the caller may see (Group roles all; SBU roles their SBU; the HOD theirs)
+      parameters:
+        - $ref: "#/components/parameters/SbuFilter"
+      responses:
+        "200":
+          description: Departments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Department"
+    post:
+      operationId: createDepartment
+      tags: [people]
+      summary: Add a department to the caller's SBU (SBU HR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepartmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Department"
+
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [people]
+      summary: Employees the caller may see (Group roles all; the HOD their department; SBU roles their SBU)
+      parameters:
+        - $ref: "#/components/parameters/SbuFilter"
+        - name: departmentId
+          in: query
+          schema:
+            type: integer
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: includeLeavers
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Employee"
+    post:
+      operationId: createEmployee
+      tags: [people]
+      summary: Add an employee to the caller's SBU (SBU HR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /employees/{id}:
+    get:
+      operationId: getEmployee
+      tags: [people]
+      summary: One employee (403 outside the caller's scope)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+    patch:
+      operationId: updateEmployee
+      tags: [people]
+      summary: Change an employee of the caller's SBU (SBU HR; audit-logged)
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /assets/{id}/attachments:
+    get:
+      operationId: listAssetAttachments
+      tags: [attachments]
+      summary: Invoices, photos and documents on the asset, newest first
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Attachments (without their content)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attachment"
+    post:
+      operationId: uploadAssetAttachment
+      tags: [attachments]
+      summary: Attach a PDF, JPEG or PNG (up to 10 MB). Attachments are never deleted.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AttachmentUpload"
+      responses:
+        "201":
+          description: Attached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+
+  /attachments/{id}:
+    get:
+      operationId: downloadAttachment
+      tags: [attachments]
+      summary: The file; every download is recorded in the access log
+      description: Add ?inline=true to display the file (photo, PDF preview) instead of downloading it.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  /scan:
+    get:
+      operationId: scanCode
+      tags: [scan]
+      summary: Look up a scanned tag, asset number or serial (the Gate Officer's only view of an asset)
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Basic identification, plus holder and gate pass when the asset is the caller's to see
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+
 components:
   parameters:
     IdPath:
@@ -2044,12 +2314,12 @@ components:
     # ── Auth schemas ─────────────────────────────────────────────────────────
     UserRole:
       type: string
-      enum: [viewer, operator, admin, group_finance, group_it, sbu_it, sbu_finance, sbu_admin, stores, auditor]
+      enum: [group_finance, group_it, sbu_it, sbu_finance, gate_officer, hod, sbu_hr, stores, sbu_admin, auditor, employee, system_admin]
       description: >-
-        The original roles - viewer = read everything and record asset movements; operator = every change
-        except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of
-        docs/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU
-        until its expiry date.
+        The roles of the docs/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU,
+        until its expiry date), the employee (their own items) and the system administrator (categories, final
+        depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer /
+        operator / admin roles were retired by migration 0004.
 
     User:
       type: object
@@ -2074,6 +2344,14 @@ components:
         scope:
           type: string
           description: The data scope shown under the role ("All SBUs", "BAK Logistics (IT assets)")
+        employeeId:
+          type: ["integer", "null"]
+        employeeName:
+          type: ["string", "null"]
+        departmentId:
+          type: ["integer", "null"]
+        departmentName:
+          type: ["string", "null"]
         accessExpiresAt:
           type: ["string", "null"]
           format: date-time
@@ -2320,6 +2598,12 @@ components:
         warrantyEnds:
           type: ["string", "null"]
           format: date
+        custodianEmployeeId:
+          type: ["integer", "null"]
+          description: The employee holding the asset (sets the holder's name and department); null clears it
+        departmentId:
+          type: ["integer", "null"]
+          description: The department holding the asset (LM-01)
         reason:
           type: string
           description: Saved with the audit entries
@@ -2381,6 +2665,9 @@ components:
           type: integer
         assignedTo:
           type: string
+        custodianEmployeeId:
+          type: integer
+          description: deployment - issue to this employee record (holder name and department follow)
         vendor:
           type: string
         ticketRef:
@@ -2635,12 +2922,10 @@ components:
 
     GatePassDecision:
       type: object
-      required: [decidedBy]
       properties:
         decidedBy:
           type: string
-          minLength: 1
-          description: Name of the approver taking the decision
+          description: Ignored since Phase 2 - the signed-in approver is recorded
         note:
           type: string
 
@@ -2981,7 +3266,7 @@ components:
 
     AssetCategory:
       type: object
-      required: [id, code, name, isIt, subCategories, descriptionPattern, depreciationMethod, active, fields]
+      required: [id, code, name, isIt, subCategories, descriptionPattern, depreciationMethod, defaultResidualPercent, active, fields]
       properties:
         id:
           type: integer
@@ -3006,6 +3291,9 @@ components:
           type: ["integer", "null"]
         annualRate:
           type: ["number", "null"]
+        defaultResidualPercent:
+          type: number
+          description: Residual value proposed at capitalisation, as a % of cost (0 by default)
         active:
           type: boolean
         fields:
@@ -3055,6 +3343,8 @@ components:
           type: ["integer", "null"]
         annualRate:
           type: ["number", "null"]
+        defaultResidualPercent:
+          type: number
         active:
           type: boolean
         descriptionPattern:
@@ -3189,7 +3479,7 @@ components:
 
     AssetUpgrade:
       type: object
-      required: [id, assetId, upgradeDate, description, beforeText, afterText, fieldChanges, cost, loggedBy, loggedByRole, status, createdAt]
+      required: [id, assetId, upgradeDate, description, beforeText, afterText, fieldChanges, cost, currency, invoiceAmount, exchangeRate, loggedBy, loggedByRole, status, createdAt]
       properties:
         id:
           type: integer
@@ -3211,6 +3501,14 @@ components:
         fieldChanges:
           $ref: "#/components/schemas/TemplateValues"
         cost:
+          type: number
+          description: USD - invoiceAmount × exchangeRate
+        currency:
+          type: string
+          description: The invoice's currency, as invoiced (ISO 4217)
+        invoiceAmount:
+          type: number
+        exchangeRate:
           type: number
         supplier:
           type: ["string", "null"]
@@ -3302,7 +3600,7 @@ components:
 
     AssetCardPermissions:
       type: object
-      required: [editTechnical, editFinancial, logUpgrade, decideUpgrades, changeCategory, tag]
+      required: [editTechnical, editFinancial, logUpgrade, decideUpgrades, changeCategory, tag, attach]
       properties:
         editTechnical:
           type: boolean
@@ -3315,6 +3613,8 @@ components:
         changeCategory:
           type: boolean
         tag:
+          type: boolean
+        attach:
           type: boolean
 
     AssetCard:
@@ -3420,7 +3720,8 @@ components:
 
     UpgradeInput:
       type: object
-      required: [upgradeDate, description, beforeText, afterText, cost]
+      required: [upgradeDate, description, beforeText, afterText]
+      description: The invoice as invoiced - invoiceAmount, currency and exchangeRate (needed unless USD); cost (USD) alone is still accepted.
       properties:
         upgradeDate:
           type: string
@@ -3431,8 +3732,17 @@ components:
           type: string
         afterText:
           type: string
+        invoiceAmount:
+          type: number
+        currency:
+          type: string
+          description: ISO 4217, default USD
+        exchangeRate:
+          type: number
+          description: currency → USD; required unless USD
         cost:
           type: number
+          description: USD amount, when no invoiceAmount is given
         supplier:
           type: string
         invoiceNo:
@@ -3455,6 +3765,9 @@ components:
         effectivePeriod:
           type: string
           description: Capitalise only - YYYY-MM, default the month of approval
+        exchangeRate:
+          type: number
+          description: The rate Finance confirms for a foreign-currency invoice (the USD cost is recalculated)
 
     Totals:
       type: object
@@ -3755,6 +4068,8 @@ components:
       properties:
         id:
           type: integer
+        employeeId:
+          type: ["integer", "null"]
         username:
           type: string
         name:
@@ -3814,3 +4129,262 @@ components:
           enum: [login, login_refused, export]
         detail:
           type: ["string", "null"]
+
+    RoleInfo:
+      type: object
+      required: [role, name, sbuScoped, needsEmployee]
+      properties:
+        role:
+          $ref: "#/components/schemas/UserRole"
+        name:
+          type: string
+        sbuScoped:
+          type: boolean
+        needsEmployee:
+          type: boolean
+
+    UserAccount:
+      type: object
+      required: [id, username, name, role, roleName, active]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          description: One of UserRole, or a retired role (viewer / operator / admin) on a disabled account
+        roleName:
+          type: string
+        sbuId:
+          type: ["integer", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        employeeId:
+          type: ["integer", "null"]
+        employeeName:
+          type: ["string", "null"]
+        accessExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        active:
+          type: boolean
+        lastLoginAt:
+          type: ["string", "null"]
+          format: date-time
+
+    UserAccountInput:
+      type: object
+      required: [username, name, password, role]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        name:
+          type: string
+          minLength: 2
+        password:
+          type: string
+          minLength: 10
+        role:
+          $ref: "#/components/schemas/UserRole"
+        sbuId:
+          type: integer
+          description: Required for SBU roles (SBU IT - defaults to its own SBU)
+        employeeId:
+          type: integer
+          description: Required for the HOD and Employee roles
+
+    UserAccountUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        sbuId:
+          type: ["integer", "null"]
+        employeeId:
+          type: ["integer", "null"]
+        active:
+          type: boolean
+        password:
+          type: string
+          minLength: 10
+        reason:
+          type: string
+
+    Department:
+      type: object
+      required: [id, sbuId, sbuCode, name, employeeCount]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        sbuCode:
+          type: string
+        name:
+          type: string
+        employeeCount:
+          type: integer
+
+    DepartmentInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        sbuId:
+          type: integer
+
+    Employee:
+      type: object
+      required: [id, sbuId, sbuCode, employeeNo, name, active, itemsHeld]
+      properties:
+        id:
+          type: integer
+        sbuId:
+          type: integer
+        sbuCode:
+          type: string
+        departmentId:
+          type: ["integer", "null"]
+        departmentName:
+          type: ["string", "null"]
+        employeeNo:
+          type: string
+        name:
+          type: string
+        jobRole:
+          type: ["string", "null"]
+        lineManagerId:
+          type: ["integer", "null"]
+        lineManagerName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        itemsHeld:
+          type: integer
+
+    EmployeeInput:
+      type: object
+      required: [employeeNo, name]
+      properties:
+        employeeNo:
+          type: string
+        name:
+          type: string
+        sbuId:
+          type: integer
+        departmentId:
+          type: integer
+        lineManagerId:
+          type: integer
+        jobRole:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+
+    EmployeeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        departmentId:
+          type: ["integer", "null"]
+        lineManagerId:
+          type: ["integer", "null"]
+        jobRole:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        reason:
+          type: string
+
+    Attachment:
+      type: object
+      required: [id, assetId, kind, fileName, contentType, sizeBytes, uploadedBy, uploadedAt]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        upgradeId:
+          type: ["integer", "null"]
+        kind:
+          type: string
+          enum: [invoice, photo, other]
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+        uploadedBy:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+    ScanResult:
+      type: object
+      required: [assetId, canOpen, description, status, gateClearance]
+      properties:
+        assetId:
+          type: integer
+        canOpen:
+          type: boolean
+          description: The caller may open the asset card
+        description:
+          type: string
+        assetNumber:
+          type: ["string", "null"]
+        rfidTag:
+          type: ["string", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        sbuName:
+          type: ["string", "null"]
+        status:
+          type: string
+        holder:
+          type: ["string", "null"]
+        photoAttachmentId:
+          type: ["integer", "null"]
+        gateClearance:
+          type: string
+          enum: [approved, not_approved, not_shown]
+        gatePassId:
+          type: ["integer", "null"]
+        gatePassStatus:
+          type: ["string", "null"]
+        gatePassReturnDate:
+          type: ["string", "null"]
+
+    AttachmentUpload:
+      type: object
+      required: [file, kind]
+      description: >-
+        multipart/form-data. The file part carries the PDF, JPEG or PNG itself (up to 10 MB; its type is checked
+        from its content); it is described as a string here so the generated libraries need no browser types.
+      properties:
+        file:
+          type: string
+        kind:
+          type: string
+          enum: [invoice, photo, other]
+        upgradeId:
+          type: integer

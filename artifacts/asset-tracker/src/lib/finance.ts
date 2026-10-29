@@ -63,20 +63,18 @@ export const STATUS_TONE: Record<string, string> = {
   missing: "bg-red-500/15 text-red-700 dark:text-red-400",
 };
 
-/** Roles that see every SBU (the SBU filter is shown to them). */
-export const GROUP_WIDE: UserRole[] = ["group_finance", "group_it", "auditor", "admin", "operator", "viewer"];
+import { inGroup } from "@/lib/roles";
 
-export const isGroupWide = (user: User | null) => !!user && GROUP_WIDE.includes(user.role);
+export { isGroupWide } from "@/lib/roles";
 
 /** Roles that may register an asset of some kind (the API decides which categories and SBU). */
-export const canRegisterSomething = (user: User | null) =>
-  !!user && (["group_it", "sbu_it", "stores", "sbu_admin", "admin", "operator"] as UserRole[]).includes(user.role);
+export const canRegisterSomething = (user: User | null) => inGroup(user, "registrars");
 
-/** Mirrors AccessPolicy.CanRegister for the category picker. */
+/** Mirrors AccessPolicy.CanRegister for the category picker (Stores registers non-IT items at receipt too). */
 export function canRegisterCategory(user: User | null, isIt: boolean): boolean {
   if (!user) return false;
-  if (!isIt) return user.role === "sbu_admin";
-  return (["group_it", "sbu_it", "stores", "admin", "operator"] as UserRole[]).includes(user.role);
+  if (!isIt) return (["sbu_admin", "stores"] as UserRole[]).includes(user.role);
+  return (["group_it", "sbu_it", "stores"] as UserRole[]).includes(user.role);
 }
 
 export const isSbuFinance = (user: User | null) => user?.role === "sbu_finance";

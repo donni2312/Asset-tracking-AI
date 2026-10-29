@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { UpgradeDecisionTreatment } from './upgradeDecisionTreatment';
 
@@ -14,4 +14,6 @@ export interface UpgradeDecision {
   revisedLifeMonths?: number;
   /** Capitalise only - YYYY-MM, default the month of approval */
   effectivePeriod?: string;
+  /** The rate Finance confirms for a foreign-currency invoice (the USD cost is recalculated) */
+  exchangeRate?: number;
 }

@@ -68,7 +68,8 @@ export const UPGRADES = [
   { key: "dell-5440", description: "RAM upgrade", before: "8 GB", after: "16 GB", cost: "140.00", status: "capitalised", monthsAgo: 4, daysAgo: 125, by: "Farai Ncube", role: "sbu_it", changes: {} },
   { key: "dell-5440", description: "Battery replacement", before: "Worn", after: "New 54 Wh", cost: "85.00", status: "pending", daysAgo: 2, by: "Farai Ncube", role: "sbu_it", changes: {} },
   { key: "cisco-9200", description: "Uplink module", before: "4× 1G uplink", after: "4× 10G uplink", cost: "620.00", status: "capitalised", monthsAgo: 7, daysAgo: 215, by: "Farai Ncube", role: "sbu_it", changes: {} },
-  { key: "hilux", description: "Engine overhaul", before: "Worn engine", after: "Rebuilt 2GD", cost: "2800.00", status: "capitalised", monthsAgo: 2, daysAgo: 70, by: "Simbarashe Chikore", role: "sbu_admin", changes: {} },
+  // Invoiced in rand: captured as invoiced, USD = 51 546.00 ZAR × 0.054321.
+  { key: "hilux", description: "Engine overhaul", before: "Worn engine", after: "Rebuilt 2GD", cost: "2800.03", currency: "ZAR", invoiceAmount: "51546.00", exchangeRate: "0.054321", status: "capitalised", monthsAgo: 2, daysAgo: 70, by: "Simbarashe Chikore", role: "sbu_admin", changes: {} },
   { key: "dell-3540", description: "SSD upgrade", before: "256 GB SSD", after: "512 GB SSD", cost: "95.00", status: "pending", daysAgo: 1, by: "Blessing Mutasa", role: "sbu_it", changes: { storage: "512 GB SSD" } },
   { key: "laserjet", description: "Paper feed repair", before: "Paper feed fault", after: "Feed roller replaced", cost: "60.00", status: "expensed", daysAgo: 12, by: "Farai Ncube", role: "sbu_it", changes: {} },
 ] as const;
@@ -87,7 +88,7 @@ export const SCOPED_USERS = [
   { username: "bak.admin", name: "Simbarashe Chikore", role: "sbu_admin", sbu: "BAK" },
   { username: "bak.stores", name: "Tafadzwa Gora", role: "stores", sbu: "BAK" },
   { username: "agri.admin", name: "Chipo Sibanda", role: "sbu_admin", sbu: "AGRI" },
-  { username: "ppk.finance", name: "Nokutenda Shumba", role: "sbu_finance", sbu: "PPK" },
+  { username: "propak.finance", name: "Nokutenda Shumba", role: "sbu_finance", sbu: "PROP-H" },
   { username: "ext.auditor", name: "External Auditor (demo)", role: "auditor", sbu: null },
 ] as const;
 

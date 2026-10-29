@@ -3,14 +3,11 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 
 export interface GatePassDecision {
-  /**
-     * Name of the approver taking the decision
-     * @minLength 1
-     */
-  decidedBy: string;
+  /** Ignored since Phase 2 - the signed-in approver is recorded */
+  decidedBy?: string;
   note?: string;
 }

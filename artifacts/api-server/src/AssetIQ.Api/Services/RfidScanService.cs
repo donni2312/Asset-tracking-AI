@@ -44,7 +44,7 @@ public sealed class RfidScanService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         // 1. Resolve asset, reader and the reader's location.
-        var asset = (await db.Assets.FromSql($"SELECT * FROM assets WHERE rfid_tag = {input.RfidTag} FOR UPDATE").ToListAsync(ct)).FirstOrDefault()
+        var asset = (await db.Assets.FromSql($"SELECT * FROM assets WHERE rfid_tag = {input.RfidTag} FOR UPDATE").IgnoreQueryFilters().ToListAsync(ct)).FirstOrDefault()
             ?? throw new ApiException(StatusCodes.Status404NotFound, $"No asset with RFID tag: {input.RfidTag}");
 
         var reader = await db.RfidReaders.FirstOrDefaultAsync(r => r.Id == input.ReaderId, ct)
@@ -74,13 +74,13 @@ public sealed class RfidScanService(
         GatePass? pendingPass = null;
         if (isGate && direction == GatePassRules.Exit)
         {
-            var approved = await db.GatePasses.AsNoTracking()
+            var approved = await db.GatePasses.IgnoreQueryFilters().AsNoTracking()
                 .Where(p => p.AssetId == asset.Id && p.Status == GatePassStatuses.Approved)
                 .ToListAsync(ct);
             validPass = GatePassRules.FindValidApprovedPass(approved, scannedAt, zone);
             if (validPass is null)
             {
-                pendingPass = await db.GatePasses.AsNoTracking()
+                pendingPass = await db.GatePasses.IgnoreQueryFilters().AsNoTracking()
                     .Where(p => p.AssetId == asset.Id && p.Status == GatePassStatuses.Pending)
                     .OrderByDescending(p => p.CreatedAt)
                     .FirstOrDefaultAsync(ct);

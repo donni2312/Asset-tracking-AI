@@ -55,7 +55,9 @@ public sealed class AccessAndCompletenessRulesTests
 
     private static AuthUser U(string role, int? sbu = null) => new(1, role, role, role, sbu);
 
-    private static Asset A(int sbu, string status = AssetStatuses.Active, string? custodian = "Someone") => new() { SbuId = sbu, Status = status, AssignedTo = custodian };
+    // "custodian" is the employee holding the asset (null = not issued, i.e. in store until Phase 3).
+    private static Asset A(int sbu, string status = AssetStatuses.Active, int? custodian = 7) =>
+        new() { SbuId = sbu, Status = status, AssignedTo = custodian is null ? "Stores" : "Someone", CustodianEmployeeId = custodian };
 
     [Fact]
     public void Scope_sbu_roles_see_their_own_sbu_only_and_group_it_sees_it_assets_only()
@@ -76,11 +78,15 @@ public sealed class AccessAndCompletenessRulesTests
     }
 
     [Fact]
-    public void AM_01_only_the_sbus_admin_manager_registers_or_edits_non_it_assets()
+    public void AM_01_only_the_sbus_admin_manager_edits_non_it_assets_and_stores_may_also_register_them_at_receipt()
     {
         Assert.True(AccessPolicy.CanRegister(U(Roles.SbuAdmin, 1), isIt: false, sbuId: 1));
         Assert.False(AccessPolicy.CanRegister(U(Roles.SbuAdmin, 1), isIt: false, sbuId: 2));
-        foreach (var role in new[] { Roles.Admin, Roles.Operator, Roles.GroupIt, Roles.SbuIt, Roles.Stores, Roles.SbuFinance, Roles.GroupFinance })
+        // Product owner, 29 Oct 2026: Stores registers non-IT items when they are received (matrix "Yes (at receipt)").
+        Assert.True(AccessPolicy.CanRegister(U(Roles.Stores, 1), isIt: false, sbuId: 1));
+        Assert.False(AccessPolicy.CanRegister(U(Roles.Stores, 1), isIt: false, sbuId: 2));
+        Assert.False(AccessPolicy.CanEditTechnical(U(Roles.Stores, 1), isIt: false, sbuId: 1));
+        foreach (var role in Roles.All.Except([Roles.SbuAdmin, Roles.Stores]))
         {
             Assert.False(AccessPolicy.CanRegister(U(role, 1), isIt: false, sbuId: 1), role);
             Assert.False(AccessPolicy.CanEditTechnical(U(role, 1), isIt: false, sbuId: 1), role);
@@ -103,14 +109,14 @@ public sealed class AccessAndCompletenessRulesTests
         Assert.False(AccessPolicy.CanEditTechnical(auditor, true, 1));
         Assert.False(AccessPolicy.IsSbuFinanceOf(auditor, 1));
         Assert.False(AccessPolicy.CanRunDepreciation(auditor, null));
-        Assert.False(AccessPolicy.CanManageCategories(auditor));
-        Assert.False(Roles.Satisfies(Roles.Auditor, Roles.Viewer)); // writes; reads are allowed by MinimumRoleHandler on GET only
+        Assert.False(AccessPolicy.CanManageCategories(auditor)); // and RoleHandler refuses every non-GET request of an auditor
     }
 
     [Fact]
     public void Templates_group_finance_sets_categories_group_it_the_it_fields_the_admin_manager_the_non_it_fields()
     {
         Assert.True(AccessPolicy.CanManageCategories(U(Roles.GroupFinance)));
+        Assert.True(AccessPolicy.CanManageCategories(U(Roles.SystemAdmin))); // sets the final rates (product owner, 29 Oct 2026)
         Assert.False(AccessPolicy.CanManageCategories(U(Roles.GroupIt)));
         Assert.True(AccessPolicy.CanManageFields(U(Roles.GroupIt), isIt: true));
         Assert.False(AccessPolicy.CanManageFields(U(Roles.GroupIt), isIt: false));

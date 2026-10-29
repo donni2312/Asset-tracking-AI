@@ -390,3 +390,82 @@ Passwords are the username + `-2026`.
    reason waits for **ppk.finance** to approve it.
 6. **ext.auditor**: reads and exports everything, and every edit is refused. As **group.finance**, Administration →
    Access log shows the auditor's sign-ins and exports (AU-12).
+
+---
+
+## 10. Phase 1 follow-ups and Phase 2 report: roles, scope and the permissions matrix
+
+Done 29 Oct 2026. Answers to §9.3 (product owner, 29 Oct 2026):
+
+| Q | Answer | What changed |
+|---|---|---|
+| 1 Propak | Keep lime green, code **PROP-H** | Seed: `PROP-H`, `#65A30D`; asset numbers `PROP-H-IT-2026-…`; sign-in `propak.finance` |
+| 2 Rates | Keep the placeholders; the administrator sets the final rates | New **System Administrator** role (asked: "add a System Admin role"): categories, final rates, residual %, Group settings only |
+| 3 Stores, non-IT | Yes, at receipt | `AccessPolicy.CanRegister`; editing non-IT stays the SBU Admin Manager's (AM-01) |
+| 4 Attachments | Stored as attachments, shown and downloaded on the asset card | `asset_attachments` in PostgreSQL (asked: "in the database"); PDF/JPEG/PNG ≤ 10 MB, type checked from content, append-only trigger, downloads in the access log |
+| 5 Residual | Default 0, editable over time | `asset_categories.default_residual_percent` (0); applied at capitalisation when Finance has not set a residual; per-asset residual stays editable by SBU Finance |
+| 6 Currency | Multi-currency, invoices as invoiced | `asset_upgrades.currency / invoice_amount / exchange_rate`; USD cost = amount × rate; Finance may confirm a different rate when deciding |
+
+Also decided before Phase 2: `admin` accounts → Group IT, `operator` / `viewer` disabled (migration 0004); minimal
+departments and employees added now.
+
+### 10.1 Story status
+
+| ID / area | Status | Tests | Main files |
+|---|---|---|---|
+| Phase 2 roles (12) | Done | `PermissionTests.*`, `AuthTests.*` | `Domain/Values.cs` (`Roles` + role groups), `Auth/Authentication.cs` |
+| Scope rules | Done: global query filter on assets and every table hanging off them | `Phase2_lists_reports_and_exports_hold_only_the_callers_scope`, `Phase2_group_it_sees_…` | `Auth/AccessScope.cs`, `Data/AssetIqDbContext.cs`, `Services/AssetAccess.cs` |
+| Cross-SBU 403 per role | Done (read, edit, export) | `Phase2_an_sbu_a_user_reading_editing_or_exporting_an_sbu_b_record_gets_403` (8 roles) | |
+| Matrix "—" cells | Done for every implemented row | `Phase2_permissions_matrix` (26 rows, every role) | `Auth/AccessPolicy.cs` |
+| Gate pass approvals (HOD, Admin Mgr when no HOD, SBU Finance high-value) | Done (single approval; two-step routing is Phase 4) | `Phase2_gate_passes_go_to_the_hod_…` | `GatePassService.AuthorizeDecisionAsync` |
+| GI-08 user management | Done | `GI_08_…` | `Controllers/UsersController.cs`, Administration → Users |
+| SG-01 / SI-03 scan | Done (basic info outside scope) | `Phase2_a_scan_shows_the_gate_officer_…` | `Controllers/ScanController.cs`, `pages/scan.tsx` |
+| Departments / employees | Minimal (HR maintains; toolbox workflows Phase 4) | `Phase2_sbu_hr_keeps_…`, `SI_02_issuing_to_an_employee_record_…` | `lib/db/src/schema/people.ts`, `Controllers/PeopleController.cs`, `pages/people` |
+| AU-01 / AU-04 attachments | Done | `AU_04_the_invoice_and_photos_are_attached_…` | `Controllers/AttachmentsController.cs`, `components/attachments.tsx` |
+| AU-07 currency | Done | `AU_07_an_upgrade_invoice_is_captured_in_its_own_currency_…` | `Services/UpgradeService.cs`, card upgrade dialog |
+| AU-05 residual / final rates | Done | `AU_05_the_default_residual_is_0_…` | `AdministrationController.cs`, `AssetRegistrationService.CapitaliseAsync` |
+| AM-01 Stores at receipt | Done | `AM_01_stores_registers_non_it_items_at_receipt_…` (API + unit) | `AccessPolicy.CanRegister` |
+| Migration 0004 | Done | `Phase2_admin_accounts_become_group_it_…` | `lib/db/migrations/0003`, `0004` |
+
+Matrix rows not testable yet because their endpoints arrive later: receive against PO, request equipment, exit
+clearance, recommend / approve disposal, run verification, fleet compliance (Phases 3–5).
+
+### 10.2 Assumptions (marked `// ASSUMPTION:` in code)
+
+- **B1 Stores scope** (replaces A8): until the Phase 3 "In store" status, items not issued to an employee or a
+  department.
+- **B2 "HOD unavailable"**: the asset's department has no active HOD account; leave / delegation is Phase 4. A gate
+  pass is high-value when the asset's USD cost is above `gate_pass_finance_threshold_usd` (500).
+- **B3 Approver**: the signed-in user is recorded on gate pass decisions; a typed `decidedBy` is accepted but ignored.
+- **B4 Gate Officer**: has an SBU; sees assets only via `/scan` and gate passes / movements of its SBU; full scan
+  detail at its own SBU, basic identification otherwise.
+- **B5 Employee**: sees the assets they hold (list and detail), not the asset card (cost).
+- **B6 Finance views** (register, category report, Asset Position, completeness, approvals): Group Finance, SBU
+  Finance, auditors only. Group IT's inventory is the asset list and CSV (GI-01).
+- **B7 Gate log** (movements list / CSV): Group IT, SBU IT, Gate Officer, auditors (matrix row "Check exits").
+- **B8 Locations** are kept by Group IT and the SBU Admin Manager (own SBU); SBUs by Group IT and the System
+  Administrator; the BC sync by Group Finance and the System Administrator; the RFID simulator by Group IT.
+- **B9 Non-IT inter-SBU transfers** are not recorded directly by anyone until the two-Admin-Manager workflow (AM-08).
+- **B10 Users**: Group IT can't create auditors (Group Finance, AU-12); nobody changes their own role or access.
+- **B11 Employees** holding items can't be marked as left until exit clearance (HR-04).
+- **B12 Attachments** are never deleted (audit evidence); an asset with attachments can't be deleted.
+
+### 10.3 Questions
+
+1. Should the System Administrator also see assets (read-only), or only categories, rates and settings (as built)?
+2. Should Group IT see the finance register (cost / NBV), or only the inventory (as built)?
+3. Should the Employee see the cost of the items they hold?
+4. Gate Officer: one per SBU (as built), or per site serving several SBUs?
+5. Confirm "HOD unavailable" = no active HOD (B2) until leave / delegation exists.
+
+### 10.4 How to demo (after `pnpm db:migrate` and `pnpm seed --reset`; password = username + `-2026`)
+
+1. Signed out: only the sign-in screen. `operator` / `operator123` is refused (disabled, retired role).
+2. **tsas.gate**: lands on Scan. Scan `RFID-TSAS-0001` → red "Not approved to leave", holder John Doe. Scan a BAK tag
+   → basic identification only. The sidebar has no asset lists.
+3. **tsas.it**: sees 9 TSAS IT assets only. Administration → Users: create a TSAS Stores clerk; a BAK user is refused.
+4. **tsas.hod** (Rudo Chikwanha): sees Operations' items; approves a pass for John Doe's laptop.
+5. **john.doe**: "My items" shows the one laptop he holds.
+6. **tsas.finance**: open John Doe's laptop card → Attachments shows the seeded invoice; attach a PDF.
+7. **sys.admin**: Administration → Categories: set the final life / rate and residual %; Assets are refused.
+8. **group.finance**: the Hilux card shows the engine overhaul invoiced in ZAR (51 546.00 × 0.054321 = USD 2 800.03).

@@ -152,9 +152,10 @@ public sealed class ScreensTests(ApiFixture api) : IAsyncLifetime
         await api.CallAsync("POST", "/movements", new { assetId = w.Projector.Id, toLocationId = w.Gate.Id });
         api.Clock.Advance(TimeSpan.FromMilliseconds(20));
 
-        var started = await api.CallAsync("POST", "/bc/sync");
+        // Phase 2: Group Finance (or the System Administrator) runs the Business Central sync.
+        var started = await api.CallAsync("POST", "/bc/sync", token: w.GroupFinanceToken);
         Assert.Equal("syncing", started.Body.Str("status"));
-        var overlapping = await api.CallAsync("POST", "/bc/sync");
+        var overlapping = await api.CallAsync("POST", "/bc/sync", token: w.GroupFinanceToken);
         Assert.Equal(409, overlapping.Status);
         Assert.Contains("already in progress", overlapping.Error());
 

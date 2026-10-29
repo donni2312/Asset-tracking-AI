@@ -23,6 +23,11 @@ public sealed record UserDto
     public string? SbuCode { get; init; }
     /// <summary>"All SBUs", "BAK Logistics (IT assets)", …: the scope shown on the sidebar.</summary>
     public required string Scope { get; init; }
+    /// <summary>The employee the account belongs to (HOD, Employee) and their department.</summary>
+    public int? EmployeeId { get; init; }
+    public string? EmployeeName { get; init; }
+    public int? DepartmentId { get; init; }
+    public string? DepartmentName { get; init; }
     public DateTime? AccessExpiresAt { get; init; }
     public DateTime? LastLoginAt { get; init; }
 }

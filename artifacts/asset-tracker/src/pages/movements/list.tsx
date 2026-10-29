@@ -39,7 +39,7 @@ export default function MovementList() {
           </div>
           <div className="flex items-center gap-2">
             <ExportCsvButton request={{ report: "movements" }} />
-            <Permitted role="viewer" action="record a movement" label="Record Movement" variant="default">
+            <Permitted role="movers" action="record a movement" label="Record Movement" variant="default">
               <Link href="/movements/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
                 <Plus className="w-4 h-4 mr-2" />Record Movement
               </Link>

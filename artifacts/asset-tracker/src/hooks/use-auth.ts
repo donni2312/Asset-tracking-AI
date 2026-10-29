@@ -1,13 +1,14 @@
 import { useSyncExternalStore } from "react";
-import { setAuthTokenGetter, type LoginResult, type User, type UserRole } from "@workspace/api-client-react";
+import { setAuthTokenGetter, type LoginResult, type User } from "@workspace/api-client-react";
+import { inGroup, type RoleGroup } from "@/lib/roles";
 
 /**
  * The signed-in user.
  *
  * The API issues a bearer token (POST /auth/login); it is kept in localStorage
  * and attached to every request by the generated client's token getter,
- * registered once below. Reading the dashboard needs no sign-in — changes and
- * report downloads do (see the API's [RequireRole]).
+ * registered once below. Since Phase 2 every screen needs a sign-in (the API
+ * refuses signed-out requests with 401).
  *
  * Nothing here is a security boundary: the role in this store only decides what
  * the UI offers. Every protected action is checked again by the API, so a user
@@ -92,12 +93,8 @@ export function endSession() {
 /** Registered once: the generated client sends this as `Authorization: Bearer …`. */
 setAuthTokenGetter(() => read()?.token ?? null);
 
-// Mirrors Roles.Rank in the API. Auditors read and export (rank 0 here); the API refuses all their writes.
-const RANK: Record<UserRole, number> = {
-  viewer: 0, sbu_finance: 0, group_finance: 0, auditor: 0,
-  operator: 1, sbu_it: 1, sbu_admin: 1, stores: 1,
-  admin: 2, group_it: 2,
-};
+/** The bearer token, for the few requests the generated client does not make (multipart uploads, file previews). */
+export const currentToken = (): string | null => read()?.token ?? null;
 
 export function useSession(): Session | null {
   return useSyncExternalStore(subscribe, read, () => null);
@@ -107,11 +104,7 @@ export function useCurrentUser(): User | null {
   return useSession()?.user ?? null;
 }
 
-/**
- * Whether the signed-in user holds at least `required`. Mirrors the API's rank
- * check — keep the two in step.
- */
-export function useHasRole(required: UserRole): boolean {
-  const user = useCurrentUser();
-  return !!user && RANK[user.role] >= RANK[required];
+/** Whether the signed-in user holds one of the roles of `group` (mirrors the API's role groups, lib/roles.ts). */
+export function useHasRole(group: RoleGroup): boolean {
+  return inGroup(useCurrentUser(), group);
 }

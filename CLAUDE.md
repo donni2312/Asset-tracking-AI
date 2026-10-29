@@ -20,7 +20,7 @@ test the project locally and records everything changed in the October 2026 pass
 | `pnpm --filter @workspace/api-server run test:watch` | Tests in watch mode (`dotnet watch test`) |
 | `pnpm run typecheck` | Typecheck every TypeScript package and compile the C# solution |
 | `pnpm codegen` | Regenerate React Query hooks + Zod schemas after editing `openapi.yaml` |
-| Demo sign-ins | `administrator`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123` (created by `pnpm seed`; what each may do: section 17) |
+| Demo sign-ins | `administrator`/`admin123` (Group IT) and one account per Phase 2 role, password = username + `-2026` (`group.finance`, `tsas.it`, `tsas.gate`, `tsas.hod`, `john.doe`, `sys.admin`, …; listed by `pnpm seed`). `operator` / `viewer` are seeded disabled (retired roles). Rules: Phase 2 section |
 | `pnpm run build` | Typecheck + production builds (the API is published to `artifacts/api-server/dist`) |
 | `pnpm build:azure` | Build the dashboard, then publish the API with it in `dist/wwwroot` — deploy that folder to Azure App Service (section 19) |
 
@@ -348,7 +348,7 @@ date) and keeps the OS format. The asset registry's own search box is unchanged 
 ### 14. Editing an asset, behind real authentication
 **Before using this, run `pnpm db:push` (creates the `users` table) and `pnpm seed --reset` (creates the sign-ins).**
 Demo accounts: `administrator` / `admin123`, `operator` / `operator123`, `viewer` / `viewer123`.
-**Superseded by section 17:** the role rules below are the original ones; section 17 changed them and gated every write.
+**Superseded by section 17 and then by Phase 2:** the role rules below are the original ones.
 
 - **Contract** (`openapi.yaml`): `POST /auth/login` → `{ token, expiresAt, user }`, `GET /auth/me`, a `bearerAuth`
   security scheme, and `security` + 401/403 responses on the three asset write operations. Regenerated with
@@ -461,7 +461,7 @@ Test: covered by the existing auth tests (fixed test secret, forged/expired toke
 `AUTH_SECRET is not set` warning no longer appears (verified). Once the `users` table exists (`pnpm db:push`), sign
 in, restart the API task and reload the dashboard: you stay signed in.
 
-### 17. Sign-ins created, and every change now needs the right role
+### 17. Sign-ins created, and every change now needs the right role (superseded by Phase 2)
 **Database:** `pnpm db:push` created the missing `users` table on this PC (an additive change — no other table or row
 was touched; 32 assets before and after). Three accounts were inserted directly (not `pnpm seed --reset`, which would
 have wiped the demo data), with scrypt hashes in the seed's format:
@@ -617,3 +617,28 @@ The plan, story status, assumptions and open questions are in `docs/implementati
 - **Sign-ins** (`pnpm seed --reset`): the three original ones plus scoped accounts, password = username + `-2026`
   (`group.finance`, `tsas.finance`, `tsas.it`, `bak.finance`, `ext.auditor`, … listed by the seed).
 - **Tests**: `pnpm test` — 300 tests (78 new; names start with the story ID).
+
+## Phase 2 — roles, scope and the permissions matrix, October 2026
+
+The plan, story status, assumptions and open questions are in `docs/implementation-plan.md` (Phase 2 report).
+
+- **Roles**: the 12 roles of `Domain/Values.cs` `Roles` (the matrix's 9, Auditor, Employee, System Administrator).
+  viewer / operator / admin are retired: migration `0004` made `admin` accounts Group IT and disabled `operator` /
+  `viewer` accounts (kept, not deleted); a retired role signs nobody in.
+- **Every endpoint needs a sign-in** (fallback policy) except `/healthz` and `/auth/login`. Endpoints name a role group
+  (`[RequireRole(Roles.GatePassRaisers)]`); `Auth/AccessPolicy.cs` then checks the record (own SBU, IT / non-IT,
+  department). Auditors pass on GET only.
+- **Scope is a global query filter**: `Auth/AccessScope.cs` (per request, narrowed by the token handler) filters
+  `assets` and every table hanging off an asset in `AssetIqDbContext`, so lists, dashboards, CSV / Excel / PDF exports
+  and AI answers hold only the caller's scope. Rules that must look across SBUs (Group-unique serials, RFID reads, the
+  gate pass workflow, the AI rules, scans) say `IgnoreQueryFilters()`; by-id endpoints use `AssetAccess` so another
+  SBU's record is a 403, not a 404. Contexts made outside a request (tests, the BC worker) are unrestricted.
+- **New**: departments and employees (`lib/db/src/schema/people.ts`; users link to an employee, assets to a custodian
+  employee and department), user management (`UsersController`, GI-08), attachments stored in PostgreSQL
+  (`AttachmentsController`, append-only by trigger), `/scan` (the Gate Officer's only view of an asset), upgrade
+  invoices in any currency, a default residual % per category (0).
+- **Dashboard**: `lib/roles.ts` mirrors the API's role groups; the sidebar shows each entry only to the roles that may
+  use it; signed out, only the sign-in screen shows. New screens: Scan, People & Toolboxes, Departments, Administration
+  → Users; attachments on the asset card.
+- **Tests**: `PermissionTests` (cross-SBU 403 per role, every "—" cell of the implemented matrix rows),
+  `RolesAndPeopleTests`, `MigrationTests` (0004); `RoleWorld` seeds one account per role.

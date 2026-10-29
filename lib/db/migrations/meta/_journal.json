@@ -22,6 +22,20 @@
       "when": 1793199192444,
       "tag": "0002_reference_data_and_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793265244903,
+      "tag": "0003_phase2_people_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793265265839,
+      "tag": "0004_retire_original_roles",
+      "breakpoints": true
     }
   ]
 }

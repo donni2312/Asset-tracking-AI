@@ -12,11 +12,12 @@ namespace AssetIQ.Api.Controllers;
 public sealed class BcController(AssetIqDbContext db, BcSyncService sync) : ApiControllerBase
 {
     [HttpGet("bc/sync-status")]
+    [RequireRole(Roles.BcViewers)]
     [FailureMessage("Failed to get BC sync status")]
     public Task<BcSyncStatusDto> Status() => sync.GetStatusAsync(db, Aborted);
 
     [HttpPost("bc/sync")]
-    [RequireRole(Roles.Admin)]
+    [RequireRole(Roles.BcOperators)]
     [FailureMessage("BC sync failed")]
     public Task<BcSyncStatusDto> Trigger() => sync.TriggerAsync(db, Aborted);
 }

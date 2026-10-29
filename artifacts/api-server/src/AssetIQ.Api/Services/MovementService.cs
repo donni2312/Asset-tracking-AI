@@ -34,7 +34,7 @@ public sealed class MovementService(AssetIqDbContext db, AppClock clock)
     /// </summary>
     public async Task<bool> ApplyLocationIfLatestAsync(Asset asset, Movement movement, int? locationId, CancellationToken ct)
     {
-        var later = await db.Movements.AnyAsync(
+        var later = await db.Movements.IgnoreQueryFilters().AnyAsync(
             m => m.AssetId == asset.Id && m.Id != movement.Id && m.Timestamp > movement.Timestamp, ct);
         if (later) return false;
         asset.CurrentLocationId = locationId;

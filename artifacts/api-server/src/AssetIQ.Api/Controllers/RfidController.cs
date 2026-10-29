@@ -14,11 +14,13 @@ namespace AssetIQ.Api.Controllers;
 public sealed class RfidController(AssetIqDbContext db, RfidScanService scans) : ApiControllerBase
 {
     [HttpGet("rfid/readers")]
+    [RequireRole(Roles.ReaderViewers)]
     [FailureMessage("Failed to list RFID readers")]
     public Task<List<RfidReaderDto>> Readers([FromQuery] string? sbuId)
     {
         var sbuFilter = RequestValues.OptionalInt(sbuId);
         var query = db.RfidReaders.AsNoTracking();
+        if (Roles.IsSbuScoped(Caller.Role)) query = query.Where(r => r.Location.SbuId == Caller.SbuId);
         if (sbuFilter is not null) query = query.Where(r => r.Location.SbuId == sbuFilter);
         return query
             .OrderBy(r => r.Location.Sbu!.Code)
@@ -40,7 +42,7 @@ public sealed class RfidController(AssetIqDbContext db, RfidScanService scans) :
 
     /// <summary>Processed exactly like a hardware read (see <see cref="RfidScanService"/>).</summary>
     [HttpPost("rfid/simulate")]
-    [RequireRole(Roles.Admin)]
+    [RequireRole(Roles.GroupIt)]
     [FailureMessage("RFID simulation failed")]
     public Task<RfidScanResultDto> Simulate([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

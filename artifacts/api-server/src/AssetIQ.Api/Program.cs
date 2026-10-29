@@ -58,10 +58,13 @@ builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<BcSyncService>();
 
+// Phase 2: what this request may see; narrowed by the token handler, applied by the DbContext's query filters.
+builder.Services.AddScoped<AccessScope>();
 builder.Services.AddDbContext<AssetIqDbContext>((sp, options) =>
     options.UseNpgsql(DatabaseUrl.ToConnectionString(RequireDatabaseUrl(sp.GetRequiredService<IConfiguration>()))));
 
 builder.Services.AddScoped<AssetQueries>();
+builder.Services.AddScoped<AssetAccess>();
 builder.Services.AddScoped<MovementService>();
 builder.Services.AddScoped<InsightService>();
 builder.Services.AddScoped<GatePassService>();
@@ -89,15 +92,12 @@ builder.Services.AddHttpClient<OpenAiIntentParser>();
 builder.Services
     .AddAuthentication(AuthDefaults.Scheme)
     .AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(AuthDefaults.Scheme, _ => { });
+// Every endpoint needs a signed-in user unless it says [AllowAnonymous] (health check, sign-in).
 builder.Services.AddAuthorization(options =>
-{
-    foreach (var role in Roles.All)
-    {
-        options.AddPolicy(RequireRoleAttribute.PolicyFor(role), policy => policy.AddRequirements(new MinimumRoleRequirement(role)));
-    }
-});
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().AddRequirements(new RoleRequirement(Roles.Everyone)).Build());
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, RolePolicyProvider>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<IAuthorizationHandler, MinimumRoleHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, RoleHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, JsonAuthorizationResultHandler>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Content-Disposition")));
@@ -150,6 +150,12 @@ app.UseRouting();
 app.UseMiddleware<ApiErrorMiddleware>();
 app.UseCors();
 app.UseAuthentication();
+// A request nobody signed in to sees no assets, whatever the endpoint.
+app.Use(async (context, next) =>
+{
+    if (context.User.GetAuthUser() is null) context.RequestServices.GetRequiredService<AccessScope>().DenyAll();
+    await next(context);
+});
 app.UseAuthorization();
 app.MapControllers();
 if (servesDashboard)

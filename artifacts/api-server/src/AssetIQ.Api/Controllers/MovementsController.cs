@@ -11,9 +11,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AssetIQ.Api.Controllers;
 
-public sealed class MovementsController(AssetIqDbContext db, AppClock clock) : ApiControllerBase
+public sealed class MovementsController(AssetIqDbContext db, AppClock clock, AssetAccess access) : ApiControllerBase
 {
     [HttpGet("movements")]
+    [RequireRole(Roles.GateLogReaders)]
     [FailureMessage("Failed to list movements")]
     public Task<List<MovementDto>> List([FromQuery] string? assetId, [FromQuery] string? sbuId, [FromQuery] string? limit)
     {
@@ -34,7 +35,7 @@ public sealed class MovementsController(AssetIqDbContext db, AppClock clock) : A
 
     /// <summary>A manual movement recorded by a person; the asset's current location follows.</summary>
     [HttpPost("movements")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Movers)]
     [FailureMessage("Failed to create movement")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -45,8 +46,10 @@ public sealed class MovementsController(AssetIqDbContext db, AppClock clock) : A
         var notes = input.OptionalString("notes")?.Trim();
         input.ThrowIfInvalid();
 
-        var asset = await db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
+        var found = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
+        if (!AccessPolicy.CanMove(Caller, found, found.AssetCategory.IsIt)) throw AccessPolicy.Deny(Caller, "move this asset");
+        var asset = await db.Assets.IgnoreQueryFilters().FirstAsync(a => a.Id == assetId, Aborted);
         var destination = await db.Locations.AsNoTracking()
             .Where(l => l.Id == toLocationId)
             .Select(l => new { l.Id, l.Name })
@@ -77,10 +80,14 @@ public sealed class MovementsController(AssetIqDbContext db, AppClock clock) : A
     }
 
     [HttpGet("movements/{id}")]
+    [RequireRole(Roles.GateLogReaders)]
     [FailureMessage("Failed to get movement")]
     public async Task<MovementDto> Get(string id)
     {
         var movementId = RequestValues.Id(id);
+        var assetId = await db.Movements.IgnoreQueryFilters().Where(m => m.Id == movementId).Select(m => (int?)m.AssetId).FirstOrDefaultAsync(Aborted)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Movement not found");
+        if (Caller.Role != Roles.GateOfficer) await access.EnsureVisibleAsync(Caller, assetId, Aborted);
         return await db.Movements.AsNoTracking().Where(m => m.Id == movementId).Select(MovementService.ToDto).FirstOrDefaultAsync(Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Movement not found");
     }

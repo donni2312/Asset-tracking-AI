@@ -113,7 +113,7 @@ public sealed class AssetFinanceTests(ApiFixture api) : IAsyncLifetime
         var card = (await api.CallAsync("GET", $"/assets/{id}/card", token: a.TsasFinance)).Body;
         Assert.Contains(card.Prop("completenessGaps").Items(), g => g.GetString() == "Upgrade awaiting Finance decision");
 
-        foreach (var token in new[] { a.TsasIt, a.BakFinance, a.GroupFinance, a.W.AdminToken })
+        foreach (var token in new[] { a.TsasIt, a.BakFinance, a.GroupFinance, a.W.GroupItToken })
             Assert.Equal(403, (await api.CallAsync("POST", $"/upgrades/{upgradeId}/decision", new { treatment = "capitalise" }, token)).Status);
         Assert.Equal(200, (await api.CallAsync("POST", $"/upgrades/{upgradeId}/decision", new { treatment = "capitalise", revisedLifeMonths = 24 }, a.TsasFinance)).Status);
         Assert.Equal(409, (await api.CallAsync("POST", $"/upgrades/{upgradeId}/decision", new { treatment = "expense" }, a.TsasFinance)).Status);
@@ -165,7 +165,7 @@ public sealed class AssetFinanceTests(ApiFixture api) : IAsyncLifetime
         Assert.Contains("append-only", update.MessageText);
         Assert.Contains("append-only", delete.MessageText);
         Assert.Contains("append-only", accessDelete.MessageText);
-        Assert.Equal(405, (await api.CallAsync("DELETE", $"/assets/{id}/audit", token: a.W.AdminToken)).Status);
+        Assert.Equal(405, (await api.CallAsync("DELETE", $"/assets/{id}/audit", token: a.W.GroupItToken)).Status);
     }
 
     [Fact]

@@ -3,24 +3,26 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 
 /**
- * The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.
+ * The roles of the docs/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer / operator / admin roles were retired by migration 0004.
  */
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 
 export const UserRole = {
-  viewer: 'viewer',
-  operator: 'operator',
-  admin: 'admin',
   group_finance: 'group_finance',
   group_it: 'group_it',
   sbu_it: 'sbu_it',
   sbu_finance: 'sbu_finance',
-  sbu_admin: 'sbu_admin',
+  gate_officer: 'gate_officer',
+  hod: 'hod',
+  sbu_hr: 'sbu_hr',
   stores: 'stores',
+  sbu_admin: 'sbu_admin',
   auditor: 'auditor',
+  employee: 'employee',
+  system_admin: 'system_admin',
 } as const;

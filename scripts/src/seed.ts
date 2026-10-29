@@ -13,6 +13,7 @@ import {
   db,
   pool,
   aiInsightsTable,
+  assetAttachmentsTable,
   assetAttributeValuesTable,
   assetCategoriesTable,
   assetLifecycleEventsTable,
@@ -22,6 +23,8 @@ import {
   bcMockNumberSeriesTable,
   bcNumberRequestsTable,
   categoryTemplateFieldsTable,
+  departmentsTable,
+  employeesTable,
   gatePassesTable,
   locationsTable,
   movementsTable,
@@ -29,11 +32,12 @@ import {
   sbusTable,
   usersTable,
 } from "@workspace/db";
-import { randomBytes, scrypt as scryptCallback } from "node:crypto";
+import { createHash, randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
 import { count, eq, max, sql } from "drizzle-orm";
 import { APPROVERS, ASSETS, DEMO_USERS, INACTIVE_READER, LOCATIONS, SBUS, type AssetSeed } from "./seed-data";
 import { SCOPED_USERS, TEMPLATES, UPGRADES, describe } from "./seed-audit";
+import { DEPARTMENTS, EMPLOYEES, PHASE2_USERS, sampleInvoicePdf } from "./seed-people";
 
 // Same scrypt format the API verifies (api-server/src/lib/auth.ts).
 const scrypt = promisify(scryptCallback) as (p: string, s: Buffer, k: number) => Promise<Buffer>;
@@ -114,7 +118,7 @@ async function main() {
         // TRUNCATE is not stopped by the append-only / asset-number triggers (they guard UPDATE and DELETE).
         sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
             depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
-            assets, rfid_readers, locations, sbus, users RESTART IDENTITY CASCADE`,
+            asset_attachments, assets, users, employees, departments, rfid_readers, locations, sbus RESTART IDENTITY CASCADE`,
       );
     }
 
@@ -125,6 +129,7 @@ async function main() {
           username: u.username,
           name: u.name,
           role: u.role,
+          active: u.active,
           passwordHash: await hashPassword(u.password),
         })),
       ),
@@ -263,6 +268,40 @@ async function main() {
       ]),
     );
 
+    // People (Phase 2): departments per SBU, employees, the holders linked to their records, and the new sign-ins.
+    const departmentRows = await tx
+      .insert(departmentsTable)
+      .values(sbuRows.flatMap((s) => DEPARTMENTS.map((name) => ({ sbuId: s.id, name }))))
+      .returning();
+    const departmentId = (sbu: string, name: string) => departmentRows.find((d) => d.sbuId === sbuId(sbu) && d.name === name)!.id;
+    const employeeRows = await tx
+      .insert(employeesTable)
+      .values(EMPLOYEES.map((e) => ({
+        sbuId: sbuId(e.sbu), departmentId: departmentId(e.sbu, e.department), employeeNo: e.no, name: e.name, jobRole: e.jobRole,
+        email: `${e.name.toLowerCase().replace(/[^a-z]+/g, ".")}@tsl.co.zw`,
+      })))
+      .returning();
+    const employeeNo = (no: string) => employeeRows.find((e) => e.employeeNo === no)!;
+    for (const e of EMPLOYEES.filter((x) => x.manager)) {
+      await tx.update(employeesTable).set({ lineManagerId: employeeNo(e.manager!).id }).where(eq(employeesTable.id, employeeNo(e.no).id));
+    }
+    for (const [i, row] of assetRows.entries()) {
+      const holder = employeeRows.find((e) => e.name === row.assignedTo && e.sbuId === sbuId(ASSETS[i].sbu));
+      if (holder) await tx.update(assetsTable).set({ custodianEmployeeId: holder.id, departmentId: holder.departmentId }).where(eq(assetsTable.id, row.id));
+    }
+    await tx.insert(usersTable).values(
+      await Promise.all(
+        PHASE2_USERS.map(async (u) => ({
+          username: u.username,
+          name: u.name,
+          role: u.role,
+          sbuId: u.sbu ? sbuId(u.sbu) : null,
+          employeeId: u.employee ? employeeNo(u.employee).id : null,
+          passwordHash: await hashPassword(`${u.username}-2026`),
+        })),
+      ),
+    );
+
     // Upgrades (AU-07): capitalised, expensed and two waiting for SBU Finance.
     const periodMonthsAgo = (months: number) => {
       const p = parts(NOW);
@@ -276,6 +315,8 @@ async function main() {
         return {
           assetId: row.id, upgradeDate: dateKey(at(u.daysAgo + 1, 10)), description: u.description, beforeText: u.before, afterText: u.after,
           fieldChanges: u.changes, cost: u.cost, supplier: "Axis Solutions (Pvt) Ltd", invoiceNo: `INV-U${row.id}${u.daysAgo}`,
+          currency: "currency" in u ? u.currency : "USD", invoiceAmount: "invoiceAmount" in u ? u.invoiceAmount : u.cost,
+          exchangeRate: "exchangeRate" in u ? u.exchangeRate : "1",
           loggedBy: u.by, loggedByRole: u.role, status: u.status, decidedBy: decided ? "SBU Finance" : null, decidedAt: decided ? at(u.daysAgo, 15) : null,
           decisionComment: u.status === "expensed" ? "Ordinary repair" : decided ? "Adds capacity / extends life" : null,
           capitalisedPeriod: u.status === "capitalised" ? periodMonthsAgo(u.monthsAgo) : null,
@@ -284,6 +325,15 @@ async function main() {
       }),
     );
     const asset = (key: string) => assetRows[ASSETS.findIndex((a) => a.key === key)];
+
+    // The supplier invoice of the first TSAS laptop, as SBU Finance would attach it (AU-04).
+    const invoiced = asset("dell-5440");
+    const invoicePdf = sampleInvoicePdf(invoiced.invoiceNo ?? "INV", invoiced.supplier ?? "Supplier", invoiced.costUsd ?? "0.00");
+    await tx.insert(assetAttachmentsTable).values({
+      assetId: invoiced.id, kind: "invoice", fileName: `${invoiced.invoiceNo}.pdf`, contentType: "application/pdf", sizeBytes: invoicePdf.length,
+      sha256: createHash("sha256").update(invoicePdf).digest("hex"), content: invoicePdf, uploadedBy: "Chipo Mlambo", uploadedByRole: "sbu_finance",
+      uploadedAt: invoiced.capitalisedAt ?? invoiced.createdAt,
+    });
     const seedOf = (key: string) => ASSETS.find((a) => a.key === key)!;
 
     type MovementInsert = typeof movementsTable.$inferInsert;
@@ -516,7 +566,8 @@ async function main() {
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);
     console.log(`  ${movements.length} movements, 6 gate passes (2 pending, 3 approved, 1 rejected), 5 insights`);
     console.log(`  ${DEMO_USERS.length} sign-ins: ${DEMO_USERS.map((u) => `${u.username}/${u.password} (${u.role})`).join(", ")}`);
-    console.log(`  ${SCOPED_USERS.length} scoped sign-ins (password = username + "-2026"): ${SCOPED_USERS.map((u) => u.username).join(", ")}`);
+    console.log(`  ${SCOPED_USERS.length + PHASE2_USERS.length} scoped sign-ins (password = username + "-2026"): ${[...SCOPED_USERS, ...PHASE2_USERS].map((u) => u.username).join(", ")}`);
+    console.log(`  ${EMPLOYEES.length} employees in ${DEPARTMENTS.length} departments per SBU; operator and viewer are disabled (Phase 2)`);
     console.log(`  ${UPGRADES.length} upgrades (2 waiting for SBU Finance), ${series.size} mock Business Central number series`);
     console.log("\nDemo pointers:");
     console.log(`  • Gate pass #${gp6.id} (auto-raised at TSL Head Office Gate) is waiting for approval.`);

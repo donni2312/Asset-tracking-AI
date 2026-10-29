@@ -33,7 +33,7 @@ export function ExportCsvButton({
   }
 
   return (
-    <Permitted role="viewer" action="download reports" label={label} size={size} variant={variant}>
+    <Permitted role="recordReaders" action="download reports" label={label} size={size} variant={variant}>
       <Button type="button" variant={variant} size={size} className="gap-2" onClick={run} disabled={busy}>
         <Download className="h-4 w-4" />
         {busy ? "Preparing…" : label}

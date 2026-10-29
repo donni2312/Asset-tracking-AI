@@ -216,9 +216,11 @@ public sealed class FinanceReportTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Scope_group_it_sees_it_assets_of_every_sbu_and_no_non_it_assets()
     {
-        var rows = (await api.CallAsync("GET", "/finance/register", token: a.GroupIt)).Body.Prop("rows").Items();
+        // Phase 2: the fixed asset register is Finance's (and the auditors'); Group IT's inventory is the asset list (GI-01).
+        Assert.Equal(403, (await api.CallAsync("GET", "/finance/register", token: a.GroupIt)).Status);
+        var rows = (await api.CallAsync("GET", "/assets", token: a.GroupIt)).Body.Items();
         Assert.Contains(rows, r => r.Str("sbuCode") == "BAK");
-        Assert.DoesNotContain(rows, r => r.Int("assetId") == _tsasDesk);
+        Assert.DoesNotContain(rows, r => r.Int("id") == _tsasDesk);
         Assert.Equal(403, (await api.CallAsync("GET", $"/assets/{_tsasDesk}/card", token: a.GroupIt)).Status);
     }
 

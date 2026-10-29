@@ -1,3 +1,4 @@
+using AssetIQ.Api.Services;
 using System.Linq.Expressions;
 using System.Text.Json;
 using AssetIQ.Api.Auth;
@@ -12,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AssetIQ.Api.Controllers;
 
 /// <summary>Business-meaningful asset events: deployments, returns, repairs, SBU transfers and notes.</summary>
-public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : ApiControllerBase
+public sealed class LifecycleController(AssetIqDbContext db, AppClock clock, AssetAccess access, AssetRegistrationService registration) : ApiControllerBase
 {
     /// <summary>The asset status each event type implies.</summary>
     private static readonly Dictionary<string, string> StatusAfterEvent = new()
@@ -45,11 +46,13 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
     };
 
     [HttpGet("assets/{id}/lifecycle")]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to list lifecycle events")]
-    public Task<List<LifecycleEventDto>> ListForAsset(string id)
+    public async Task<List<LifecycleEventDto>> ListForAsset(string id)
     {
         var assetId = RequestValues.Id(id);
-        return db.AssetLifecycleEvents.AsNoTracking()
+        await access.EnsureVisibleAsync(Caller, assetId, Aborted);
+        return await db.AssetLifecycleEvents.AsNoTracking()
             .Where(e => e.AssetId == assetId)
             .OrderByDescending(e => e.Timestamp)
             .Select(ToDto)
@@ -58,15 +61,16 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
 
     /// <summary>Records the event and applies what it implies to the asset (status, holder, owning SBU).</summary>
     [HttpPost("assets/{id}/lifecycle")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.LifecycleWriters)]
     [FailureMessage("Failed to create lifecycle event")]
     public async Task<IActionResult> Create(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
         var assetId = RequestValues.Id(id);
-        var asset = await db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
+        var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
 
         var input = JsonBody.From(body);
+        var custodianEmployeeId = input.NullableInt("custodianEmployeeId");
         var eventType = input.NullableString("eventType").Value;
         var performedBy = input.NullableString("performedBy").Value;
         var fromSbuId = input.NullableInt("fromSbuId").Value;
@@ -82,6 +86,12 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
             throw new ApiException(StatusCodes.Status400BadRequest, "eventType and performedBy are required");
         }
         input.ThrowIfInvalid();
+        if (!AccessPolicy.CanRecordLifecycle(Caller, eventType, asset, asset.AssetCategory.IsIt))
+            throw AccessPolicy.Deny(Caller, eventType == LifecycleEventTypes.SbuTransfer
+                ? "move an asset to another SBU (Group IT approves IT transfers, GI-05; SBU IT may only request one)"
+                : $"record a {eventType.Replace('_', ' ')} for this asset");
+        if (eventType == LifecycleEventTypes.SbuTransfer && toSbuId is not null && !await db.Sbus.AnyAsync(x => x.Id == toSbuId, Aborted))
+            throw new ApiException(StatusCodes.Status404NotFound, "SBU not found");
 
         var now = clock.UtcNow;
         var lifecycleEvent = new AssetLifecycleEvent
@@ -107,7 +117,14 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
             asset.Status = status;
             assetChanged = true;
         }
-        if (eventType == LifecycleEventTypes.Deployment && !string.IsNullOrEmpty(assignedTo))
+        if (eventType == LifecycleEventTypes.Deployment && custodianEmployeeId is { IsSet: true, Value: not null })
+        {
+            // Issued to an employee record: the holder's name and department follow the employee.
+            await registration.AssignCustodianAsync(Caller, asset, custodianEmployeeId.Value, notes, Aborted);
+            lifecycleEvent.AssignedTo = asset.AssignedTo;
+            assetChanged = true;
+        }
+        else if (eventType == LifecycleEventTypes.Deployment && !string.IsNullOrEmpty(assignedTo))
         {
             asset.AssignedTo = assignedTo;
             assetChanged = true;
@@ -115,6 +132,8 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
         if (eventType == LifecycleEventTypes.ReturnToIt)
         {
             asset.AssignedTo = null;
+            asset.CustodianEmployeeId = null;
+            asset.DepartmentId = null;
             assetChanged = true;
         }
         if (eventType == LifecycleEventTypes.SbuTransfer && toSbuId is > 0 or < 0)
@@ -131,6 +150,7 @@ public sealed class LifecycleController(AssetIqDbContext db, AppClock clock) : A
 
     /// <summary>Events across all assets, newest first; optionally one event type or one SBU's assets.</summary>
     [HttpGet("lifecycle")]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to list lifecycle events")]
     public Task<List<LifecycleEventDto>> List([FromQuery] string? eventType, [FromQuery] string? sbuId, [FromQuery] string? limit)
     {

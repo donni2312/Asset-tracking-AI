@@ -240,7 +240,7 @@ export default function AssetDetail() {
   const qc = useQueryClient();
   const { toast } = useToast();
   // The API enforces the roles; here they only decide which actions are offered.
-  const { allowed: canDismiss } = usePermission("operator", "dismiss alerts");
+  const { allowed: canDismiss } = usePermission("insightManagers", "dismiss alerts");
 
   const { data: asset, isLoading: loadingAsset } = useGetAsset(assetId, {
     query: { enabled: !!assetId, queryKey: getGetAssetQueryKey(assetId) },
@@ -368,7 +368,7 @@ export default function AssetDetail() {
             >
               Asset card
             </Link>
-            <Permitted role="operator" action="edit assets" label="Edit" size="sm">
+            <Permitted role="technicalEditors" action="edit assets" label="Edit" size="sm">
               <Link
                 href={`/assets/${asset.id}/edit`}
                 className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
@@ -379,7 +379,7 @@ export default function AssetDetail() {
             </Permitted>
             {!isRetired && (
               <>
-                <Permitted role="viewer" action="record a movement" label="Move" size="sm">
+                <Permitted role="movers" action="record a movement" label="Move" size="sm">
                   <Link
                     href={`/movements/new?assetId=${asset.id}`}
                     className="inline-flex items-center gap-2 h-8 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent"
@@ -388,13 +388,13 @@ export default function AssetDetail() {
                     Move
                   </Link>
                 </Permitted>
-                <Permitted role="operator" action="request gate passes" label="Request Gate Pass" size="sm">
+                <Permitted role="gatePassRaisers" action="request gate passes" label="Request Gate Pass" size="sm">
                   <Button size="sm" variant="outline" className="gap-2" onClick={() => setGatePassOpen(true)}>
                     <ShieldPlus className="w-4 h-4" />
                     Request Gate Pass
                   </Button>
                 </Permitted>
-                <Permitted role="operator" action="assign assets" label="Assign" size="sm">
+                <Permitted role="lifecycleWriters" action="assign assets" label="Assign" size="sm">
                   <Button
                     size="sm"
                     variant="outline"
@@ -405,7 +405,7 @@ export default function AssetDetail() {
                     Assign
                   </Button>
                 </Permitted>
-                <Permitted role="operator" action="dispose of assets" label="Dispose" size="sm">
+                <Permitted role="technicalEditors" action="dispose of assets" label="Dispose" size="sm">
                   <Button
                     size="sm"
                     variant="outline"

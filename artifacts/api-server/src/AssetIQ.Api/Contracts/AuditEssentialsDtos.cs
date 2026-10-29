@@ -30,6 +30,8 @@ public sealed record AssetCategoryDto
     public required string DepreciationMethod { get; init; }
     public int? UsefulLifeMonths { get; init; }
     public decimal? AnnualRate { get; init; }
+    /// <summary>Residual value proposed at capitalisation, as a % of cost (0 by default).</summary>
+    public required decimal DefaultResidualPercent { get; init; }
     public required bool Active { get; init; }
     public required IReadOnlyList<TemplateFieldDto> Fields { get; init; }
 }
@@ -79,7 +81,11 @@ public sealed record AssetUpgradeDto
     public required string BeforeText { get; init; }
     public required string AfterText { get; init; }
     public required IReadOnlyDictionary<string, string?> FieldChanges { get; init; }
+    /// <summary>USD (invoice amount × exchange rate).</summary>
     public required decimal Cost { get; init; }
+    public required string Currency { get; init; }
+    public required decimal InvoiceAmount { get; init; }
+    public required decimal ExchangeRate { get; init; }
     public string? Supplier { get; init; }
     public string? InvoiceNo { get; init; }
     public required string LoggedBy { get; init; }
@@ -115,7 +121,7 @@ public sealed record AssetCardDto
     public required AssetCardPermissionsDto Can { get; init; }
 }
 
-public sealed record AssetCardPermissionsDto(bool EditTechnical, bool EditFinancial, bool LogUpgrade, bool DecideUpgrades, bool ChangeCategory, bool Tag);
+public sealed record AssetCardPermissionsDto(bool EditTechnical, bool EditFinancial, bool LogUpgrade, bool DecideUpgrades, bool ChangeCategory, bool Tag, bool Attach);
 
 // ── reports (AU-09, AU-10, AU-11) ────────────────────────────────────────────
 
@@ -190,6 +196,7 @@ public sealed record DepreciationLockDto(int Id, int SbuId, string Period, strin
 public sealed record AccountDto
 {
     public required int Id { get; init; }
+    public int? EmployeeId { get; init; }
     public required string Username { get; init; }
     public required string Name { get; init; }
     public required string Role { get; init; }

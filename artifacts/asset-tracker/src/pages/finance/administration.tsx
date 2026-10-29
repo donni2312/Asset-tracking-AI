@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
 import { SELECT_CLASS } from "@/lib/constants";
 import { currentPeriod, money, periodLabel, recentPeriods } from "@/lib/finance";
+import { inGroup } from "@/lib/roles";
+import { UsersTab } from "./users-tab";
 
 /**
  * Category templates and depreciation policy (Group Finance; fields by Group IT / SBU Admin Manager),
@@ -25,6 +27,8 @@ export default function Administration() {
   const user = useCurrentUser();
   if (!user) return <Layout><p className="text-sm text-muted-foreground">Sign in.</p></Layout>;
   const finance = user.role === "group_finance";
+  const runsDepreciation = user.role === "group_finance" || user.role === "sbu_finance";
+  const managesUsers = inGroup(user, "userManagers");
   return (
     <Layout>
       <div className="space-y-5">
@@ -35,14 +39,16 @@ export default function Administration() {
         <Tabs defaultValue="categories">
           <TabsList className="flex-wrap">
             <TabsTrigger value="categories">Categories</TabsTrigger>
-            <TabsTrigger value="depreciation">Depreciation run</TabsTrigger>
+            {runsDepreciation && <TabsTrigger value="depreciation">Depreciation run</TabsTrigger>}
             <TabsTrigger value="settings">Group settings</TabsTrigger>
+            {managesUsers && <TabsTrigger value="users">Users</TabsTrigger>}
             {finance && <TabsTrigger value="auditors">Auditor access</TabsTrigger>}
             {finance && <TabsTrigger value="log">Access log</TabsTrigger>}
           </TabsList>
           <TabsContent value="categories"><Categories /></TabsContent>
-          <TabsContent value="depreciation"><DepreciationRun /></TabsContent>
+          {runsDepreciation && <TabsContent value="depreciation"><DepreciationRun /></TabsContent>}
           <TabsContent value="settings"><Settings /></TabsContent>
+          {managesUsers && <TabsContent value="users"><UsersTab /></TabsContent>}
           {finance && <TabsContent value="auditors"><Auditors /></TabsContent>}
           {finance && <TabsContent value="log"><AccessLogTab /></TabsContent>}
         </Tabs>
@@ -65,8 +71,14 @@ function Categories() {
   const user = useCurrentUser();
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">Group Finance sets categories and depreciation policy; Group IT the fields of IT categories; the SBU Admin Manager those of non-IT categories.</p>
-      {(data ?? []).map((c) => <CategoryCard key={c.id} category={c} canPolicy={user?.role === "group_finance"} canFields={c.isIt ? user?.role === "group_it" : user?.role === "sbu_admin"} />)}
+      <p className="text-xs text-muted-foreground">
+        Group Finance and the System Administrator set categories, the final depreciation rates and the default residual value (0% until
+        decided); Group IT the fields of IT categories; the SBU Admin Manager those of non-IT categories.
+      </p>
+      {(data ?? []).map((c) => (
+        <CategoryCard key={c.id} category={c} canPolicy={user?.role === "group_finance" || user?.role === "system_admin"}
+          canFields={c.isIt ? user?.role === "group_it" : user?.role === "sbu_admin"} />
+      ))}
     </div>
   );
 }
@@ -77,6 +89,7 @@ function CategoryCard({ category: c, canPolicy, canFields }: { category: AssetCa
   const n = useNotify();
   const [life, setLife] = useState(String(c.usefulLifeMonths ?? ""));
   const [rate, setRate] = useState(String(c.annualRate ?? ""));
+  const [residual, setResidual] = useState(String(c.defaultResidualPercent ?? 0));
   const [field, setField] = useState({ key: "", label: "", type: "text" as TemplateFieldInputType, required: false });
   return (
     <section className="rounded-md border bg-card p-4">
@@ -88,7 +101,10 @@ function CategoryCard({ category: c, canPolicy, canFields }: { category: AssetCa
         {c.fields.map((f) => <span key={f.id} className="rounded bg-muted px-2 py-0.5">{f.label}{f.required ? " *" : ""}{f.isIdentifier ? " (identifier)" : ""}</span>)}
       </div>
       <div className="mt-3 flex flex-wrap items-end gap-3 text-sm">
-        <span className="text-muted-foreground">{c.depreciationMethod === "straight_line" ? `Straight-line, ${c.usefulLifeMonths} months` : `Reducing balance, ${((c.annualRate ?? 0) * 100).toFixed(1)}% a year`}</span>
+        <span className="text-muted-foreground">
+          {c.depreciationMethod === "straight_line" ? `Straight-line, ${c.usefulLifeMonths} months` : `Reducing balance, ${((c.annualRate ?? 0) * 100).toFixed(1)}% a year`}
+          {` · residual ${c.defaultResidualPercent}% of cost`}
+        </span>
         {canPolicy && (c.depreciationMethod === "straight_line" ? (
           <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); update.mutate({ id: c.id, data: { usefulLifeMonths: Number(life), reason: "Group policy" } }, { onSuccess: () => n.ok("Policy updated"), onError: n.fail("Not saved") }); }}>
             <Input className="w-24" type="number" min={1} value={life} onChange={(e) => setLife(e.target.value)} aria-label="Useful life in months" />
@@ -100,6 +116,12 @@ function CategoryCard({ category: c, canPolicy, canFields }: { category: AssetCa
             <Button size="sm" variant="outline" type="submit">Set rate</Button>
           </form>
         ))}
+        {canPolicy && (
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); update.mutate({ id: c.id, data: { defaultResidualPercent: Number(residual), reason: "Group policy" } }, { onSuccess: () => n.ok("Residual updated"), onError: n.fail("Not saved") }); }}>
+            <Input className="w-20" type="number" step="0.01" min={0} max={99.99} value={residual} onChange={(e) => setResidual(e.target.value)} aria-label="Default residual value, % of cost" />
+            <Button size="sm" variant="outline" type="submit">Set residual %</Button>
+          </form>
+        )}
       </div>
       {canFields && (
         <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); addField.mutate({ id: c.id, data: field }, { onSuccess: () => n.ok("Field added"), onError: n.fail("Not added") }); }}>

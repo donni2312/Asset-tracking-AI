@@ -107,7 +107,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <PermissionNotice role="viewer" action="download reports" />
+        <PermissionNotice role="recordReaders" action="download reports" />
 
         <Card>
           <CardHeader className="pb-3">

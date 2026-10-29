@@ -47,7 +47,7 @@ export default function RfidSimulator() {
   const { data: assets, isLoading: loadingAssets } = useListAssets({ status: "active" });
   const { data: sbus } = useListSbus();
   const simulate = useSimulateRfidRead();
-  const { allowed: canScan, reason: scanBlockedReason } = usePermission("admin", "run the RFID simulator");
+  const { allowed: canScan, reason: scanBlockedReason } = usePermission("rfidSimulator", "run the RFID simulator");
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -104,7 +104,7 @@ export default function RfidSimulator() {
           <h1 className="text-2xl font-bold tracking-tight">IoT RFID Simulator</h1>
         </div>
 
-        <PermissionNotice role="admin" action="run the RFID simulator" />
+        <PermissionNotice role="rfidSimulator" action="run the RFID simulator" />
 
         {/* SBU Filter */}
         <div className="flex flex-wrap gap-2">

@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { AssetCategoryDepreciationMethod } from './assetCategoryDepreciationMethod';
 import type { TemplateField } from './templateField';
@@ -22,6 +22,8 @@ export interface AssetCategory {
   usefulLifeMonths?: number | null;
   /** @nullable */
   annualRate?: number | null;
+  /** Residual value proposed at capitalisation, as a % of cost (0 by default) */
+  defaultResidualPercent: number;
   active: boolean;
   fields: TemplateField[];
 }

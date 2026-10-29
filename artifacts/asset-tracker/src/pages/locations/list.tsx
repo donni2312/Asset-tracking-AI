@@ -65,7 +65,7 @@ export default function LocationList() {
               <p className="text-muted-foreground text-sm">{activeSbu.name} locations</p>
             )}
           </div>
-          <Permitted role="operator" action="add locations" label="Add Location" variant="default">
+          <Permitted role="locationManagers" action="add locations" label="Add Location" variant="default">
             <Link href="/locations/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
               <Plus className="w-4 h-4 mr-2" />Add Location
             </Link>
@@ -138,7 +138,7 @@ export default function LocationList() {
 function LocationCard({ loc }: { loc: any }) {
   const Icon = typeIcons[loc.type] ?? MapPin;
   const colorClass = typeColors[loc.type] ?? "text-gray-600 bg-gray-50 border-gray-200";
-  const { allowed: canEdit } = usePermission("operator", "edit locations");
+  const { allowed: canEdit } = usePermission("locationManagers", "edit locations");
 
   return (
     <Card className="hover:border-primary/40 transition-colors">

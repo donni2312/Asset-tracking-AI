@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
 using AssetIQ.Api.Auth;
 using AssetIQ.Api.Configuration;
@@ -27,6 +28,7 @@ public sealed class AuthController(
     private static ApiException BadCredentials() => new(StatusCodes.Status401Unauthorized, "Incorrect username or password");
 
     [HttpPost("auth/login")]
+    [AllowAnonymous]
     [FailureMessage("Could not sign in")]
     public async Task<LoginResultDto> Login([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -40,6 +42,12 @@ public sealed class AuthController(
         // Verify even when there is no such user, so the reply takes the same time either way.
         var ok = passwords.Verify(password, user?.PasswordHash ?? PasswordHasher.DummyHash);
         if (user is null || !ok || !user.Active) throw BadCredentials();
+        // Phase 2: an account still holding a retired role (viewer / operator / admin) waits for Group IT.
+        if (!Roles.All.Contains(user.Role))
+        {
+            await accessLog.RecordAsync(user.Id, user.Username, user.Role, "login_refused", "no current role", Aborted);
+            throw new ApiException(StatusCodes.Status403Forbidden, "Your account has no current role. Ask Group IT to assign one.");
+        }
 
         var now = clock.UtcNow;
         // AU-12: time-limited access (auditors) is refused after its expiry date; the attempt is logged.
@@ -60,7 +68,7 @@ public sealed class AuthController(
 
     /// <summary>Who the bearer token belongs to (used to restore a session).</summary>
     [HttpGet("auth/me")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Could not load the current user")]
     public async Task<UserDto> Me()
     {
@@ -73,6 +81,7 @@ public sealed class AuthController(
     private async Task<UserDto> ToDtoAsync(UserAccount user)
     {
         var sbu = user.SbuId is { } id ? await db.Sbus.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, Aborted) : null;
+        var employee = user.EmployeeId is { } eid ? await db.Employees.AsNoTracking().Include(e => e.Department).FirstOrDefaultAsync(e => e.Id == eid, Aborted) : null;
         return new UserDto
         {
             Id = user.Id,
@@ -82,21 +91,31 @@ public sealed class AuthController(
             RoleName = Roles.DisplayName(user.Role),
             SbuId = user.SbuId,
             SbuCode = sbu?.Code,
-            Scope = ScopeOf(user.Role, sbu?.Name),
+            Scope = ScopeOf(user.Role, sbu?.Name, employee?.Department?.Name),
+            EmployeeId = employee?.Id,
+            EmployeeName = employee?.Name,
+            DepartmentId = employee?.DepartmentId,
+            DepartmentName = employee?.Department?.Name,
             AccessExpiresAt = user.AccessExpiresAt,
             LastLoginAt = user.LastLoginAt,
         };
     }
 
     /// <summary>The data scope shown under the role on the sidebar (Permissions matrix, "View assets").</summary>
-    private static string ScopeOf(string role, string? sbuName) => role switch
+    private static string ScopeOf(string role, string? sbuName, string? departmentName) => role switch
     {
+        Roles.GroupFinance => "All SBUs",
         Roles.GroupIt => "All SBUs (IT assets)",
         Roles.SbuIt => $"{sbuName ?? "No SBU set"} (IT assets)",
         Roles.SbuFinance => $"{sbuName ?? "No SBU set"} (all assets)",
+        Roles.GateOfficer => $"{sbuName ?? "No SBU set"} (on scan only)",
+        Roles.Hod => $"{sbuName ?? "No SBU set"} · {departmentName ?? "no department set"}",
+        Roles.SbuHr => $"{sbuName ?? "No SBU set"} (employee toolboxes)",
         Roles.SbuAdmin => $"{sbuName ?? "No SBU set"} (non-IT assets)",
         Roles.Stores => $"{sbuName ?? "No SBU set"} (items in store)",
+        Roles.Employee => "My items",
         Roles.Auditor => "All SBUs (read only)",
-        _ => "All SBUs",
+        Roles.SystemAdmin => "Categories, rates and settings",
+        _ => "No access",
     };
 }

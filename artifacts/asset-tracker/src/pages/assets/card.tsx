@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SbuBadge } from "@/components/sbu-badge";
+import { AttachmentsPanel } from "@/components/attachments";
 import { TemplateFields, filled, type TemplateDraft } from "@/components/template-fields";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-auth";
@@ -140,6 +141,8 @@ export default function AssetCardPage() {
           </div>
         </section>
 
+        <AttachmentsPanel assetId={a.id} canAttach={card.can.attach} />
+
         <section className="rounded-md border bg-card">
           <div className="p-4">
             <h2 className="font-semibold">Upgrades</h2>
@@ -158,7 +161,12 @@ export default function AssetCardPage() {
                     <TableCell>{u.description}</TableCell>
                     <TableCell>{u.beforeText} → {u.afterText}</TableCell>
                     <TableCell>{u.loggedBy}</TableCell>
-                    <TableCell className="text-right font-mono">{money(u.cost)}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {money(u.cost)}
+                      {u.currency !== "USD" && (
+                        <div className="text-[11px] text-muted-foreground">{u.invoiceAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {u.currency} × {u.exchangeRate}</div>
+                      )}
+                    </TableCell>
                     <TableCell>{u.status === "pending" && card.can.decideUpgrades ? <UpgradeDecisionButtons upgrade={u} assetId={a.id} /> : <UpgradeStatus u={u} />}</TableCell>
                   </TableRow>
                 ))}
@@ -354,7 +362,12 @@ function UpgradeDialog({ open, onClose, card }: { open: boolean; onClose: () => 
   const log = useLogAssetUpgrade();
   const refresh = useRefresh();
   const fail = useFail();
-  const [form, setForm] = useState({ upgradeDate: new Date().toISOString().slice(0, 10), description: "", beforeText: "", afterText: "", cost: "", supplier: "", invoiceNo: "", field: "", newValue: "" });
+  const [form, setForm] = useState({
+    upgradeDate: new Date().toISOString().slice(0, 10), description: "", beforeText: "", afterText: "", invoiceAmount: "", currency: "USD", exchangeRate: "1",
+    supplier: "", invoiceNo: "", field: "", newValue: "",
+  });
+  const foreign = form.currency.trim().toUpperCase() !== "USD";
+  const usd = Number(form.invoiceAmount) * (foreign ? Number(form.exchangeRate) : 1);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -362,7 +375,8 @@ function UpgradeDialog({ open, onClose, card }: { open: boolean; onClose: () => 
       {
         id: card.asset.id,
         data: {
-          upgradeDate: form.upgradeDate, description: form.description, beforeText: form.beforeText, afterText: form.afterText, cost: Number(form.cost),
+          upgradeDate: form.upgradeDate, description: form.description, beforeText: form.beforeText, afterText: form.afterText,
+          invoiceAmount: Number(form.invoiceAmount), currency: form.currency.trim().toUpperCase(), exchangeRate: foreign ? Number(form.exchangeRate) : 1,
           supplier: form.supplier || undefined, invoiceNo: form.invoiceNo || undefined,
           fieldChanges: form.field && form.newValue ? { [form.field]: form.newValue } : undefined,
         },
@@ -379,7 +393,12 @@ function UpgradeDialog({ open, onClose, card }: { open: boolean; onClose: () => 
           <div className="space-y-1"><Label className="text-xs">Before *</Label><Input value={form.beforeText} onChange={set("beforeText")} required placeholder="8 GB" /></div>
           <div className="space-y-1"><Label className="text-xs">After *</Label><Input value={form.afterText} onChange={set("afterText")} required placeholder="16 GB" /></div>
           <div className="space-y-1"><Label className="text-xs">Date *</Label><Input type="date" value={form.upgradeDate} onChange={set("upgradeDate")} required /></div>
-          <div className="space-y-1"><Label className="text-xs">Cost (USD) *</Label><Input type="number" step="0.01" min="0.01" value={form.cost} onChange={set("cost")} required /></div>
+          <div className="space-y-1"><Label className="text-xs">Invoice amount *</Label><Input type="number" step="0.01" min="0.01" value={form.invoiceAmount} onChange={set("invoiceAmount")} required /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1"><Label className="text-xs">Currency *</Label><Input value={form.currency} onChange={set("currency")} maxLength={3} required className="uppercase" /></div>
+            <div className="space-y-1"><Label className="text-xs">Rate to USD</Label><Input type="number" step="0.000001" min="0.000001" value={foreign ? form.exchangeRate : "1"} onChange={set("exchangeRate")} disabled={!foreign} required={foreign} /></div>
+          </div>
+          {foreign && Number.isFinite(usd) && usd > 0 && <p className="col-span-2 -mt-1 text-xs text-muted-foreground">Captured as invoiced; {money(usd)} at this rate. SBU Finance may confirm a different rate when deciding.</p>}
           <div className="space-y-1"><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={set("supplier")} /></div>
           <div className="space-y-1"><Label className="text-xs">Invoice</Label><Input value={form.invoiceNo} onChange={set("invoiceNo")} /></div>
           <div className="space-y-1">

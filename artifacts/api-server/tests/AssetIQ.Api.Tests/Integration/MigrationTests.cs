@@ -58,6 +58,38 @@ public sealed class MigrationTests(ApiFixture api)
         }
     }
 
+    [Fact]
+    public async Task Phase2_admin_accounts_become_group_it_and_operator_and_viewer_accounts_are_disabled_not_deleted()
+    {
+        var name = $"assetiq_mig_{Guid.NewGuid():N}"[..28];
+        var admin = new NpgsqlConnectionStringBuilder(api.ConnectionString) { Database = "postgres", Pooling = false }.ConnectionString;
+        await Exec(admin, $"CREATE DATABASE \"{name}\"");
+        var connection = new NpgsqlConnectionStringBuilder(api.ConnectionString) { Database = name, Pooling = false }.ConnectionString;
+        try
+        {
+            var migrations = Migrations.Load().ToList();
+            foreach (var sql in migrations.Take(4)) await Exec(connection, sql); // up to 0003
+            await Exec(connection, """
+                INSERT INTO users (username, name, role, password_hash) VALUES
+                  ('admin', 'Admin', 'admin', 'x'), ('operator', 'Operator', 'operator', 'x'), ('viewer', 'Viewer', 'viewer', 'x'), ('gf', 'GF', 'group_finance', 'x');
+                """);
+            foreach (var sql in migrations.Skip(4)) await Exec(connection, sql);
+
+            await using var db = new NpgsqlConnection(connection);
+            await db.OpenAsync();
+            await using var read = new NpgsqlCommand("SELECT username, role, active FROM users ORDER BY id", db);
+            await using var reader = await read.ExecuteReaderAsync();
+            var rows = new List<string>();
+            while (await reader.ReadAsync()) rows.Add($"{reader.GetString(0)}|{reader.GetString(1)}|{reader.GetBoolean(2)}");
+            Assert.Equal(["admin|group_it|True", "operator|operator|False", "viewer|viewer|False", "gf|group_finance|True"], rows);
+        }
+        finally
+        {
+            NpgsqlConnection.ClearAllPools();
+            await Exec(admin, $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)");
+        }
+    }
+
     private static async Task Exec(string connectionString, string sql)
     {
         await using var connection = new NpgsqlConnection(connectionString);

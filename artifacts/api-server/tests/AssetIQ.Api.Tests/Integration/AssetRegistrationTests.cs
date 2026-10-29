@@ -234,7 +234,7 @@ public sealed class AssetRegistrationTests(ApiFixture api) : IAsyncLifetime
         var update = await Assert.ThrowsAsync<PostgresException>(() =>
             db.Database.ExecuteSqlRawAsync("UPDATE assets SET asset_number = 'TSAS-IT-2026-99999' WHERE id = {0}", id));
         var delete = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlRawAsync("DELETE FROM assets WHERE id = {0}", id));
-        var apiDelete = await api.CallAsync("DELETE", $"/assets/{id}", token: a.W.AdminToken);
+        var apiDelete = await api.CallAsync("DELETE", $"/assets/{id}", token: a.W.GroupItToken);
 
         Assert.Contains("cannot be changed", update.MessageText);
         Assert.Contains("cannot be deleted", delete.MessageText);
@@ -275,7 +275,7 @@ public sealed class AssetRegistrationTests(ApiFixture api) : IAsyncLifetime
             },
         };
         var asIt = await api.CallAsync("POST", "/assets", vehicle, a.TsasIt);
-        var asAdmin = await api.CallAsync("POST", "/assets", vehicle, a.W.AdminToken);
+        var asAdmin = await api.CallAsync("POST", "/assets", vehicle, a.W.GroupItToken);
         var otherSbu = await api.CallAsync("POST", "/assets", vehicle, a.BakAdmin);
         var ok = await api.CallAsync("POST", "/assets", vehicle, a.TsasAdmin);
 

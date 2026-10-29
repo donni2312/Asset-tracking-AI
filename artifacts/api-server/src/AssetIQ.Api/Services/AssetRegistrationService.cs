@@ -18,7 +18,8 @@ public sealed record RegisterAssetInput(
 public sealed record TechnicalUpdate(
     string? SubCategory, IReadOnlyDictionary<string, string?>? Attributes, string? NoSerialReason,
     Optional<int?> LocationId, Optional<string?> Custodian, string? Condition, string? Status,
-    Optional<int?> SbuId, Optional<string?> Notes, Optional<string?> WarrantyEnds, string? Reason);
+    Optional<int?> SbuId, Optional<string?> Notes, Optional<string?> WarrantyEnds, string? Reason,
+    Optional<int?> CustodianEmployeeId = default, Optional<int?> DepartmentId = default);
 
 public sealed record CategoryChange(int CategoryId, string? SubCategory, IReadOnlyDictionary<string, string?> Attributes, string? NoSerialReason, string Reason);
 
@@ -55,7 +56,7 @@ public sealed class AssetRegistrationService(
         if (!await db.Sbus.AnyAsync(s => s.Id == sbuId, ct)) throw new ApiException(StatusCodes.Status404NotFound, "SBU not found");
         if (!AccessPolicy.CanRegister(user, template.IsIt, sbuId))
         {
-            throw AccessPolicy.Deny(user, template.IsIt ? "register IT assets for this SBU" : "register non-IT assets (only the SBU's Admin Manager may, AM-01)");
+            throw AccessPolicy.Deny(user, template.IsIt ? "register IT assets for this SBU" : "register non-IT assets for this SBU (its Admin Manager, or its Stores at receipt, AM-01)");
         }
         if (!await db.Locations.AnyAsync(l => l.Id == input.LocationId, ct)) throw new ApiException(StatusCodes.Status404NotFound, "Location not found");
 
@@ -161,13 +162,14 @@ public sealed class AssetRegistrationService(
     {
         if (serial is not null)
         {
-            var holder = await db.Assets.AsNoTracking().Where(a => a.SerialNumber == serial && a.Id != exceptAssetId)
+            // AU-02: unique across the whole Group, whatever the caller may see.
+            var holder = await db.Assets.IgnoreQueryFilters().AsNoTracking().Where(a => a.SerialNumber == serial && a.Id != exceptAssetId)
                 .Select(a => new { a.Id, a.AssetNumber, a.Name }).FirstOrDefaultAsync(ct);
             if (holder is not null) await RefuseDuplicateAsync(user, "serial number", serial, holder.Id, holder.AssetNumber, holder.Name, attempted, ct);
         }
         if (mac is not null)
         {
-            var holder = await db.Assets.AsNoTracking().Where(a => a.MacAddress == mac && a.Id != exceptAssetId)
+            var holder = await db.Assets.IgnoreQueryFilters().AsNoTracking().Where(a => a.MacAddress == mac && a.Id != exceptAssetId)
                 .Select(a => new { a.Id, a.AssetNumber, a.Name }).FirstOrDefaultAsync(ct);
             if (holder is not null) await RefuseDuplicateAsync(user, "MAC address", mac, holder.Id, holder.AssetNumber, holder.Name, attempted, ct);
         }
@@ -206,7 +208,7 @@ public sealed class AssetRegistrationService(
             if (column is null || value is null) throw;
             if (db.Database.CurrentTransaction is { } open) await open.RollbackAsync(ct);
             db.ChangeTracker.Clear();
-            var holder = await db.Assets.AsNoTracking()
+            var holder = await db.Assets.IgnoreQueryFilters().AsNoTracking()
                 .Where(a => column == "serial number" ? a.SerialNumber == value : column == "MAC address" ? a.MacAddress == value : a.RfidTag == value)
                 .Select(a => new { a.Id, a.AssetNumber, a.Name }).FirstAsync(ct);
             await RefuseDuplicateAsync(user, column, value, holder.Id, holder.AssetNumber, holder.Name, asset.Name, ct);
@@ -285,6 +287,8 @@ public sealed class AssetRegistrationService(
             asset.CurrentLocationId = input.LocationId.Value;
         if (input.Custodian.IsSet && audit.RecordChange(user, "asset", asset.Id, asset.Id, "custodian", asset.AssignedTo, Blank(input.Custodian.Value), reason))
             asset.AssignedTo = Blank(input.Custodian.Value);
+        if (input.CustodianEmployeeId.IsSet) await AssignCustodianAsync(user, asset, input.CustodianEmployeeId.Value, reason, ct);
+        if (input.DepartmentId.IsSet) await AssignDepartmentAsync(user, asset, input.DepartmentId.Value, reason, ct);
         if (input.Condition is not null && audit.RecordChange(user, "asset", asset.Id, asset.Id, "condition", asset.Condition, input.Condition, reason))
             asset.Condition = input.Condition;
         if (input.Status is not null && audit.RecordChange(user, "asset", asset.Id, asset.Id, "status", asset.Status, input.Status, reason))
@@ -457,6 +461,14 @@ public sealed class AssetRegistrationService(
         var now = clock.UtcNow;
         asset.CostUsd = Usd(asset.OriginalCost!.Value, asset.ExchangeRate!.Value);
         asset.PurchaseValue = asset.CostUsd;
+        // The category's default residual % applies only while Finance has not set a residual value itself.
+        if (asset.ResidualValue == 0m && asset.AssetCategory.DefaultResidualPercent > 0m)
+        {
+            var residual = Math.Round(asset.CostUsd.Value * asset.AssetCategory.DefaultResidualPercent / 100m, 2, MidpointRounding.AwayFromZero);
+            audit.RecordChange(user, "asset", asset.Id, asset.Id, "residualValue", asset.ResidualValue, residual,
+                $"Default residual {AuditTrail.Text(asset.AssetCategory.DefaultResidualPercent)}% of cost ({asset.AssetCategory.Name})");
+            asset.ResidualValue = residual;
+        }
         asset.CapitalisedAt = now;
         asset.CapitalisedBy = user.Name;
         asset.UpdatedAt = now;
@@ -489,7 +501,7 @@ public sealed class AssetRegistrationService(
         if (asset.AssetNumber is null) throw new ApiException(StatusCodes.Status409Conflict, "The asset cannot be tagged while its Business Central asset number is pending");
         var tag = rfidTag.Trim();
         if (tag.Length == 0) throw new ApiException(StatusCodes.Status400BadRequest, "rfidTag: Required");
-        var holder = await db.Assets.AsNoTracking().Where(a => a.RfidTag == tag && a.Id != asset.Id).Select(a => a.AssetNumber ?? a.Name).FirstOrDefaultAsync(ct);
+        var holder = await db.Assets.IgnoreQueryFilters().AsNoTracking().Where(a => a.RfidTag == tag && a.Id != asset.Id).Select(a => a.AssetNumber ?? a.Name).FirstOrDefaultAsync(ct);
         if (holder is not null) throw new ApiException(StatusCodes.Status409Conflict, $"RFID tag {tag} is already linked to {holder}");
         audit.RecordChange(user, "asset", asset.Id, asset.Id, "rfidTag", asset.RfidTag, tag);
         asset.RfidTag = tag;
@@ -503,11 +515,13 @@ public sealed class AssetRegistrationService(
     /// </summary>
     public async Task DeleteAsync(AuthUser user, int assetId, CancellationToken ct)
     {
-        var asset = await db.Assets.Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct);
+        var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct);
         if (asset is null) return;
         if (!AccessPolicy.CanEditTechnical(user, asset.AssetCategory.IsIt, asset.SbuId)) throw AccessPolicy.Deny(user, "delete this asset");
         if (asset.AssetNumber is not null)
             throw new ApiException(StatusCodes.Status409Conflict, $"Asset {asset.AssetNumber} has a Business Central asset number and cannot be deleted; asset numbers are never reused");
+        if (await db.AssetAttachments.IgnoreQueryFilters().AnyAsync(a => a.AssetId == assetId, ct))
+            throw new ApiException(StatusCodes.Status409Conflict, "The asset has attachments, which are kept for the audit; it cannot be deleted");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
@@ -524,8 +538,43 @@ public sealed class AssetRegistrationService(
         }
     }
 
+    /// <summary>
+    /// Makes <paramref name="employeeId"/> (an active employee of the asset's SBU) the custodian: the holder's name,
+    /// the employee link and the employee's department are set together. Null clears all three.
+    /// </summary>
+    public async Task AssignCustodianAsync(AuthUser user, Asset asset, int? employeeId, string? reason, CancellationToken ct)
+    {
+        Employee? employee = null;
+        if (employeeId is { } id)
+        {
+            employee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, ct)
+                ?? throw new ApiException(StatusCodes.Status404NotFound, "Employee not found");
+            if (employee.SbuId != asset.SbuId) throw new ApiException(StatusCodes.Status400BadRequest, "custodianEmployeeId: the employee works for another SBU");
+            if (!employee.Active) throw new ApiException(StatusCodes.Status400BadRequest, "custodianEmployeeId: the employee has left");
+        }
+        if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "custodianEmployeeId", asset.CustodianEmployeeId, employee?.Id, reason))
+        {
+            asset.CustodianEmployeeId = employee?.Id;
+            if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "custodian", asset.AssignedTo, employee?.Name, reason)) asset.AssignedTo = employee?.Name;
+            if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "departmentId", asset.DepartmentId, employee?.DepartmentId, reason)) asset.DepartmentId = employee?.DepartmentId;
+        }
+    }
+
+    /// <summary>The department holding the asset (a department of the asset's SBU, or null).</summary>
+    public async Task AssignDepartmentAsync(AuthUser user, Asset asset, int? departmentId, string? reason, CancellationToken ct)
+    {
+        if (departmentId is { } id)
+        {
+            var department = await db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct)
+                ?? throw new ApiException(StatusCodes.Status404NotFound, "Department not found");
+            if (department.SbuId != asset.SbuId) throw new ApiException(StatusCodes.Status400BadRequest, "departmentId: the department belongs to another SBU");
+        }
+        if (audit.RecordChange(user, "asset", asset.Id, asset.Id, "departmentId", asset.DepartmentId, departmentId, reason)) asset.DepartmentId = departmentId;
+    }
+
+    // Loaded across SBUs: every caller checks the role and SBU next, so another SBU's asset is a 403, not a 404.
     private async Task<Asset> LoadAsync(int assetId, CancellationToken ct) =>
-        await db.Assets.Include(a => a.Attributes).Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct)
+        await db.Assets.IgnoreQueryFilters().Include(a => a.Attributes).Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct)
         ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

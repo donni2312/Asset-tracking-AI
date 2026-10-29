@@ -14,11 +14,12 @@ namespace AssetIQ.Api.Controllers;
 public sealed class SbusController(AssetIqDbContext db, AppClock clock, AssetQueries assets) : ApiControllerBase
 {
     [HttpGet("sbus")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to list SBUs")]
     public Task<List<SbuDto>> List() => Project(db.Sbus.AsNoTracking()).ToListAsync(Aborted);
 
     [HttpPost("sbus")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.SbuManagers)]
     [FailureMessage("Failed to create SBU")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -51,12 +52,13 @@ public sealed class SbusController(AssetIqDbContext db, AppClock clock, AssetQue
     }
 
     [HttpGet("sbus/{id}")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to get SBU")]
     public Task<SbuDto> Get(string id) => GetDtoAsync(RequestValues.Id(id));
 
     /// <summary>code, name and color change only when given a value; description and headOffice whenever present (null clears them).</summary>
     [HttpPatch("sbus/{id}")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.SbuManagers)]
     [FailureMessage("Failed to update SBU")]
     public async Task<SbuDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -82,11 +84,14 @@ public sealed class SbusController(AssetIqDbContext db, AppClock clock, AssetQue
     }
 
     [HttpGet("sbus/{id}/assets")]
+    [RequireRole(Roles.AssetReaders)]
     [FailureMessage("Failed to get SBU assets")]
-    public Task<List<AssetDto>> Assets(string id)
+    public async Task<List<AssetDto>> Assets(string id)
     {
         var sbuId = RequestValues.Id(id);
-        return assets.ListDetailedAsync(a => a.SbuId == sbuId, Aborted);
+        if (!await db.Sbus.AnyAsync(s => s.Id == sbuId, Aborted)) throw new ApiException(StatusCodes.Status404NotFound, "SBU not found");
+        if (Roles.IsSbuScoped(Caller.Role) && sbuId != Caller.SbuId) throw AccessPolicy.Deny(Caller, "see another SBU's assets");
+        return await assets.ListDetailedAsync(a => a.SbuId == sbuId, Aborted);
     }
 
     private async Task<SbuDto> GetDtoAsync(int id) =>

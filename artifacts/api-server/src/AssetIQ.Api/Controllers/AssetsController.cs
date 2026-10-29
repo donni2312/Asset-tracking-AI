@@ -12,9 +12,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AssetIQ.Api.Controllers;
 
-public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, AssetRegistrationService registration) : ApiControllerBase
+/// <summary>
+/// Asset records. Lists show only what the caller may see (the request's <see cref="AccessScope"/> filters every
+/// query); asking for one asset outside that scope is a 403.
+/// </summary>
+public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, AssetRegistrationService registration, AssetAccess access) : ApiControllerBase
 {
     [HttpGet("assets")]
+    [RequireRole(Roles.AssetReaders)]
     [FailureMessage("Failed to list assets")]
     public Task<List<AssetDto>> List(
         [FromQuery] string? status, [FromQuery] string? locationId, [FromQuery] string? sbuId,
@@ -45,7 +50,7 @@ public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, A
     /// description, enforces Group-unique serial / MAC, and requests the Business Central asset number.
     /// </summary>
     [HttpPost("assets")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Registrars)]
     [FailureMessage("Failed to create asset")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -75,17 +80,21 @@ public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, A
     }
 
     [HttpGet("assets/{id}")]
+    [RequireRole(Roles.AssetReaders)]
     [FailureMessage("Failed to get asset")]
-    public async Task<AssetDto> Get(string id) =>
-        await assets.GetDetailedAsync(RequestValues.Id(id), Aborted)
-        ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
+    public async Task<AssetDto> Get(string id)
+    {
+        var assetId = RequestValues.Id(id);
+        await access.EnsureVisibleAsync(Caller, assetId, Aborted);
+        return (await assets.GetDetailedAsync(assetId, Aborted))!;
+    }
 
     /// <summary>
     /// Technical changes. Template values are merged with the current ones and re-validated, the description
     /// is rebuilt, and every change is audit-logged. The description and category cannot be set here.
     /// </summary>
     [HttpPatch("assets/{id}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.TechnicalEditors)]
     [FailureMessage("Failed to update asset")]
     public async Task<AssetDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -105,17 +114,19 @@ public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, A
         var notes = input.NullableString("notes");
         var warrantyEnds = input.NullableDay("warrantyEnds");
         var reason = input.OptionalString("reason");
+        var custodianEmployeeId = input.NullableInt("custodianEmployeeId");
+        var departmentId = input.NullableInt("departmentId");
         input.ThrowIfInvalid();
 
         await registration.UpdateTechnicalAsync(Caller, assetId, new TechnicalUpdate(
             subCategory, attributes.IsSet ? attributes.Value : null, noSerialReason, currentLocationId, assignedTo, condition, status,
-            sbuId, notes, warrantyEnds, reason), Aborted);
+            sbuId, notes, warrantyEnds, reason, custodianEmployeeId, departmentId), Aborted);
         return (await assets.GetDetailedAsync(assetId, Aborted))!;
     }
 
     /// <summary>Removes a mistaken registration. Assets with an asset number or with history cannot be deleted.</summary>
     [HttpDelete("assets/{id}")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.Registrars)]
     [FailureMessage("Failed to delete asset")]
     public async Task<IActionResult> Delete(string id)
     {
@@ -125,10 +136,12 @@ public sealed class AssetsController(AssetIqDbContext db, AssetQueries assets, A
 
     /// <summary>Movements and lifecycle events of the asset, newest first.</summary>
     [HttpGet("assets/{id}/history")]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to get asset history")]
     public async Task<List<AssetHistoryEventDto>> History(string id)
     {
         var assetId = RequestValues.Id(id);
+        await access.EnsureVisibleAsync(Caller, assetId, Aborted);
         var movementItems = await db.Movements.AsNoTracking()
             .Where(m => m.AssetId == assetId)
             .OrderByDescending(m => m.Timestamp)

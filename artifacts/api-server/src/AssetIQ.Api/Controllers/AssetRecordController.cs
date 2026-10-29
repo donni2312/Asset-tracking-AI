@@ -21,18 +21,18 @@ public sealed class AssetRecordController(
 {
     /// <summary>AU-08: open the card by asset number, previous number, tag or serial (search box or scanner).</summary>
     [HttpGet("assets/lookup")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.AssetReaders)]
     [FailureMessage("Failed to find the asset")]
     public async Task<AssetLookupDto> Lookup([FromQuery] string? code) =>
         new(await cards.LookupAsync(Caller, code ?? "", Aborted));
 
     [HttpGet("assets/{id}/card")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to load the asset card")]
     public Task<AssetCardDto> Card(string id) => cards.GetAsync(Caller, RequestValues.Id(id), Aborted);
 
     [HttpGet("assets/{id}/card.pdf")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to export the asset card")]
     public async Task<IActionResult> CardPdf(string id)
     {
@@ -43,7 +43,7 @@ public sealed class AssetRecordController(
 
     /// <summary>AU-05: the asset's monthly schedule as Excel.</summary>
     [HttpGet("assets/{id}/depreciation.xlsx")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to export the depreciation schedule")]
     public async Task<IActionResult> ScheduleExcel(string id)
     {
@@ -55,7 +55,7 @@ public sealed class AssetRecordController(
 
     /// <summary>AU-06 / GF-07: the asset's audit trail, newest first. Read-only: nothing can change or delete an entry.</summary>
     [HttpGet("assets/{id}/audit")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to load the audit trail")]
     public async Task<List<AuditEntryDto>> Audit(string id)
     {
@@ -68,7 +68,7 @@ public sealed class AssetRecordController(
 
     /// <summary>Change the category: SBU Finance only; the new category's required fields must be filled in.</summary>
     [HttpPost("assets/{id}/category")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to change the category")]
     public async Task<AssetDto> ChangeCategory(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -86,7 +86,7 @@ public sealed class AssetRecordController(
 
     /// <summary>AU-04 / AU-06: cost, currency, rate, residual value and purchase details (SBU Finance; a reason is required).</summary>
     [HttpPatch("assets/{id}/financial")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to update the financial fields")]
     public async Task<AssetDto> UpdateFinancial(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -104,7 +104,7 @@ public sealed class AssetRecordController(
 
     /// <summary>SF-01 / AU-04: capitalise (fixes the USD cost; depreciation starts in the in-use month).</summary>
     [HttpPost("assets/{id}/capitalise")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to capitalise the asset")]
     public async Task<AssetDto> Capitalise(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -118,7 +118,7 @@ public sealed class AssetRecordController(
 
     /// <summary>AU-02: SBU Finance approves or rejects the "No serial" reason.</summary>
     [HttpPost("assets/{id}/no-serial-decision")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to record the decision")]
     public async Task<AssetDto> NoSerialDecision(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -133,7 +133,7 @@ public sealed class AssetRecordController(
 
     /// <summary>Link the RFID / QR tag (only once the asset number is issued).</summary>
     [HttpPost("assets/{id}/tag")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Registrars)]
     [FailureMessage("Failed to tag the asset")]
     public async Task<AssetDto> Tag(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -146,14 +146,14 @@ public sealed class AssetRecordController(
     }
 
     [HttpGet("assets/{id}/upgrades")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.RecordReaders)]
     [FailureMessage("Failed to list upgrades")]
     public async Task<IReadOnlyList<AssetUpgradeDto>> Upgrades(string id) =>
         (await cards.GetAsync(Caller, RequestValues.Id(id), Aborted)).Upgrades;
 
     /// <summary>AU-07: log an upgrade (SBU IT for IT assets, the SBU Admin Manager for non-IT, or Stores).</summary>
     [HttpPost("assets/{id}/upgrades")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Upgraders)]
     [FailureMessage("Failed to log the upgrade")]
     public async Task<IActionResult> LogUpgrade(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -161,24 +161,34 @@ public sealed class AssetRecordController(
         var input = JsonBody.From(body);
         var date = input.NullableDay("upgradeDate");
         if (!input.Has("upgradeDate")) input.RequiredString("upgradeDate");
+        // The invoice is captured as invoiced: amount, currency and rate to USD. "cost" (USD) is still accepted alone.
+        var currency = input.OptionalString("currency") ?? "USD";
+        var amount = input.OptionalNumber("invoiceAmount") ?? input.OptionalNumber("cost") ?? MissingAmount(input);
+        var rate = input.OptionalNumber("exchangeRate") ?? (currency.Trim().Equals("USD", StringComparison.OrdinalIgnoreCase) ? 1m : MissingRate(input));
         var log = new LogUpgradeInput(
             date.Value ?? "", input.RequiredString("description", minLength: 2), input.RequiredString("beforeText", minLength: 1),
-            input.RequiredString("afterText", minLength: 1), input.OptionalNumber("cost") ?? MissingCost(input),
-            input.OptionalString("supplier"), input.OptionalString("invoiceNo"), input.OptionalValueMap("fieldChanges").Value ?? []);
+            input.RequiredString("afterText", minLength: 1), amount,
+            input.OptionalString("supplier"), input.OptionalString("invoiceNo"), input.OptionalValueMap("fieldChanges").Value ?? [], currency, rate);
         input.ThrowIfInvalid();
         var upgrade = await upgrades.LogAsync(Caller, assetId, log, Aborted);
         return Status201(AssetCardService.ToDto(upgrade));
     }
 
-    private static decimal MissingCost(JsonBody input)
+    private static decimal MissingAmount(JsonBody input)
     {
-        if (!input.Has("cost")) input.RequiredString("cost");
+        if (!input.Has("invoiceAmount") && !input.Has("cost")) input.RequiredString("invoiceAmount");
+        return 0m;
+    }
+
+    private static decimal MissingRate(JsonBody input)
+    {
+        if (!input.Has("exchangeRate")) input.RequiredString("exchangeRate");
         return 0m;
     }
 
     /// <summary>AU-07: SBU Finance capitalises, expenses or rejects an upgrade.</summary>
     [HttpPost("upgrades/{id}/decision")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to record the upgrade decision")]
     public async Task<AssetUpgradeDto> DecideUpgrade(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -186,7 +196,7 @@ public sealed class AssetRecordController(
         var input = JsonBody.From(body);
         var decision = new UpgradeDecision(
             input.RequiredEnum("treatment", UpgradeTreatments.All), input.OptionalString("comment"),
-            input.OptionalInt("revisedLifeMonths"), input.OptionalString("effectivePeriod"));
+            input.OptionalInt("revisedLifeMonths"), input.OptionalString("effectivePeriod"), input.OptionalNumber("exchangeRate"));
         input.ThrowIfInvalid();
         var upgrade = await upgrades.DecideAsync(Caller, upgradeId, decision, Aborted);
         return AssetCardService.ToDto(upgrade, upgrade.Asset.AssetNumber, upgrade.Asset.Name);

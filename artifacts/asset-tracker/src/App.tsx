@@ -27,17 +27,31 @@ import Approvals from './pages/finance/approvals';
 import Verification from './pages/finance/verification';
 import Administration from './pages/finance/administration';
 import Planned from './pages/planned';
+import Scan from './pages/scan';
+import { Departments, People } from './pages/people';
+import { SignInScreen } from './components/sign-in';
 import { useCurrentUser } from './hooks/use-auth';
 
-/** Finance roles and auditors land on the asset position (AU-10); everyone else on the operations dashboard. */
+/**
+ * Each role's start page: finance roles and auditors the asset position (AU-10), the Gate Officer the scan screen,
+ * the Employee their items, the System Administrator the administration screen, everyone else the operations dashboard.
+ */
 function Home() {
   const user = useCurrentUser();
-  return user && ['group_finance', 'sbu_finance', 'auditor'].includes(user.role) ? <AssetPosition /> : <Dashboard />;
+  if (!user) return null;
+  if (['group_finance', 'sbu_finance', 'auditor'].includes(user.role)) return <AssetPosition />;
+  if (user.role === 'gate_officer') return <Scan />;
+  if (user.role === 'employee') return <AssetList />;
+  if (user.role === 'system_admin') return <Administration />;
+  return <Dashboard />;
 }
 
 const queryClient = new QueryClient();
 
 function Router() {
+  // Phase 2: every screen needs a sign-in (the API answers 401 otherwise).
+  const user = useCurrentUser();
+  if (!user) return <SignInScreen />;
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -49,8 +63,9 @@ function Router() {
       <Route path="/verification" component={Verification} />
       <Route path="/administration" component={Administration} />
       <Route path="/stores">{() => <Planned screen="stores" />}</Route>
-      <Route path="/people">{() => <Planned screen="people" />}</Route>
-      <Route path="/departments">{() => <Planned screen="departments" />}</Route>
+      <Route path="/people" component={People} />
+      <Route path="/departments" component={Departments} />
+      <Route path="/scan" component={Scan} />
       <Route path="/fleet">{() => <Planned screen="fleet" />}</Route>
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />

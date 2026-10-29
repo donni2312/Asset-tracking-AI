@@ -3,25 +3,27 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 /**
- * The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.
+ * The roles of the docs/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer / operator / admin roles were retired by migration 0004.
  */
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 
 export const UserRole = {
-  viewer: 'viewer',
-  operator: 'operator',
-  admin: 'admin',
   group_finance: 'group_finance',
   group_it: 'group_it',
   sbu_it: 'sbu_it',
   sbu_finance: 'sbu_finance',
-  sbu_admin: 'sbu_admin',
+  gate_officer: 'gate_officer',
+  hod: 'hod',
+  sbu_hr: 'sbu_hr',
   stores: 'stores',
+  sbu_admin: 'sbu_admin',
   auditor: 'auditor',
+  employee: 'employee',
+  system_admin: 'system_admin',
 } as const;
 
 export interface User {
@@ -38,6 +40,14 @@ export interface User {
   sbuCode?: string | null;
   /** The data scope shown under the role ("All SBUs", "BAK Logistics (IT assets)") */
   scope: string;
+  /** @nullable */
+  employeeId?: number | null;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  departmentId?: number | null;
+  /** @nullable */
+  departmentName?: string | null;
   /** @nullable */
   accessExpiresAt?: string | null;
   /** @nullable */
@@ -270,6 +280,16 @@ export interface AssetUpdate {
   notes?: string | null;
   /** @nullable */
   warrantyEnds?: string | null;
+  /**
+     * The employee holding the asset (sets the holder's name and department); null clears it
+     * @nullable
+     */
+  custodianEmployeeId?: number | null;
+  /**
+     * The department holding the asset (LM-01)
+     * @nullable
+     */
+  departmentId?: number | null;
   /** Saved with the audit entries */
   reason?: string;
 }
@@ -334,6 +354,8 @@ export interface AssetLifecycleEventInput {
   fromSbuId?: number;
   toSbuId?: number;
   assignedTo?: string;
+  /** deployment - issue to this employee record (holder name and department follow) */
+  custodianEmployeeId?: number;
   vendor?: string;
   ticketRef?: string;
   conditionBefore?: string;
@@ -608,11 +630,8 @@ export interface GatePassInput {
 }
 
 export interface GatePassDecision {
-  /**
-     * Name of the approver taking the decision
-     * @minLength 1
-     */
-  decidedBy: string;
+  /** Ignored since Phase 2 - the signed-in approver is recorded */
+  decidedBy?: string;
   note?: string;
 }
 
@@ -944,6 +963,8 @@ export interface AssetCategory {
   usefulLifeMonths?: number | null;
   /** @nullable */
   annualRate?: number | null;
+  /** Residual value proposed at capitalisation, as a % of cost (0 by default) */
+  defaultResidualPercent: number;
   active: boolean;
   fields: TemplateField[];
 }
@@ -984,6 +1005,7 @@ export interface CategoryUpdate {
   usefulLifeMonths?: number | null;
   /** @nullable */
   annualRate?: number | null;
+  defaultResidualPercent?: number;
   active?: boolean;
   descriptionPattern?: string;
   /** @nullable */
@@ -1105,7 +1127,12 @@ export interface AssetUpgrade {
   beforeText: string;
   afterText: string;
   fieldChanges: TemplateValues;
+  /** USD - invoiceAmount × exchangeRate */
   cost: number;
+  /** The invoice's currency, as invoiced (ISO 4217) */
+  currency: string;
+  invoiceAmount: number;
+  exchangeRate: number;
   /** @nullable */
   supplier?: string | null;
   /** @nullable */
@@ -1171,6 +1198,7 @@ export interface AssetCardPermissions {
   decideUpgrades: boolean;
   changeCategory: boolean;
   tag: boolean;
+  attach: boolean;
 }
 
 export interface AssetCard {
@@ -1233,12 +1261,21 @@ export interface TagInput {
   rfidTag: string;
 }
 
+/**
+ * The invoice as invoiced - invoiceAmount, currency and exchangeRate (needed unless USD); cost (USD) alone is still accepted.
+ */
 export interface UpgradeInput {
   upgradeDate: string;
   description: string;
   beforeText: string;
   afterText: string;
-  cost: number;
+  invoiceAmount?: number;
+  /** ISO 4217, default USD */
+  currency?: string;
+  /** currency → USD; required unless USD */
+  exchangeRate?: number;
+  /** USD amount, when no invoiceAmount is given */
+  cost?: number;
   supplier?: string;
   invoiceNo?: string;
   fieldChanges?: TemplateValues;
@@ -1260,6 +1297,8 @@ export interface UpgradeDecision {
   revisedLifeMonths?: number;
   /** Capitalise only - YYYY-MM, default the month of approval */
   effectivePeriod?: string;
+  /** The rate Finance confirms for a foreign-currency invoice (the USD cost is recalculated) */
+  exchangeRate?: number;
 }
 
 export interface Totals {
@@ -1440,6 +1479,8 @@ export interface DepreciationLock {
 
 export interface Account {
   id: number;
+  /** @nullable */
+  employeeId?: number | null;
   username: string;
   name: string;
   role: UserRole;
@@ -1482,6 +1523,202 @@ export interface AccessLogEntry {
   action: AccessLogEntryAction;
   /** @nullable */
   detail?: string | null;
+}
+
+export interface RoleInfo {
+  role: UserRole;
+  name: string;
+  sbuScoped: boolean;
+  needsEmployee: boolean;
+}
+
+export interface UserAccount {
+  id: number;
+  username: string;
+  name: string;
+  /** One of UserRole, or a retired role (viewer / operator / admin) on a disabled account */
+  role: string;
+  roleName: string;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  employeeId?: number | null;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  accessExpiresAt?: string | null;
+  active: boolean;
+  /** @nullable */
+  lastLoginAt?: string | null;
+}
+
+export interface UserAccountInput {
+  /** @minLength 3 */
+  username: string;
+  /** @minLength 2 */
+  name: string;
+  /** @minLength 10 */
+  password: string;
+  role: UserRole;
+  /** Required for SBU roles (SBU IT - defaults to its own SBU) */
+  sbuId?: number;
+  /** Required for the HOD and Employee roles */
+  employeeId?: number;
+}
+
+export interface UserAccountUpdate {
+  name?: string;
+  role?: UserRole;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  employeeId?: number | null;
+  active?: boolean;
+  /** @minLength 10 */
+  password?: string;
+  reason?: string;
+}
+
+export interface Department {
+  id: number;
+  sbuId: number;
+  sbuCode: string;
+  name: string;
+  employeeCount: number;
+}
+
+export interface DepartmentInput {
+  name: string;
+  sbuId?: number;
+}
+
+export interface Employee {
+  id: number;
+  sbuId: number;
+  sbuCode: string;
+  /** @nullable */
+  departmentId?: number | null;
+  /** @nullable */
+  departmentName?: string | null;
+  employeeNo: string;
+  name: string;
+  /** @nullable */
+  jobRole?: string | null;
+  /** @nullable */
+  lineManagerId?: number | null;
+  /** @nullable */
+  lineManagerName?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  active: boolean;
+  itemsHeld: number;
+}
+
+export interface EmployeeInput {
+  employeeNo: string;
+  name: string;
+  sbuId?: number;
+  departmentId?: number;
+  lineManagerId?: number;
+  jobRole?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface EmployeeUpdate {
+  name?: string;
+  /** @nullable */
+  departmentId?: number | null;
+  /** @nullable */
+  lineManagerId?: number | null;
+  /** @nullable */
+  jobRole?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  active?: boolean;
+  reason?: string;
+}
+
+export type AttachmentKind = typeof AttachmentKind[keyof typeof AttachmentKind];
+
+
+export const AttachmentKind = {
+  invoice: 'invoice',
+  photo: 'photo',
+  other: 'other',
+} as const;
+
+export interface Attachment {
+  id: number;
+  assetId: number;
+  /** @nullable */
+  upgradeId?: number | null;
+  kind: AttachmentKind;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export type ScanResultGateClearance = typeof ScanResultGateClearance[keyof typeof ScanResultGateClearance];
+
+
+export const ScanResultGateClearance = {
+  approved: 'approved',
+  not_approved: 'not_approved',
+  not_shown: 'not_shown',
+} as const;
+
+export interface ScanResult {
+  assetId: number;
+  /** The caller may open the asset card */
+  canOpen: boolean;
+  description: string;
+  /** @nullable */
+  assetNumber?: string | null;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  sbuName?: string | null;
+  status: string;
+  /** @nullable */
+  holder?: string | null;
+  /** @nullable */
+  photoAttachmentId?: number | null;
+  gateClearance: ScanResultGateClearance;
+  /** @nullable */
+  gatePassId?: number | null;
+  /** @nullable */
+  gatePassStatus?: string | null;
+  /** @nullable */
+  gatePassReturnDate?: string | null;
+}
+
+export type AttachmentUploadKind = typeof AttachmentUploadKind[keyof typeof AttachmentUploadKind];
+
+
+export const AttachmentUploadKind = {
+  invoice: 'invoice',
+  photo: 'photo',
+  other: 'other',
+} as const;
+
+/**
+ * multipart/form-data. The file part carries the PDF, JPEG or PNG itself (up to 10 MB; its type is checked from its content); it is described as a string here so the generated libraries need no browser types.
+ */
+export interface AttachmentUpload {
+  file: string;
+  kind: AttachmentUploadKind;
+  upgradeId?: number;
 }
 
 /**
@@ -1815,5 +2052,25 @@ categoryId?: CategoryFilterParameter;
 
 export type ListAccessLogParams = {
 role?: string;
+};
+
+export type ListUsersParams = {
+sbuId?: SbuFilterParameter;
+role?: string;
+};
+
+export type ListDepartmentsParams = {
+sbuId?: SbuFilterParameter;
+};
+
+export type ListEmployeesParams = {
+sbuId?: SbuFilterParameter;
+departmentId?: number;
+q?: string;
+includeLeavers?: boolean;
+};
+
+export type ScanCodeParams = {
+code: string;
 };
 

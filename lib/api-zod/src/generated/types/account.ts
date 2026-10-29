@@ -3,12 +3,14 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { UserRole } from './userRole';
 
 export interface Account {
   id: number;
+  /** @nullable */
+  employeeId?: number | null;
   username: string;
   name: string;
   role: UserRole;

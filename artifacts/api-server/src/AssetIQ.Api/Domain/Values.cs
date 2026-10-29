@@ -113,6 +113,14 @@ public static class InsightSeverities
     public const string Critical = "critical";
 }
 
+public static class AttachmentKinds
+{
+    public const string Invoice = "invoice";
+    public const string Photo = "photo";
+    public const string Other = "other";
+    public static readonly IReadOnlyList<string> All = [Invoice, Photo, Other];
+}
+
 public static class LifecycleEventTypes
 {
     public const string Deployment = "deployment";
@@ -124,32 +132,96 @@ public static class LifecycleEventTypes
 }
 
 /// <summary>
-/// The original three roles (least to most privileged: a role satisfies every requirement at or below it)
-/// plus the scoped roles of docs/user-stories.md. Phase 1 adds the scoped roles the audit stories need; the
-/// endpoints built before them still use the three-level <see cref="Rank"/>, onto which each scoped role is
-/// mapped, until Phase 2 replaces that with the full permissions matrix.
+/// The roles of the docs/user-stories.md Permissions matrix (Phase 2), plus the Auditor (AU-12), the
+/// Employee and the System Administrator. Group roles act across SBUs; SBU roles act on their own SBU
+/// (<c>users.sbu_id</c>). What each role may do is decided in <see cref="Auth.AccessPolicy"/>; the role groups
+/// below are the endpoint-level gate (<c>[RequireRole(Roles.AssetReaders)]</c>), and the record-level rules
+/// (own SBU, IT or non-IT, own department) are checked on top of them.
 /// </summary>
 public static class Roles
 {
-    public const string Viewer = "viewer";
-    public const string Operator = "operator";
-    public const string Admin = "admin";
-
     public const string GroupFinance = "group_finance";
     public const string GroupIt = "group_it";
     public const string SbuIt = "sbu_it";
     public const string SbuFinance = "sbu_finance";
-    public const string SbuAdmin = "sbu_admin";
+    public const string GateOfficer = "gate_officer";
+    /// <summary>Line Manager / Head of Department: their own department.</summary>
+    public const string Hod = "hod";
+    public const string SbuHr = "sbu_hr";
     public const string Stores = "stores";
+    public const string SbuAdmin = "sbu_admin";
     /// <summary>AU-12: read-only, all SBUs, until the expiry date Group Finance sets.</summary>
     public const string Auditor = "auditor";
+    /// <summary>Sees the items they hold.</summary>
+    public const string Employee = "employee";
+    /// <summary>
+    /// Sets the final depreciation rates (with Group Finance) and the Group settings; nothing else. Added at
+    /// the product owner's request (29 Oct 2026); not a column of the permissions matrix.
+    /// </summary>
+    public const string SystemAdmin = "system_admin";
 
-    public static readonly IReadOnlyList<string> All = [Viewer, Operator, Admin, GroupFinance, GroupIt, SbuIt, SbuFinance, SbuAdmin, Stores, Auditor];
+    public static readonly IReadOnlyList<string> All =
+        [GroupFinance, GroupIt, SbuIt, SbuFinance, GateOfficer, Hod, SbuHr, Stores, SbuAdmin, Auditor, Employee, SystemAdmin];
 
-    /// <summary>Roles that act on one SBU only (the user's <c>sbu_id</c>).</summary>
-    public static readonly IReadOnlyList<string> SbuScoped = [SbuIt, SbuFinance, SbuAdmin, Stores];
+    /// <summary>Roles that act on one SBU only (the user's <c>sbu_id</c>, required for these roles).</summary>
+    public static readonly IReadOnlyList<string> SbuScoped = [SbuIt, SbuFinance, GateOfficer, Hod, SbuHr, Stores, SbuAdmin, Employee];
+
+    /// <summary>Roles that must be linked to an employee record (their scope is a department or a person).</summary>
+    public static readonly IReadOnlyList<string> NeedEmployee = [Hod, Employee];
 
     public static bool IsSbuScoped(string? role) => role is not null && SbuScoped.Contains(role);
+
+    // Endpoint-level role groups (comma-separated so they can be used in attributes). "*" = any signed-in role.
+    public const string Everyone = "*";
+    /// <summary>Matrix "View assets": every role with an asset scope (the Gate Officer sees assets only through a scan).</summary>
+    public const string AssetReaders = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + Hod + "," + SbuHr + "," + Stores + "," + SbuAdmin + "," + Auditor + "," + Employee;
+    /// <summary>Asset card, history, dashboards, insights and exports: the asset readers except the Employee.</summary>
+    public const string RecordReaders = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + Hod + "," + SbuHr + "," + Stores + "," + SbuAdmin + "," + Auditor;
+    /// <summary>Fixed asset register, category report, Asset Position, completeness, approvals (AU-09 … AU-11, SF-02).</summary>
+    public const string FinanceReaders = GroupFinance + "," + SbuFinance + "," + Auditor;
+    /// <summary>Matrix "Check exits and returns at gate": the Gate Officer records them; Group IT and SBU IT view the log.</summary>
+    public const string GateLogReaders = GroupIt + "," + SbuIt + "," + GateOfficer + "," + Auditor;
+    public const string GatePassReaders = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + GateOfficer + "," + Hod + "," + SbuAdmin + "," + Auditor;
+    /// <summary>Matrix "Raise gate pass".</summary>
+    public const string GatePassRaisers = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Matrix "Approve gate pass" (record-level rules in AccessPolicy.CanDecideGatePass).</summary>
+    public const string GatePassApprovers = GroupIt + "," + SbuIt + "," + SbuFinance + "," + Hod + "," + SbuAdmin;
+    /// <summary>Location moves (technical field) and gate exits / returns.</summary>
+    public const string Movers = GroupIt + "," + SbuIt + "," + SbuAdmin + "," + GateOfficer;
+    /// <summary>Issue / assign, returns, repairs, transfers, notes (per-event rules in AccessPolicy.CanRecordLifecycle).</summary>
+    public const string LifecycleWriters = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin;
+    public const string TechnicalEditors = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Matrix "Register / tag asset" plus SBU Finance ("Capitalise only", checked per action).</summary>
+    public const string Registrars = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin;
+    public const string FinanceWriters = GroupFinance + "," + SbuFinance;
+    /// <summary>Who may attach files (record-level rule: AccessPolicy.CanAttach).</summary>
+    public const string Attachers = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin + "," + SbuFinance;
+    public const string InsightManagers = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    public const string LocationManagers = GroupIt + "," + SbuAdmin;
+    public const string SbuManagers = GroupIt + "," + SystemAdmin;
+    public const string ReaderViewers = GroupIt + "," + SbuIt + "," + GateOfficer + "," + Auditor;
+    public const string BcViewers = GroupFinance + "," + GroupIt + "," + SystemAdmin + "," + Auditor;
+    public const string BcOperators = GroupFinance + "," + SystemAdmin;
+    /// <summary>Matrix "Manage users".</summary>
+    public const string UserManagers = GroupIt + "," + SbuIt;
+    /// <summary>Departments and employees: SBU HR maintains them; the roles that assign or account for items read them.</summary>
+    public const string PeopleReaders = GroupFinance + "," + GroupIt + "," + SbuIt + "," + SbuFinance + "," + Hod + "," + SbuHr + "," + Stores + "," + SbuAdmin + "," + Auditor;
+    public const string CategoryOwners = GroupFinance + "," + SystemAdmin;
+    public const string Administrators = GroupFinance + "," + GroupIt + "," + SbuAdmin + "," + SystemAdmin;
+    public const string AuditorManagers = GroupFinance;
+    /// <summary>AU-12: who signed in and exported what.</summary>
+    public const string AccessLogReaders = GroupFinance;
+    /// <summary>AU-07: SBU IT (IT), the SBU Admin Manager (non-IT) and Stores log upgrades.</summary>
+    public const string Upgraders = SbuIt + "," + SbuAdmin + "," + Stores;
+    /// <summary>Template fields: Group IT (IT categories), the SBU Admin Manager (non-IT categories).</summary>
+    public const string FieldOwners = GroupIt + "," + SbuAdmin;
+    /// <summary>Group settings name the role that edits them (Group Finance or Group IT); the System Administrator edits all.</summary>
+    public const string SettingOwners = GroupFinance + "," + GroupIt + "," + SystemAdmin;
+    /// <summary>Everyone who may scan a tag (SI-03, SG-01): every role except the System Administrator.</summary>
+    public const string Scanners = AssetReaders + "," + GateOfficer;
+
+    /// <summary>The roles of a comma-separated group.</summary>
+    public static IReadOnlySet<string> Parse(string group) => group.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet();
 
     /// <summary>Display names, as on the sidebar ("Viewing as …").</summary>
     public static string DisplayName(string role) => role switch
@@ -158,29 +230,15 @@ public static class Roles
         GroupIt => "Group IT Network & Hardware Admin",
         SbuIt => "SBU IT Admin / Technician",
         SbuFinance => "SBU Finance",
-        SbuAdmin => "SBU Admin Manager",
+        GateOfficer => "Gate Officer",
+        Hod => "Line Manager / HOD",
+        SbuHr => "SBU HR",
         Stores => "Stores Clerk",
+        SbuAdmin => "SBU Admin Manager",
         Auditor => "Auditor",
-        Admin => "Administrator",
-        Operator => "Operator",
-        Viewer => "Viewer",
+        Employee => "Employee",
+        SystemAdmin => "System Administrator",
         _ => role,
     };
-
-    /// <summary>
-    /// 0 viewer, 1 operator, 2 admin; -1 for anything else (satisfies nothing). Scoped roles map onto this
-    /// ladder for the pre-Phase-1 endpoints. The auditor is handled separately: it satisfies viewer-level
-    /// requirements on reads only (see <see cref="Auth.MinimumRoleHandler"/>).
-    /// </summary>
-    // ASSUMPTION: until Phase 2, Group IT may use the admin-only tools (RFID simulator, BC sync), the SBU
-    // custody roles get operator rights on the older endpoints, and the finance roles viewer rights.
-    public static int Rank(string? role) => role switch
-    {
-        Viewer or SbuFinance or GroupFinance => 0,
-        Operator or SbuIt or SbuAdmin or Stores => 1,
-        Admin or GroupIt => 2,
-        _ => -1,
-    };
-
-    public static bool Satisfies(string? role, string required) => Rank(role) >= 0 && Rank(role) >= Rank(required);
 }
+

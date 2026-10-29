@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { UserRole } from './userRole';
 
@@ -21,6 +21,14 @@ export interface User {
   sbuCode?: string | null;
   /** The data scope shown under the role ("All SBUs", "BAK Logistics (IT assets)") */
   scope: string;
+  /** @nullable */
+  employeeId?: number | null;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  departmentId?: number | null;
+  /** @nullable */
+  departmentName?: string | null;
   /** @nullable */
   accessExpiresAt?: Date | null;
   /** @nullable */

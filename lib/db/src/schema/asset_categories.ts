@@ -19,6 +19,8 @@ export const assetCategoriesTable = pgTable("asset_categories", {
   depreciationMethod: text("depreciation_method").notNull(), // straight_line | reducing_balance
   usefulLifeMonths: integer("useful_life_months"),           // straight-line
   annualRate: numeric("annual_rate", { precision: 9, scale: 6 }), // reducing-balance, e.g. 0.250000
+  // Residual value as a % of cost, proposed when an asset is capitalised; 0 until Finance decides otherwise.
+  defaultResidualPercent: numeric("default_residual_percent", { precision: 5, scale: 2 }).notNull().default("0"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -10,3 +10,5 @@ export * from "./ai_insights";
 export * from "./asset_lifecycle_events";
 export * from "./asset_finance";
 export * from "./audit";
+export * from "./people";
+export * from "./attachments";

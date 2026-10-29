@@ -22,6 +22,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     // ── categories ─────────────────────────────────────────────────────────────
 
     [HttpGet("categories")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to list categories")]
     public async Task<List<AssetCategoryDto>> Categories([FromQuery] string? includeInactive)
     {
@@ -31,15 +32,16 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     }
 
     [HttpGet("categories/{id}")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to get the category")]
     public async Task<AssetCategoryDto> Category(string id) => ToDto(await LoadCategoryAsync(RequestValues.Id(id)));
 
     [HttpPost("categories")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.CategoryOwners)]
     [FailureMessage("Failed to create the category")]
     public async Task<IActionResult> CreateCategory([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
-        if (!AccessPolicy.CanManageCategories(Caller)) throw AccessPolicy.Deny(Caller, "create categories (Group Finance sets the categories)");
+        if (!AccessPolicy.CanManageCategories(Caller)) throw AccessPolicy.Deny(Caller, "create categories (Group Finance or the System Administrator)");
         var input = JsonBody.From(body);
         var code = input.RequiredString("code", minLength: 2).Trim().ToUpperInvariant();
         var name = input.RequiredString("name", minLength: 2).Trim();
@@ -50,8 +52,10 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         var method = input.RequiredEnum("depreciationMethod", DepreciationMethods.All);
         var life = input.OptionalInt("usefulLifeMonths");
         var rate = input.OptionalNumber("annualRate");
+        var residualPercent = input.OptionalNumber("defaultResidualPercent") ?? 0m;
         input.ThrowIfInvalid();
         CheckPolicy(method, life, rate);
+        CheckResidual(residualPercent);
         if (await db.AssetCategories.AnyAsync(c => c.Code == code || c.Name == name, Aborted))
             throw new ApiException(StatusCodes.Status409Conflict, "A category with this code or name already exists");
 
@@ -59,7 +63,8 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         var category = new AssetCategory
         {
             Code = code, Name = name, IsIt = isIt, SubCategories = JsonSerializer.Serialize(subCategories), DescriptionPattern = pattern,
-            IdentifierFieldKey = identifier, DepreciationMethod = method, UsefulLifeMonths = life, AnnualRate = rate, CreatedAt = now, UpdatedAt = now,
+            IdentifierFieldKey = identifier, DepreciationMethod = method, UsefulLifeMonths = life, AnnualRate = rate,
+            DefaultResidualPercent = residualPercent, CreatedAt = now, UpdatedAt = now,
         };
         // Every category starts with the fields AU-01 makes mandatory; field owners add the rest.
         category.Fields.Add(new CategoryTemplateField { Key = "make", Label = "Make", Type = "text", Required = true, SortOrder = 1, CreatedAt = now, UpdatedAt = now });
@@ -76,7 +81,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     /// Manager): description pattern and identifier field.
     /// </summary>
     [HttpPatch("categories/{id}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.CategoryOwners)]
     [FailureMessage("Failed to update the category")]
     public async Task<AssetCategoryDto> UpdateCategory(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -88,20 +93,23 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         var method = input.OptionalEnum("depreciationMethod", DepreciationMethods.All);
         var life = input.NullableInt("usefulLifeMonths");
         var rate = input.NullableNumber("annualRate");
+        var residualPercent = input.OptionalNumber("defaultResidualPercent");
         var active = input.Has("active") ? input.RequiredBool("active") : (bool?)null;
         var pattern = input.OptionalString("descriptionPattern");
         var identifier = input.NullableString("identifierFieldKey");
         var reason = input.OptionalString("reason");
         input.ThrowIfInvalid();
 
-        var policyChange = name is not null || subCategories is not null || method is not null || life.IsSet || rate.IsSet || active is not null;
+        var policyChange = name is not null || subCategories is not null || method is not null || life.IsSet || rate.IsSet || active is not null
+            || residualPercent is not null;
         var templateChange = pattern is not null || identifier.IsSet;
-        if (policyChange && !AccessPolicy.CanManageCategories(Caller)) throw AccessPolicy.Deny(Caller, "change categories or depreciation rates (Group Finance only)");
+        if (policyChange && !AccessPolicy.CanManageCategories(Caller)) throw AccessPolicy.Deny(Caller, "change categories or depreciation rates (Group Finance or the System Administrator)");
         if (templateChange && !AccessPolicy.CanManageFields(Caller, category.IsIt))
             throw AccessPolicy.Deny(Caller, category.IsIt ? "change IT templates (Group IT only)" : "change non-IT templates (SBU Admin Manager only)");
         if (identifier is { IsSet: true, Value: { } key } && category.Fields.All(f => f.Key != key))
             throw new ApiException(StatusCodes.Status400BadRequest, $"identifierFieldKey: {key} is not a field of {category.Name}");
         CheckPolicy(method ?? category.DepreciationMethod, life.IsSet ? life.Value : category.UsefulLifeMonths, rate.IsSet ? rate.Value : category.AnnualRate);
+        if (residualPercent is { } percent) CheckResidual(percent);
 
         void Set<T>(string field, T before, T after, Action<T> apply)
         {
@@ -112,6 +120,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         if (method is not null) Set("depreciationMethod", category.DepreciationMethod, method, v => category.DepreciationMethod = v);
         if (life.IsSet) Set("usefulLifeMonths", category.UsefulLifeMonths, life.Value, v => category.UsefulLifeMonths = v);
         if (rate.IsSet) Set("annualRate", category.AnnualRate, rate.Value, v => category.AnnualRate = v);
+        if (residualPercent is not null) Set("defaultResidualPercent", category.DefaultResidualPercent, residualPercent.Value, v => category.DefaultResidualPercent = v);
         if (active is not null) Set("active", category.Active, active.Value, v => category.Active = v);
         if (pattern is not null) Set("descriptionPattern", category.DescriptionPattern, pattern, v => category.DescriptionPattern = v);
         if (identifier.IsSet) Set("identifierFieldKey", category.IdentifierFieldKey, identifier.Value, v => category.IdentifierFieldKey = v);
@@ -121,7 +130,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     }
 
     [HttpPost("categories/{id}/fields")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FieldOwners)]
     [FailureMessage("Failed to add the field")]
     public async Task<IActionResult> AddField(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -142,7 +151,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     }
 
     [HttpPatch("category-fields/{id}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FieldOwners)]
     [FailureMessage("Failed to update the field")]
     public async Task<AssetCategoryDto> UpdateField(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -198,6 +207,13 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         return [];
     }
 
+    /// <summary>The proposed residual value, as a % of cost: 0 unless Finance decides otherwise (product owner, 29 Oct 2026).</summary>
+    private static void CheckResidual(decimal percent)
+    {
+        if (percent is < 0 or >= 100 || decimal.Round(percent, 2) != percent)
+            throw new ApiException(StatusCodes.Status400BadRequest, "defaultResidualPercent: a percentage from 0 to 99.99 (2 decimals)");
+    }
+
     private static void CheckPolicy(string method, int? life, decimal? rate)
     {
         if (method == DepreciationMethods.StraightLine && life is not > 0) throw new ApiException(StatusCodes.Status400BadRequest, "usefulLifeMonths: required (> 0) for straight-line");
@@ -215,7 +231,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
         {
             Id = c.Id, Code = c.Code, Name = c.Name, IsIt = c.IsIt, SubCategories = template.SubCategories,
             DescriptionPattern = c.DescriptionPattern, IdentifierFieldKey = c.IdentifierFieldKey, DepreciationMethod = c.DepreciationMethod,
-            UsefulLifeMonths = c.UsefulLifeMonths, AnnualRate = c.AnnualRate, Active = c.Active,
+            UsefulLifeMonths = c.UsefulLifeMonths, AnnualRate = c.AnnualRate, DefaultResidualPercent = c.DefaultResidualPercent, Active = c.Active,
             Fields = template.Fields.Select(f => new TemplateFieldDto
             {
                 Id = f.Id, Key = f.Key, Label = f.Label, Type = f.Type, Unit = f.Unit, Required = f.Required, AllowedValues = f.AllowedValues,
@@ -227,13 +243,13 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     // ── Group settings ─────────────────────────────────────────────────────────
 
     [HttpGet("settings")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to list settings")]
     public async Task<List<GroupSettingDto>> Settings() =>
         (await db.GroupSettings.AsNoTracking().OrderBy(s => s.Key).ToListAsync(Aborted)).Select(ToDto).ToList();
 
     [HttpPatch("settings/{key}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SettingOwners)]
     [FailureMessage("Failed to update the setting")]
     public async Task<GroupSettingDto> UpdateSetting(string key, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -265,7 +281,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     // ── auditors (AU-12) and the access log ────────────────────────────────────
 
     [HttpGet("users/auditors")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.AuditorManagers)]
     [FailureMessage("Failed to list auditors")]
     public async Task<List<AccountDto>> Auditors()
     {
@@ -275,7 +291,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
 
     /// <summary>AU-12: a time-limited, read-only login for an internal or external auditor.</summary>
     [HttpPost("users/auditors")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.AuditorManagers)]
     [FailureMessage("Failed to create the auditor account")]
     public async Task<IActionResult> CreateAuditor([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -304,7 +320,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
     }
 
     [HttpPatch("users/{id}/access")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.AuditorManagers)]
     [FailureMessage("Failed to change the access")]
     public async Task<AccountDto> UpdateAuditorAccess(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -324,7 +340,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
 
     /// <summary>AU-12: sign-ins and exports. Group Finance sees everyone's.</summary>
     [HttpGet("access-log")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.AccessLogReaders)]
     [FailureMessage("Failed to load the access log")]
     public async Task<List<AccessLogEntryDto>> AccessLogEntries([FromQuery] string? role)
     {
@@ -335,7 +351,7 @@ public sealed class AdministrationController(AssetIqDbContext db, AppClock clock
 
     private static AccountDto ToAccount(UserAccount u) => new()
     {
-        Id = u.Id, Username = u.Username, Name = u.Name, Role = u.Role, SbuId = u.SbuId, AccessExpiresAt = u.AccessExpiresAt,
+        Id = u.Id, Username = u.Username, Name = u.Name, Role = u.Role, SbuId = u.SbuId, EmployeeId = u.EmployeeId, AccessExpiresAt = u.AccessExpiresAt,
         Active = u.Active, LastLoginAt = u.LastLoginAt,
     };
 }

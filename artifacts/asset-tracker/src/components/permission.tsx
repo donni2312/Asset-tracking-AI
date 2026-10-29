@@ -1,39 +1,25 @@
 import type { ReactNode } from "react";
-import type { UserRole } from "@workspace/api-client-react";
+import { groupNames, ROLE_NAME, type RoleGroup } from "@/lib/roles";
 import { Lock, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useCurrentUser, useHasRole } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 /**
- * Who may do what (the API's rules — CLAUDE.md §17):
- *   viewer         read everything, download reports, record asset movements
- *   operator       every change except the RFID simulator and Business Central sync
- *   administrator  everything
- * These helpers only decide what the UI offers; the API is what enforces it.
+ * Who may do what is the Permissions matrix (Phase 2), enforced by the API; `role` names one of the API's role
+ * groups (lib/roles.ts). These helpers only decide what the UI offers.
  */
-export const ROLE_NAME: Record<UserRole, string> = {
-  viewer: "viewer",
-  operator: "operator",
-  admin: "administrator",
-  group_finance: "Group Finance",
-  group_it: "Group IT",
-  sbu_it: "SBU IT",
-  sbu_finance: "SBU Finance",
-  sbu_admin: "SBU Admin Manager",
-  stores: "Stores",
-  auditor: "auditor",
-};
+export { ROLE_NAME } from "@/lib/roles";
 
 /** Whether the signed-in user may `action` ("record a movement"), and if not, why. */
-export function usePermission(required: UserRole, action: string): { allowed: boolean; reason: string } {
+export function usePermission(required: RoleGroup, action: string): { allowed: boolean; reason: string } {
   const user = useCurrentUser();
   const allowed = useHasRole(required);
   if (allowed) return { allowed, reason: "" };
   return {
     allowed,
     reason: user
-      ? `To ${action} you need the ${ROLE_NAME[required]} role; you are signed in as ${ROLE_NAME[user.role]}.`
+      ? `${ROLE_NAME[user.role] ?? user.role} may not ${action}. It needs one of: ${groupNames(required)}.`
       : `Sign in to ${action}.`,
   };
 }
@@ -80,7 +66,7 @@ export function Permitted({
   size,
   className,
 }: {
-  role: UserRole;
+  role: RoleGroup;
   action: string;
   label: ReactNode;
   children: ReactNode;
@@ -98,7 +84,7 @@ export function Permitted({
 }
 
 /** Banner for a page whose main action the user may not take (the page itself stays readable). */
-export function PermissionNotice({ role, action }: { role: UserRole; action: string }) {
+export function PermissionNotice({ role, action }: { role: RoleGroup; action: string }) {
   const { allowed, reason } = usePermission(role, action);
   if (allowed) return null;
   return (

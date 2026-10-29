@@ -75,7 +75,7 @@ export default function NewMovement() {
   }, [locations, asset]);
 
   const crossSbu = asset?.sbuId != null && destination?.sbuId != null && asset.sbuId !== destination.sbuId;
-  const { allowed: mayRecord } = usePermission("viewer", "record a movement");
+  const { allowed: mayRecord } = usePermission("movers", "record a movement");
   const canSubmit = mayRecord && !!asset && !!destination && movedBy.trim() !== "" && !createMovement.isPending;
 
   function submit(e: React.FormEvent) {
@@ -105,7 +105,7 @@ export default function NewMovement() {
           </p>
         </div>
 
-        <PermissionNotice role="viewer" action="record a movement" />
+        <PermissionNotice role="movers" action="record a movement" />
 
         <Card>
           <CardHeader>

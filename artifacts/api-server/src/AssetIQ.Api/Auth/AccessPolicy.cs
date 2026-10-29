@@ -6,57 +6,39 @@ using AssetIQ.Api.Infrastructure;
 namespace AssetIQ.Api.Auth;
 
 /// <summary>
-/// Who may see and change which assets (docs/user-stories.md, Permissions matrix). Phase 1 covers the
-/// actions of the audit stories (AU-01 … AU-12); every rule here is applied by the API, never only by the
-/// dashboard. Rules are pure so they can be unit tested; <see cref="Deny"/> turns a "no" into a 403.
+/// Who may see and change which assets: the Permissions matrix of docs/user-stories.md (Phase 2). Endpoints
+/// first check the role group (<see cref="RequireRoleAttribute"/>); these record-level rules then check the
+/// SBU, IT / non-IT and department. Every rule is applied by the API, never only by the dashboard. Rules are
+/// pure so they can be unit tested; <see cref="Deny"/> turns a "no" into a 403.
 /// </summary>
 public static class AccessPolicy
 {
-    /// <summary>Roles that see every asset in every SBU (Group Finance, auditors, and the original roles until Phase 2).</summary>
-    private static readonly HashSet<string> SeeEverything = [Roles.GroupFinance, Roles.Auditor, Roles.Admin, Roles.Operator, Roles.Viewer];
-
-    /// <summary>The assets <paramref name="user"/> may see: applied to every list, report, dashboard and export.</summary>
+    /// <summary>The assets <paramref name="user"/> may see (the same rule as the global query filter).</summary>
     public static Expression<Func<Asset, bool>> Visible(AuthUser user)
     {
-        var sbu = user.SbuId ?? -1;
-        return user.Role switch
-        {
-            _ when SeeEverything.Contains(user.Role) => a => true,
-            Roles.GroupIt => a => a.AssetCategory.IsIt,
-            Roles.SbuFinance => a => a.SbuId == sbu,
-            Roles.SbuIt => a => a.SbuId == sbu && a.AssetCategory.IsIt,
-            Roles.SbuAdmin => a => a.SbuId == sbu && !a.AssetCategory.IsIt,
-            // ASSUMPTION: until the Phase 3 "In store" status exists, Stores sees its SBU's items that have no
-            // custodian yet or are still waiting for their asset number.
-            Roles.Stores => a => a.SbuId == sbu && (a.Status == AssetStatuses.PendingAssetNumber || a.AssignedTo == null),
-            _ => a => false,
-        };
+        var s = AccessScope.For(user);
+        return a => s.Unrestricted || (!s.Nothing
+            && (s.SbuId == null || a.SbuId == s.SbuId)
+            && (s.It == null || a.AssetCategory.IsIt == s.It)
+            && (!s.InStoreOnly || (a.CustodianEmployeeId == null && a.DepartmentId == null))
+            && (s.DepartmentId == null || a.DepartmentId == s.DepartmentId)
+            && (s.EmployeeId == null || a.CustodianEmployeeId == s.EmployeeId)
+            && (!s.HeldByEmployee || a.CustodianEmployeeId != null));
     }
 
-    public static bool CanView(AuthUser user, Asset asset, bool isIt) => user.Role switch
-    {
-        _ when SeeEverything.Contains(user.Role) => true,
-        Roles.GroupIt => isIt,
-        Roles.SbuFinance => OwnSbu(user, asset.SbuId),
-        Roles.SbuIt => OwnSbu(user, asset.SbuId) && isIt,
-        Roles.SbuAdmin => OwnSbu(user, asset.SbuId) && !isIt,
-        Roles.Stores => OwnSbu(user, asset.SbuId) && (asset.Status == AssetStatuses.PendingAssetNumber || asset.AssignedTo is null),
-        _ => false,
-    };
+    public static bool CanView(AuthUser user, Asset asset, bool isIt) => AccessScope.For(user).Allows(asset, isIt);
 
     /// <summary>
-    /// Register an asset (matrix "Register / tag asset"; AM-01). IT assets: Group IT, SBU IT and Stores of the
-    /// SBU, plus the original operator/admin roles. Non-IT assets: only that SBU's Admin Manager.
+    /// Register an asset (matrix "Register / tag asset"; AM-01). IT assets: Group IT, and SBU IT or Stores of the
+    /// SBU. Non-IT assets: the SBU's Admin Manager, or its Stores at receipt (product owner, 29 Oct 2026).
     /// </summary>
-    // ASSUMPTION: the matrix lets Stores register at receipt, but AM-01 says no other role than the SBU Admin
-    // Manager may create non-IT records; the stricter AM-01 rule wins, so Stores registers IT items only.
     public static bool CanRegister(AuthUser user, bool isIt, int sbuId) => isIt
-        ? user.Role is Roles.GroupIt or Roles.Admin or Roles.Operator || (user.Role is Roles.SbuIt or Roles.Stores && OwnSbu(user, sbuId))
-        : user.Role == Roles.SbuAdmin && OwnSbu(user, sbuId);
+        ? user.Role == Roles.GroupIt || (user.Role is Roles.SbuIt or Roles.Stores && OwnSbu(user, sbuId))
+        : user.Role is Roles.SbuAdmin or Roles.Stores && OwnSbu(user, sbuId);
 
-    /// <summary>Edit technical fields (matrix "Edit technical fields"; AM-01 for non-IT).</summary>
+    /// <summary>Edit technical fields (matrix "Edit technical fields"; AM-01: only the Admin Manager edits non-IT records).</summary>
     public static bool CanEditTechnical(AuthUser user, bool isIt, int? sbuId) => isIt
-        ? user.Role is Roles.GroupIt or Roles.Admin or Roles.Operator || (user.Role == Roles.SbuIt && OwnSbu(user, sbuId))
+        ? user.Role == Roles.GroupIt || (user.Role == Roles.SbuIt && OwnSbu(user, sbuId))
         : user.Role == Roles.SbuAdmin && OwnSbu(user, sbuId);
 
     /// <summary>AU-07: SBU IT (IT assets), the SBU Admin Manager (non-IT) or Stores of the asset's SBU log upgrades.</summary>
@@ -73,19 +55,107 @@ public static class AccessPolicy
     public static bool CanRunDepreciation(AuthUser user, int? sbuId) =>
         user.Role == Roles.GroupFinance || (sbuId is not null && IsSbuFinanceOf(user, sbuId));
 
-    /// <summary>Matrix "Set categories &amp; depreciation rates": Group Finance owns categories and their policy.</summary>
-    public static bool CanManageCategories(AuthUser user) => user.Role == Roles.GroupFinance;
+    /// <summary>
+    /// Matrix "Set categories &amp; depreciation rates": Group Finance, and the System Administrator, who sets the
+    /// final rates (product owner, 29 Oct 2026).
+    /// </summary>
+    public static bool CanManageCategories(AuthUser user) => user.Role is Roles.GroupFinance or Roles.SystemAdmin;
 
     /// <summary>Template fields: Group IT for IT categories, the SBU Admin Manager for non-IT categories.</summary>
     public static bool CanManageFields(AuthUser user, bool isIt) => isIt ? user.Role == Roles.GroupIt : user.Role == Roles.SbuAdmin;
 
-    /// <summary>Group settings: the role named on the setting (Group Finance or Group IT).</summary>
-    public static bool CanEditSetting(AuthUser user, string editableBy) => user.Role == editableBy;
+    /// <summary>Group settings: the role named on the setting (Group Finance or Group IT), or the System Administrator.</summary>
+    public static bool CanEditSetting(AuthUser user, string editableBy) => user.Role == editableBy || user.Role == Roles.SystemAdmin;
 
     /// <summary>AU-12: Group Finance creates auditor accounts and sets their expiry.</summary>
     public static bool CanManageAuditors(AuthUser user) => user.Role == Roles.GroupFinance;
 
-    private static bool OwnSbu(AuthUser user, int? sbuId) =>
+    /// <summary>
+    /// Attach an invoice, photo or document to an asset: whoever may edit its technical record, its SBU
+    /// Finance (invoices, SF-01), and Stores of the SBU for the items they hold.
+    /// </summary>
+    public static bool CanAttach(AuthUser user, Asset asset, bool isIt) =>
+        CanEditTechnical(user, isIt, asset.SbuId) || IsSbuFinanceOf(user, asset.SbuId)
+        || (user.Role == Roles.Stores && CanView(user, asset, isIt));
+
+    /// <summary>Matrix "Raise gate pass": Group IT and SBU IT for IT assets, the SBU Admin Manager for non-IT assets.</summary>
+    public static bool CanRaiseGatePass(AuthUser user, Asset asset, bool isIt) => CanEditTechnical(user, isIt, asset.SbuId);
+
+    /// <summary>
+    /// Matrix "Approve gate pass": Group IT and SBU IT (IT assets of their scope); the HOD for assets their
+    /// department holds; the SBU Admin Manager when the department has no HOD to decide; SBU Finance only for
+    /// high-value passes (SF-05).
+    /// </summary>
+    // ASSUMPTION: "HOD unavailable" means the asset's department has no active HOD account (leave and
+    // delegation arrive with the Phase 4 approval workflow). The pass's value is the asset's USD cost.
+    public static bool CanDecideGatePass(AuthUser user, Asset asset, bool isIt, bool highValue, bool hodAvailable) => user.Role switch
+    {
+        Roles.GroupIt => isIt,
+        Roles.SbuIt => isIt && OwnSbu(user, asset.SbuId),
+        Roles.Hod => OwnSbu(user, asset.SbuId) && asset.DepartmentId is not null && asset.DepartmentId == user.DepartmentId,
+        Roles.SbuAdmin => OwnSbu(user, asset.SbuId) && !hodAvailable,
+        Roles.SbuFinance => OwnSbu(user, asset.SbuId) && highValue,
+        _ => false,
+    };
+
+    /// <summary>A location move (a technical field), or a gate exit / return recorded by that SBU's Gate Officer.</summary>
+    public static bool CanMove(AuthUser user, Asset asset, bool isIt) =>
+        CanEditTechnical(user, isIt, asset.SbuId) || (user.Role == Roles.GateOfficer && OwnSbu(user, asset.SbuId));
+
+    /// <summary>
+    /// Lifecycle events. Issue / assign: Group IT, SBU IT (IT), the SBU Admin Manager (non-IT) and Stores.
+    /// Returns: IT staff and Stores. Repairs and notes: whoever edits the technical record. Inter-SBU transfer:
+    /// Group IT approves (IT assets); SBU IT may only request (Phase 4).
+    /// </summary>
+    // ASSUMPTION: a non-IT transfer between SBUs needs both Admin Managers to confirm (AM-08); until that
+    // workflow exists (Phase 4) nobody records one directly.
+    public static bool CanRecordLifecycle(AuthUser user, string eventType, Asset asset, bool isIt)
+    {
+        var technical = CanEditTechnical(user, isIt, asset.SbuId);
+        var stores = user.Role == Roles.Stores && OwnSbu(user, asset.SbuId);
+        return eventType switch
+        {
+            LifecycleEventTypes.Deployment or LifecycleEventTypes.Note => technical || stores,
+            LifecycleEventTypes.ReturnToIt => (isIt && technical) || stores,
+            LifecycleEventTypes.RepairSent or LifecycleEventTypes.RepairReturned => technical,
+            LifecycleEventTypes.SbuTransfer => user.Role == Roles.GroupIt && isIt,
+            _ => false,
+        };
+    }
+
+    /// <summary>Dismiss an AI insight: who looks after the asset (Group IT for insights not about one asset).</summary>
+    public static bool CanDismissInsight(AuthUser user, Asset? asset, bool isIt) =>
+        asset is null ? user.Role == Roles.GroupIt : CanEditTechnical(user, isIt, asset.SbuId);
+
+    // ASSUMPTION: locations are kept by Group IT (any SBU) and the SBU Admin Manager (own SBU); the matrix has no row.
+    public static bool CanManageLocation(AuthUser user, int? sbuId) =>
+        user.Role == Roles.GroupIt || (user.Role == Roles.SbuAdmin && OwnSbu(user, sbuId));
+
+    /// <summary>
+    /// Matrix "Manage users" (GI-08): Group IT manages every account except auditors (Group Finance, AU-12); SBU
+    /// IT manages its own SBU's accounts and may only give SBU roles in that SBU. Nobody changes their own role.
+    /// </summary>
+    public static bool CanManageUser(AuthUser user, string role, int? sbuId) => user.Role switch
+    {
+        Roles.GroupIt => role != Roles.Auditor,
+        Roles.SbuIt => Roles.IsSbuScoped(role) && sbuId is not null && OwnSbu(user, sbuId),
+        _ => false,
+    };
+
+    /// <summary>Departments and employees: SBU HR maintains its own SBU's (HR-01).</summary>
+    public static bool CanManagePeople(AuthUser user, int sbuId) => user.Role == Roles.SbuHr && OwnSbu(user, sbuId);
+
+    /// <summary>Who sees which employees: Group roles every SBU (read-only); the HOD their department; others their SBU.</summary>
+    public static bool CanViewPerson(AuthUser user, int sbuId, int? departmentId) => user.Role switch
+    {
+        Roles.GroupFinance or Roles.GroupIt or Roles.Auditor => true,
+        Roles.Hod => OwnSbu(user, sbuId) && departmentId is not null && departmentId == user.DepartmentId,
+        _ => PeopleReaders.Contains(user.Role) && OwnSbu(user, sbuId),
+    };
+
+    private static readonly IReadOnlySet<string> PeopleReaders = Roles.Parse(Roles.PeopleReaders);
+
+    public static bool OwnSbu(AuthUser user, int? sbuId) =>
         Roles.IsSbuScoped(user.Role) && user.SbuId is not null && sbuId is not null && user.SbuId == sbuId;
 
     public static ApiException Deny(AuthUser user, string action) =>

@@ -43,7 +43,7 @@ public sealed class MockBcFixedAssetClient(IServiceScopeFactory scopes, IConfigu
                 RETURNING last_number AS "Value"
                 """).ToListAsync(ct);
             var number = $"{prefix}-{next[0].ToString("D5", CultureInfo.InvariantCulture)}";
-            if (!await db.Assets.AnyAsync(a => a.AssetNumber == number, ct)) return number;
+            if (!await db.Assets.IgnoreQueryFilters().AnyAsync(a => a.AssetNumber == number, ct)) return number;
         }
         throw new BcUnavailableException($"The mock number series {prefix} is exhausted");
     }
@@ -85,7 +85,7 @@ public sealed class BcNumberService(AssetIqDbContext db, IBcFixedAssetClient bc,
 
     private async Task<bool> TryIssueAsync(BcNumberRequest request, CancellationToken ct)
     {
-        var asset = await db.Assets.Include(a => a.Sbu).Include(a => a.AssetCategory).FirstAsync(a => a.Id == request.AssetId, ct);
+        var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.Sbu).Include(a => a.AssetCategory).FirstAsync(a => a.Id == request.AssetId, ct);
         var now = clock.UtcNow;
         if (asset.AssetNumber is not null)
         {

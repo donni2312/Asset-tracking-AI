@@ -1,3 +1,4 @@
+using AssetIQ.Api.Auth;
 using System.Globalization;
 using AssetIQ.Api.Configuration;
 using AssetIQ.Api.Contracts;
@@ -69,7 +70,7 @@ public sealed class GatePassService(
     {
         if (ids.Count == 0) return [];
         var list = ids.ToList();
-        var byId = await Project(db.GatePasses.AsNoTracking().Where(p => list.Contains(p.Id))).ToDictionaryAsync(p => p.Id, ct);
+        var byId = await Project(db.GatePasses.IgnoreQueryFilters().AsNoTracking().Where(p => list.Contains(p.Id))).ToDictionaryAsync(p => p.Id, ct);
         return list.Select(id => byId[id]).ToList();
     }
 
@@ -84,8 +85,46 @@ public sealed class GatePassService(
     }
 
     public async Task<GatePassDto> GetAsync(int id, CancellationToken ct) =>
-        await Project(db.GatePasses.AsNoTracking().Where(p => p.Id == id)).FirstOrDefaultAsync(ct)
+        await Project(db.GatePasses.IgnoreQueryFilters().AsNoTracking().Where(p => p.Id == id)).FirstOrDefaultAsync(ct)
         ?? throw new ApiException(StatusCodes.Status404NotFound, "Gate pass not found");
+
+    /// <summary>
+    /// Matrix "Raise gate pass": 404 for an unknown asset, 403 unless the caller may raise one for it
+    /// (<see cref="AccessPolicy.CanRaiseGatePass"/>).
+    /// </summary>
+    public async Task AuthorizeRaiseAsync(AuthUser user, int assetId, CancellationToken ct)
+    {
+        var asset = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstOrDefaultAsync(a => a.Id == assetId, ct)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
+        if (!AccessPolicy.CanRaiseGatePass(user, asset, asset.AssetCategory.IsIt)) throw AccessPolicy.Deny(user, "raise a gate pass for this asset");
+    }
+
+    /// <summary>
+    /// Matrix "Approve gate pass" (also used for rejections): 404 for an unknown pass, 403 unless
+    /// <see cref="AccessPolicy.CanDecideGatePass"/> allows the caller. A pass is high-value when the asset's USD
+    /// cost is above the <c>gate_pass_finance_threshold_usd</c> setting (SF-05).
+    /// </summary>
+    public async Task AuthorizeDecisionAsync(AuthUser user, int passId, CancellationToken ct)
+    {
+        var assetId = await db.GatePasses.IgnoreQueryFilters().Where(p => p.Id == passId).Select(p => (int?)p.AssetId).FirstOrDefaultAsync(ct)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Gate pass not found");
+        var asset = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).FirstAsync(a => a.Id == assetId, ct);
+        var threshold = await db.GroupSettings.AsNoTracking().Where(x => x.Key == "gate_pass_finance_threshold_usd").Select(x => x.Value).FirstOrDefaultAsync(ct);
+        var highValue = decimal.TryParse(threshold, NumberStyles.Number, CultureInfo.InvariantCulture, out var limit)
+            && (asset.CostUsd ?? asset.PurchaseValue ?? 0m) > limit;
+        var hodAvailable = asset.DepartmentId is { } department && await db.Users.AnyAsync(
+            u => u.Active && u.Role == Roles.Hod && u.SbuId == asset.SbuId && db.Employees.Any(e => e.Id == u.EmployeeId && e.DepartmentId == department), ct);
+        if (!AccessPolicy.CanDecideGatePass(user, asset, asset.AssetCategory.IsIt, highValue, hodAvailable))
+        {
+            throw AccessPolicy.Deny(user, user.Role switch
+            {
+                Roles.SbuFinance => "decide this gate pass (SBU Finance decides high-value passes only, SF-05)",
+                Roles.SbuAdmin => "decide this gate pass while the department's HOD can",
+                Roles.Hod => "decide gate passes for another department's assets",
+                _ => "decide this gate pass",
+            });
+        }
+    }
 
     /// <summary>Manual request (the "Request gate pass" form). One pending pass per asset at a time.</summary>
     public async Task<GatePassDto> CreateRequestAsync(GatePassRequest input, CancellationToken ct)
@@ -103,7 +142,7 @@ public sealed class GatePassService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var asset = await LockAssetAsync(input.AssetId, ct);
 
-        var pendingId = await db.GatePasses
+        var pendingId = await db.GatePasses.IgnoreQueryFilters()
             .Where(p => p.AssetId == asset.Id && p.Status == GatePassStatuses.Pending)
             .Select(p => (int?)p.Id)
             .FirstOrDefaultAsync(ct);
@@ -205,7 +244,7 @@ public sealed class GatePassService(
     /// <summary>Atomically move a pass out of "pending"; 404 if it does not exist, 409 if it was already decided.</summary>
     private async Task<GatePass> ClaimPendingPassAsync(int id, string status, string decidedBy, string? note, DateTime now, CancellationToken ct)
     {
-        var claimed = await db.GatePasses
+        var claimed = await db.GatePasses.IgnoreQueryFilters()
             .Where(p => p.Id == id && p.Status == GatePassStatuses.Pending)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.Status, status)
@@ -213,16 +252,16 @@ public sealed class GatePassService(
                 .SetProperty(p => p.DecisionNote, note)
                 .SetProperty(p => p.DecidedAt, (DateTime?)now)
                 .SetProperty(p => p.UpdatedAt, now), ct);
-        if (claimed == 1) return await db.GatePasses.AsNoTracking().FirstAsync(p => p.Id == id, ct);
+        if (claimed == 1) return await db.GatePasses.IgnoreQueryFilters().AsNoTracking().FirstAsync(p => p.Id == id, ct);
 
-        var existing = await db.GatePasses.AsNoTracking().Where(p => p.Id == id).Select(p => p.Status).FirstOrDefaultAsync(ct)
+        var existing = await db.GatePasses.IgnoreQueryFilters().AsNoTracking().Where(p => p.Id == id).Select(p => p.Status).FirstOrDefaultAsync(ct)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Gate pass not found");
         throw new ApiException(StatusCodes.Status409Conflict, $"Gate pass #{id} has already been {existing}");
     }
 
     /// <summary>The asset row, locked for the rest of the transaction.</summary>
     private async Task<Asset> LockAssetAsync(int assetId, CancellationToken ct) =>
-        (await db.Assets.FromSql($"SELECT * FROM assets WHERE id = {assetId} FOR UPDATE").ToListAsync(ct)).FirstOrDefault()
+        (await db.Assets.FromSql($"SELECT * FROM assets WHERE id = {assetId} FOR UPDATE").IgnoreQueryFilters().ToListAsync(ct)).FirstOrDefault()
         ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
 
     private async Task<(Asset Asset, LocationRef? Location)> LoadAssetWithLocationAsync(int assetId, CancellationToken ct)
@@ -238,7 +277,7 @@ public sealed class GatePassService(
     }
 
     private Task<int> DismissExitAttemptAlertsAsync(int gatePassId, CancellationToken ct) =>
-        db.AiInsights
+        db.AiInsights.IgnoreQueryFilters()
             .Where(i => i.GatePassId == gatePassId && i.Type == InsightTypes.UnauthorizedMovement && !i.Dismissed)
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Dismissed, true), ct);
 }

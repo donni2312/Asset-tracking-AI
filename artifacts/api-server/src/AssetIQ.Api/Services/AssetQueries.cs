@@ -82,10 +82,13 @@ public sealed class AssetQueries(AssetIqDbContext db)
         return rows.ToDictionary(r => r.AssetId);
     }
 
-    /// <summary>Time of the latest movement of every asset that has moved at least once.</summary>
+    /// <summary>
+    /// Time of the latest movement of every asset that has moved at least once, across every SBU (the AI rules
+    /// need it); callers only read it for assets they already hold.
+    /// </summary>
     public async Task<Dictionary<int, DateTime>> LastMovedAtAsync(CancellationToken ct = default)
     {
-        var rows = await db.Movements.AsNoTracking()
+        var rows = await db.Movements.IgnoreQueryFilters().AsNoTracking()
             .GroupBy(m => m.AssetId)
             .Select(g => new { AssetId = g.Key, LastMovedAt = g.Max(m => m.Timestamp) })
             .ToListAsync(ct);

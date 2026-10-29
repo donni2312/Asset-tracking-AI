@@ -3,16 +3,25 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { TemplateValues } from './templateValues';
 
+/**
+ * The invoice as invoiced - invoiceAmount, currency and exchangeRate (needed unless USD); cost (USD) alone is still accepted.
+ */
 export interface UpgradeInput {
   upgradeDate: Date;
   description: string;
   beforeText: string;
   afterText: string;
-  cost: number;
+  invoiceAmount?: number;
+  /** ISO 4217, default USD */
+  currency?: string;
+  /** currency → USD; required unless USD */
+  exchangeRate?: number;
+  /** USD amount, when no invoiceAmount is given */
+  cost?: number;
   supplier?: string;
   invoiceNo?: string;
   fieldChanges?: TemplateValues;

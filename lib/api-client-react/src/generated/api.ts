@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import {
   useMutation,
@@ -37,6 +37,8 @@ import type {
   AssetLookup,
   AssetUpdate,
   AssetUpgrade,
+  Attachment,
+  AttachmentUpload,
   AuditEntry,
   AuditorAccessUpdate,
   AuditorInput,
@@ -47,6 +49,8 @@ import type {
   CategoryUpdate,
   CompletenessReport,
   DashboardSummary,
+  Department,
+  DepartmentInput,
   DepreciationLock,
   DepreciationRun,
   DepreciationRunInput,
@@ -59,6 +63,9 @@ import type {
   DownloadInsightsReportParams,
   DownloadLifecycleReportParams,
   DownloadMovementsReportParams,
+  Employee,
+  EmployeeInput,
+  EmployeeUpdate,
   FinanceDashboard,
   FinancialUpdate,
   GateActivityItem,
@@ -78,11 +85,14 @@ import type {
   ListAccessLogParams,
   ListAssetsParams,
   ListCategoriesParams,
+  ListDepartmentsParams,
+  ListEmployeesParams,
   ListGatePassesParams,
   ListLifecycleEventsParams,
   ListLocationsParams,
   ListMovementsParams,
   ListRfidReadersParams,
+  ListUsersParams,
   Location,
   LocationBreakdown,
   LocationInput,
@@ -99,15 +109,21 @@ import type {
   RFIDSimulateInput,
   ReasonInput,
   RegisterReport,
+  RoleInfo,
   SBUInput,
   Sbu,
+  ScanCodeParams,
+  ScanResult,
   SettingUpdate,
   TagInput,
   TemplateFieldInput,
   TemplateFieldUpdate,
   UpgradeDecision,
   UpgradeInput,
-  User
+  User,
+  UserAccount,
+  UserAccountInput,
+  UserAccountUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -448,7 +464,6 @@ export const getCreateSbuUrl = () => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Create an SBU
  */
 export const createSbu = async (sBUInput: SBUInput, options?: RequestInit): Promise<Sbu> => {
@@ -597,7 +612,6 @@ export const getUpdateSbuUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Update an SBU
  */
 export const updateSbu = async (id: number,
@@ -831,7 +845,7 @@ export const getCreateAssetUrl = () => {
 }
 
 /**
- * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
+ * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU; non-IT assets by that SBU's Admin Manager or its Stores at receipt). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
  * @summary Register a new asset from its category template (AU-01 … AU-03)
  */
 export const createAsset = async (assetInput: AssetInput, options?: RequestInit): Promise<Asset> => {
@@ -1053,7 +1067,7 @@ export const getDeleteAssetUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
+ * Needs edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
  * @summary Delete a mistaken registration
  */
 export const deleteAsset = async (id: number, options?: RequestInit): Promise<void> => {
@@ -1279,7 +1293,6 @@ export const getCreateAssetLifecycleEventUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Record a lifecycle event for an asset
  */
 export const createAssetLifecycleEvent = async (id: number,
@@ -1520,7 +1533,6 @@ export const getCreateLocationUrl = () => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Create a location
  */
 export const createLocation = async (locationInput: LocationInput, options?: RequestInit): Promise<Location> => {
@@ -1669,7 +1681,6 @@ export const getUpdateLocationUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Update a location
  */
 export const updateLocation = async (id: number,
@@ -1903,7 +1914,6 @@ export const getCreateMovementUrl = () => {
 }
 
 /**
- * Requires the `viewer` role.
  * @summary Record a manual movement event
  */
 export const createMovement = async (movementInput: MovementInput, options?: RequestInit): Promise<MovementEvent> => {
@@ -2136,7 +2146,6 @@ export const getCreateGatePassUrl = () => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Submit a gate pass request
  */
 export const createGatePass = async (gatePassInput: GatePassInput, options?: RequestInit): Promise<GatePass> => {
@@ -3081,7 +3090,6 @@ export const getDismissInsightUrl = (id: number,) => {
 }
 
 /**
- * Requires the `operator` role.
  * @summary Dismiss an insight
  */
 export const dismissInsight = async (id: number, options?: RequestInit): Promise<AIInsight> => {
@@ -3231,7 +3239,6 @@ export const getDownloadAssetsReportUrl = (params?: DownloadAssetsReportParams,)
 }
 
 /**
- * Requires the `viewer` role.
  * @summary Asset register as CSV (same filters as listAssets)
  */
 export const downloadAssetsReport = async (params?: DownloadAssetsReportParams, options?: RequestInit): Promise<string> => {
@@ -3316,7 +3323,6 @@ export const getDownloadMovementsReportUrl = (params?: DownloadMovementsReportPa
 }
 
 /**
- * Requires the `viewer` role.
  * @summary Movement log as CSV, oldest first
  */
 export const downloadMovementsReport = async (params?: DownloadMovementsReportParams, options?: RequestInit): Promise<string> => {
@@ -3401,7 +3407,6 @@ export const getDownloadGatePassesReportUrl = (params?: DownloadGatePassesReport
 }
 
 /**
- * Requires the `viewer` role.
  * @summary Gate passes requested in a period as CSV, newest first
  */
 export const downloadGatePassesReport = async (params?: DownloadGatePassesReportParams, options?: RequestInit): Promise<string> => {
@@ -3486,7 +3491,6 @@ export const getDownloadInsightsReportUrl = (params?: DownloadInsightsReportPara
 }
 
 /**
- * Requires the `viewer` role.
  * @summary AI alerts as CSV, newest first
  */
 export const downloadInsightsReport = async (params?: DownloadInsightsReportParams, options?: RequestInit): Promise<string> => {
@@ -3571,7 +3575,6 @@ export const getDownloadLifecycleReportUrl = (params?: DownloadLifecycleReportPa
 }
 
 /**
- * Requires the `viewer` role.
  * @summary Lifecycle events in a period as CSV, oldest first
  */
 export const downloadLifecycleReport = async (params?: DownloadLifecycleReportParams, options?: RequestInit): Promise<string> => {
@@ -3726,7 +3729,6 @@ export const getTriggerBcSyncUrl = () => {
 }
 
 /**
- * Requires the `admin` role.
  * @summary Trigger a sync with Business Central
  */
 export const triggerBcSync = async ( options?: RequestInit): Promise<BCSyncStatus> => {
@@ -6619,6 +6621,1086 @@ export function useListAccessLog<TData = Awaited<ReturnType<typeof listAccessLog
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListAccessLogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRolesUrl = () => {
+
+
+
+
+  return `/api/roles`
+}
+
+/**
+ * @summary The roles, their display names and whether they need an SBU / employee link
+ */
+export const listRoles = async ( options?: RequestInit): Promise<RoleInfo[]> => {
+
+  return customFetch<RoleInfo[]>(getListRolesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRolesQueryKey = () => {
+    return [
+    `/api/roles`
+    ] as const;
+    }
+
+
+export const getListRolesQueryOptions = <TData = Awaited<ReturnType<typeof listRoles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRolesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRoles>>> = ({ signal }) => listRoles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRoles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRolesQueryResult = NonNullable<Awaited<ReturnType<typeof listRoles>>>
+export type ListRolesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The roles, their display names and whether they need an SBU / employee link
+ */
+
+export function useListRoles<TData = Awaited<ReturnType<typeof listRoles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRolesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListUsersUrl = (params?: ListUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/users?${stringifiedParams}` : `/api/users`
+}
+
+/**
+ * @summary User accounts (Group IT - all; SBU IT - its own SBU; GI-08)
+ */
+export const listUsers = async (params?: ListUsersParams, options?: RequestInit): Promise<UserAccount[]> => {
+
+  return customFetch<UserAccount[]>(getListUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUsersQueryKey = (params?: ListUsersParams,) => {
+    return [
+    `/api/users`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(params?: ListUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type ListUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary User accounts (Group IT - all; SBU IT - its own SBU; GI-08)
+ */
+
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(
+ params?: ListUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateUserUrl = () => {
+
+
+
+
+  return `/api/users`
+}
+
+/**
+ * @summary Create an account (Group IT any role but auditor; SBU IT - SBU roles of its own SBU)
+ */
+export const createUser = async (userAccountInput: UserAccountInput, options?: RequestInit): Promise<UserAccount> => {
+
+  return customFetch<UserAccount>(getCreateUserUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(userAccountInput)
+  }
+);}
+
+
+
+
+
+export const getCreateUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: BodyType<UserAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: BodyType<UserAccountInput>}, TContext> => {
+
+const mutationKey = ['createUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUser>>, {data: BodyType<UserAccountInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createUser(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateUserMutationResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
+    export type CreateUserMutationBody = BodyType<UserAccountInput>
+    export type CreateUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create an account (Group IT any role but auditor; SBU IT - SBU roles of its own SBU)
+ */
+export const useCreateUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: BodyType<UserAccountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createUser>>,
+        TError,
+        {data: BodyType<UserAccountInput>},
+        TContext
+      > => {
+      return useMutation(getCreateUserMutationOptions(options));
+    }
+
+export const getUpdateUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}`
+}
+
+/**
+ * @summary Change role, SBU, employee link, name, access or password (audit-logged; nobody changes their own role)
+ */
+export const updateUser = async (id: number,
+    userAccountUpdate: UserAccountUpdate, options?: RequestInit): Promise<UserAccount> => {
+
+  return customFetch<UserAccount>(getUpdateUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(userAccountUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserAccountUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserAccountUpdate>}, TContext> => {
+
+const mutationKey = ['updateUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, {id: number;data: BodyType<UserAccountUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateUser>>>
+    export type UpdateUserMutationBody = BodyType<UserAccountUpdate>
+    export type UpdateUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change role, SBU, employee link, name, access or password (audit-logged; nobody changes their own role)
+ */
+export const useUpdateUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserAccountUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateUser>>,
+        TError,
+        {id: number;data: BodyType<UserAccountUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateUserMutationOptions(options));
+    }
+
+export const getListDepartmentsUrl = (params?: ListDepartmentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/departments?${stringifiedParams}` : `/api/departments`
+}
+
+/**
+ * @summary Departments the caller may see (Group roles all; SBU roles their SBU; the HOD theirs)
+ */
+export const listDepartments = async (params?: ListDepartmentsParams, options?: RequestInit): Promise<Department[]> => {
+
+  return customFetch<Department[]>(getListDepartmentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDepartmentsQueryKey = (params?: ListDepartmentsParams,) => {
+    return [
+    `/api/departments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListDepartmentsQueryOptions = <TData = Awaited<ReturnType<typeof listDepartments>>, TError = ErrorType<unknown>>(params?: ListDepartmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDepartments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDepartmentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDepartments>>> = ({ signal }) => listDepartments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDepartments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDepartmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listDepartments>>>
+export type ListDepartmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Departments the caller may see (Group roles all; SBU roles their SBU; the HOD theirs)
+ */
+
+export function useListDepartments<TData = Awaited<ReturnType<typeof listDepartments>>, TError = ErrorType<unknown>>(
+ params?: ListDepartmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDepartments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDepartmentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDepartmentUrl = () => {
+
+
+
+
+  return `/api/departments`
+}
+
+/**
+ * @summary Add a department to the caller's SBU (SBU HR)
+ */
+export const createDepartment = async (departmentInput: DepartmentInput, options?: RequestInit): Promise<Department> => {
+
+  return customFetch<Department>(getCreateDepartmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(departmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateDepartmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDepartment>>, TError,{data: BodyType<DepartmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDepartment>>, TError,{data: BodyType<DepartmentInput>}, TContext> => {
+
+const mutationKey = ['createDepartment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDepartment>>, {data: BodyType<DepartmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDepartment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDepartmentMutationResult = NonNullable<Awaited<ReturnType<typeof createDepartment>>>
+    export type CreateDepartmentMutationBody = BodyType<DepartmentInput>
+    export type CreateDepartmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a department to the caller's SBU (SBU HR)
+ */
+export const useCreateDepartment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDepartment>>, TError,{data: BodyType<DepartmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDepartment>>,
+        TError,
+        {data: BodyType<DepartmentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateDepartmentMutationOptions(options));
+    }
+
+export const getListEmployeesUrl = (params?: ListEmployeesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/employees?${stringifiedParams}` : `/api/employees`
+}
+
+/**
+ * @summary Employees the caller may see (Group roles all; the HOD their department; SBU roles their SBU)
+ */
+export const listEmployees = async (params?: ListEmployeesParams, options?: RequestInit): Promise<Employee[]> => {
+
+  return customFetch<Employee[]>(getListEmployeesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmployeesQueryKey = (params?: ListEmployeesParams,) => {
+    return [
+    `/api/employees`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListEmployeesQueryOptions = <TData = Awaited<ReturnType<typeof listEmployees>>, TError = ErrorType<unknown>>(params?: ListEmployeesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmployees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmployeesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmployees>>> = ({ signal }) => listEmployees(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmployees>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmployeesQueryResult = NonNullable<Awaited<ReturnType<typeof listEmployees>>>
+export type ListEmployeesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Employees the caller may see (Group roles all; the HOD their department; SBU roles their SBU)
+ */
+
+export function useListEmployees<TData = Awaited<ReturnType<typeof listEmployees>>, TError = ErrorType<unknown>>(
+ params?: ListEmployeesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmployees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmployeesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEmployeeUrl = () => {
+
+
+
+
+  return `/api/employees`
+}
+
+/**
+ * @summary Add an employee to the caller's SBU (SBU HR)
+ */
+export const createEmployee = async (employeeInput: EmployeeInput, options?: RequestInit): Promise<Employee> => {
+
+  return customFetch<Employee>(getCreateEmployeeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(employeeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateEmployeeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<EmployeeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<EmployeeInput>}, TContext> => {
+
+const mutationKey = ['createEmployee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEmployee>>, {data: BodyType<EmployeeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEmployee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof createEmployee>>>
+    export type CreateEmployeeMutationBody = BodyType<EmployeeInput>
+    export type CreateEmployeeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add an employee to the caller's SBU (SBU HR)
+ */
+export const useCreateEmployee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<EmployeeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEmployee>>,
+        TError,
+        {data: BodyType<EmployeeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEmployeeMutationOptions(options));
+    }
+
+export const getGetEmployeeUrl = (id: number,) => {
+
+
+
+
+  return `/api/employees/${id}`
+}
+
+/**
+ * @summary One employee (403 outside the caller's scope)
+ */
+export const getEmployee = async (id: number, options?: RequestInit): Promise<Employee> => {
+
+  return customFetch<Employee>(getGetEmployeeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEmployeeQueryKey = (id: number,) => {
+    return [
+    `/api/employees/${id}`
+    ] as const;
+    }
+
+
+export const getGetEmployeeQueryOptions = <TData = Awaited<ReturnType<typeof getEmployee>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEmployeeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmployee>>> = ({ signal }) => getEmployee(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEmployee>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEmployeeQueryResult = NonNullable<Awaited<ReturnType<typeof getEmployee>>>
+export type GetEmployeeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary One employee (403 outside the caller's scope)
+ */
+
+export function useGetEmployee<TData = Awaited<ReturnType<typeof getEmployee>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmployee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEmployeeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateEmployeeUrl = (id: number,) => {
+
+
+
+
+  return `/api/employees/${id}`
+}
+
+/**
+ * @summary Change an employee of the caller's SBU (SBU HR; audit-logged)
+ */
+export const updateEmployee = async (id: number,
+    employeeUpdate: EmployeeUpdate, options?: RequestInit): Promise<Employee> => {
+
+  return customFetch<Employee>(getUpdateEmployeeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(employeeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateEmployeeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,{id: number;data: BodyType<EmployeeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,{id: number;data: BodyType<EmployeeUpdate>}, TContext> => {
+
+const mutationKey = ['updateEmployee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEmployee>>, {id: number;data: BodyType<EmployeeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateEmployee(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof updateEmployee>>>
+    export type UpdateEmployeeMutationBody = BodyType<EmployeeUpdate>
+    export type UpdateEmployeeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Change an employee of the caller's SBU (SBU HR; audit-logged)
+ */
+export const useUpdateEmployee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEmployee>>, TError,{id: number;data: BodyType<EmployeeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEmployee>>,
+        TError,
+        {id: number;data: BodyType<EmployeeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateEmployeeMutationOptions(options));
+    }
+
+export const getListAssetAttachmentsUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/attachments`
+}
+
+/**
+ * @summary Invoices, photos and documents on the asset, newest first
+ */
+export const listAssetAttachments = async (id: number, options?: RequestInit): Promise<Attachment[]> => {
+
+  return customFetch<Attachment[]>(getListAssetAttachmentsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAssetAttachmentsQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/attachments`
+    ] as const;
+    }
+
+
+export const getListAssetAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetAttachments>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAssetAttachmentsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetAttachments>>> = ({ signal }) => listAssetAttachments(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetAttachments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAssetAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetAttachments>>>
+export type ListAssetAttachmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Invoices, photos and documents on the asset, newest first
+ */
+
+export function useListAssetAttachments<TData = Awaited<ReturnType<typeof listAssetAttachments>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAssetAttachmentsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadAssetAttachmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/attachments`
+}
+
+/**
+ * @summary Attach a PDF, JPEG or PNG (up to 10 MB). Attachments are never deleted.
+ */
+export const uploadAssetAttachment = async (id: number,
+    attachmentUpload: AttachmentUpload, options?: RequestInit): Promise<Attachment> => {
+    const formData = new FormData();
+formData.append(`file`, attachmentUpload.file);
+formData.append(`kind`, attachmentUpload.kind);
+if(attachmentUpload.upgradeId !== undefined) {
+ formData.append(`upgradeId`, attachmentUpload.upgradeId.toString())
+ }
+
+  return customFetch<Attachment>(getUploadAssetAttachmentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getUploadAssetAttachmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadAssetAttachment>>, TError,{id: number;data: BodyType<AttachmentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadAssetAttachment>>, TError,{id: number;data: BodyType<AttachmentUpload>}, TContext> => {
+
+const mutationKey = ['uploadAssetAttachment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadAssetAttachment>>, {id: number;data: BodyType<AttachmentUpload>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadAssetAttachment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadAssetAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadAssetAttachment>>>
+    export type UploadAssetAttachmentMutationBody = BodyType<AttachmentUpload>
+    export type UploadAssetAttachmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Attach a PDF, JPEG or PNG (up to 10 MB). Attachments are never deleted.
+ */
+export const useUploadAssetAttachment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadAssetAttachment>>, TError,{id: number;data: BodyType<AttachmentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadAssetAttachment>>,
+        TError,
+        {id: number;data: BodyType<AttachmentUpload>},
+        TContext
+      > => {
+      return useMutation(getUploadAssetAttachmentMutationOptions(options));
+    }
+
+export const getDownloadAttachmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/attachments/${id}`
+}
+
+/**
+ * Add ?inline=true to display the file (photo, PDF preview) instead of downloading it.
+ * @summary The file; every download is recorded in the access log
+ */
+export const downloadAttachment = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadAttachmentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadAttachmentQueryKey = (id: number,) => {
+    return [
+    `/api/attachments/${id}`
+    ] as const;
+    }
+
+
+export const getDownloadAttachmentQueryOptions = <TData = Awaited<ReturnType<typeof downloadAttachment>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadAttachmentQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadAttachment>>> = ({ signal }) => downloadAttachment(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadAttachment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadAttachmentQueryResult = NonNullable<Awaited<ReturnType<typeof downloadAttachment>>>
+export type DownloadAttachmentQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The file; every download is recorded in the access log
+ */
+
+export function useDownloadAttachment<TData = Awaited<ReturnType<typeof downloadAttachment>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadAttachmentQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getScanCodeUrl = (params: ScanCodeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/scan?${stringifiedParams}` : `/api/scan`
+}
+
+/**
+ * @summary Look up a scanned tag, asset number or serial (the Gate Officer's only view of an asset)
+ */
+export const scanCode = async (params: ScanCodeParams, options?: RequestInit): Promise<ScanResult> => {
+
+  return customFetch<ScanResult>(getScanCodeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getScanCodeQueryKey = (params?: ScanCodeParams,) => {
+    return [
+    `/api/scan`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getScanCodeQueryOptions = <TData = Awaited<ReturnType<typeof scanCode>>, TError = ErrorType<unknown>>(params: ScanCodeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof scanCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getScanCodeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof scanCode>>> = ({ signal }) => scanCode(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof scanCode>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ScanCodeQueryResult = NonNullable<Awaited<ReturnType<typeof scanCode>>>
+export type ScanCodeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Look up a scanned tag, asset number or serial (the Gate Officer's only view of an asset)
+ */
+
+export function useScanCode<TData = Awaited<ReturnType<typeof scanCode>>, TError = ErrorType<unknown>>(
+ params: ScanCodeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof scanCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getScanCodeQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

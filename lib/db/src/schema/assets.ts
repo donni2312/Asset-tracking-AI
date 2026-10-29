@@ -4,6 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { locationsTable } from "./locations";
 import { sbusTable } from "./sbus";
+import { departmentsTable, employeesTable } from "./people";
 
 export const assetsTable = pgTable("assets", {
   id: serial("id").primaryKey(),
@@ -27,6 +28,8 @@ export const assetsTable = pgTable("assets", {
   status: text("status").notNull().default("active"),
   condition: text("condition"),              // new | good | fair | poor | damaged
   assignedTo: text("assigned_to"),           // custodian: the person holding the asset (or the store holding it)
+  custodianEmployeeId: integer("custodian_employee_id").references(() => employeesTable.id), // the employee holding it (assignedTo shows the name)
+  departmentId: integer("department_id").references(() => departmentsTable.id),            // the department holding it (LM-01)
   currentLocationId: integer("current_location_id").references(() => locationsTable.id),
   sbuId: integer("sbu_id").references(() => sbusTable.id), // which SBU owns / is responsible for this asset
   // Cost (AU-04). Money is numeric, never floating point.

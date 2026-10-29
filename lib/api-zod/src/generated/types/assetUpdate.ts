@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import type { AssetCondition } from './assetCondition';
 import type { AssetUpdateStatus } from './assetUpdateStatus';
@@ -25,6 +25,16 @@ export interface AssetUpdate {
   notes?: string | null;
   /** @nullable */
   warrantyEnds?: Date | null;
+  /**
+     * The employee holding the asset (sets the holder's name and department); null clears it
+     * @nullable
+     */
+  custodianEmployeeId?: number | null;
+  /**
+     * The department holding the asset (LM-01)
+     * @nullable
+     */
+  departmentId?: number | null;
   /** Saved with the audit entries */
   reason?: string;
 }

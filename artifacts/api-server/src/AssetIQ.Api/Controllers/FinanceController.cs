@@ -33,13 +33,13 @@ public sealed class FinanceController(
     }
 
     [HttpGet("finance/register")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load the asset register")]
     public Task<RegisterReportDto> Register([FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId) =>
         reports.RegisterAsync(Caller, Query(period, sbuId, locationId, categoryId), Aborted);
 
     [HttpGet("finance/register.{format:regex(^(xlsx|pdf)$)}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to export the asset register")]
     public async Task<IActionResult> RegisterExport(string format, [FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId)
     {
@@ -50,13 +50,13 @@ public sealed class FinanceController(
     }
 
     [HttpGet("finance/category-report")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load the category report")]
     public Task<CategoryReportDto> CategoryReport([FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId) =>
         reports.CategoryReportAsync(Caller, Query(period, sbuId, locationId, categoryId), Aborted);
 
     [HttpGet("finance/category-report.{format:regex(^(xlsx|pdf)$)}")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to export the category report")]
     public async Task<IActionResult> CategoryReportExport(string format, [FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId)
     {
@@ -67,13 +67,13 @@ public sealed class FinanceController(
     }
 
     [HttpGet("finance/dashboard")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load the finance dashboard")]
     public Task<FinanceDashboardDto> Dashboard([FromQuery] string? period, [FromQuery] string? sbuId) =>
         reports.DashboardAsync(Caller, Query(period, sbuId, null, null), Aborted);
 
     [HttpGet("finance/completeness")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load the completeness report")]
     public async Task<CompletenessReportDto> Completeness([FromQuery] string? sbuId, [FromQuery] string? categoryId)
     {
@@ -85,13 +85,13 @@ public sealed class FinanceController(
     }
 
     [HttpGet("approvals")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load approvals")]
     public Task<List<ApprovalItemDto>> Approvals() => reports.ApprovalsAsync(Caller, Aborted);
 
     /// <summary>SF-03 / GF-03: the monthly run (SBU Finance for its SBU, Group Finance for any SBU or the Group).</summary>
     [HttpPost("depreciation/run")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceWriters)]
     [FailureMessage("Depreciation run failed")]
     public async Task<DepreciationRunDto> Run([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -104,7 +104,7 @@ public sealed class FinanceController(
     }
 
     [HttpGet("depreciation/locks")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to list locked months")]
     public Task<List<DepreciationLockDto>> Locks() =>
         db.DepreciationLocks.AsNoTracking().OrderBy(l => l.SbuId).ThenByDescending(l => l.Period)
@@ -112,7 +112,7 @@ public sealed class FinanceController(
 
     /// <summary>SF-03: SBU Finance locks a reviewed month; it is never recalculated afterwards.</summary>
     [HttpPost("depreciation/locks")]
-    [RequireRole(Roles.Viewer)]
+    [RequireRole(Roles.SbuFinance)]
     [FailureMessage("Failed to lock the month")]
     public async Task<IActionResult> Lock([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {

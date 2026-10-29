@@ -27,7 +27,7 @@ public sealed class AssetCardService(
     {
         var text = code.Trim().ToUpperInvariant();
         if (text.Length == 0) throw new ApiException(StatusCodes.Status400BadRequest, "code: Required");
-        var found = await db.Assets.AsNoTracking().Include(a => a.AssetCategory)
+        var found = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory)
             .Where(a => a.AssetNumber!.ToUpper() == text || a.RfidTag!.ToUpper() == text || a.PreviousAssetNumber!.ToUpper() == text || a.SerialNumber == text)
             .FirstOrDefaultAsync(ct) ?? throw new ApiException(StatusCodes.Status404NotFound, $"No asset has the number, tag or serial {code.Trim()}");
         if (!AccessPolicy.CanView(user, found, found.AssetCategory.IsIt)) throw AccessPolicy.Deny(user, "view this asset");
@@ -36,7 +36,7 @@ public sealed class AssetCardService(
 
     public async Task<AssetCardDto> GetAsync(AuthUser user, int assetId, CancellationToken ct)
     {
-        var asset = await db.Assets.AsNoTracking()
+        var asset = await db.Assets.IgnoreQueryFilters().AsNoTracking()
             .Include(a => a.AssetCategory).ThenInclude(c => c.Fields)
             .Include(a => a.Attributes)
             .FirstOrDefaultAsync(a => a.Id == assetId, ct) ?? throw new ApiException(StatusCodes.Status404NotFound, "Asset not found");
@@ -97,7 +97,8 @@ public sealed class AssetCardService(
                 AccessPolicy.CanLogUpgrade(user, category.IsIt, asset.SbuId),
                 AccessPolicy.IsSbuFinanceOf(user, asset.SbuId),
                 AccessPolicy.IsSbuFinanceOf(user, asset.SbuId),
-                asset.AssetNumber is not null && (AccessPolicy.CanEditTechnical(user, category.IsIt, asset.SbuId) || user.Role == Roles.Stores)),
+                asset.AssetNumber is not null && (AccessPolicy.CanEditTechnical(user, category.IsIt, asset.SbuId) || user.Role == Roles.Stores),
+                AccessPolicy.CanAttach(user, asset, category.IsIt)),
         };
     }
 
@@ -106,7 +107,7 @@ public sealed class AssetCardService(
         Id = u.Id, AssetId = u.AssetId, AssetNumber = assetNumber, AssetDescription = assetDescription,
         UpgradeDate = u.UpgradeDate, Description = u.Description, BeforeText = u.BeforeText, AfterText = u.AfterText,
         FieldChanges = JsonSerializer.Deserialize<Dictionary<string, string?>>(u.FieldChanges) ?? [],
-        Cost = u.Cost, Supplier = u.Supplier, InvoiceNo = u.InvoiceNo, LoggedBy = u.LoggedBy, LoggedByRole = u.LoggedByRole,
+        Cost = u.Cost, Currency = u.Currency, InvoiceAmount = u.InvoiceAmount ?? u.Cost, ExchangeRate = u.ExchangeRate, Supplier = u.Supplier, InvoiceNo = u.InvoiceNo, LoggedBy = u.LoggedBy, LoggedByRole = u.LoggedByRole,
         Status = u.Status, DecidedBy = u.DecidedBy, DecidedAt = u.DecidedAt, DecisionComment = u.DecisionComment,
         CapitalisedPeriod = u.CapitalisedPeriod, RevisedLifeMonths = u.RevisedLifeMonths, CreatedAt = u.CreatedAt,
     };

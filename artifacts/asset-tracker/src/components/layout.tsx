@@ -2,10 +2,12 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   Activity, Box, Boxes, Building2, CheckCircle2, Database, FileDown, FileText, HardDrive, Inbox, LayoutDashboard, MapPin, Radio, ScanLine,
-  Settings2, ShieldAlert, Truck, Users, Gauge,
+  Settings2, ShieldAlert, Truck, Users, Gauge, 
 } from "lucide-react";
 import { useListApprovals } from "@workspace/api-client-react";
 import { useCurrentUser } from "@/hooks/use-auth";
+import { inGroup, ROLE_GROUPS, type RoleGroup } from "@/lib/roles";
+import type { UserRole } from "@workspace/api-client-react";
 import { ReactNode } from "react";
 import { usePendingGatePassNotifications } from "@/components/gate-pass-notifications";
 import { SettingsButton } from "@/components/settings-dialog";
@@ -29,30 +31,36 @@ export function Layout({ children }: LayoutProps) {
   const pendingApprovals = approvals?.length ?? 0;
 
   // Main entries follow the approved designs; the screens that came before them stay under "Tracking".
-  const navigation = [
-    { name: "Dashboard",           href: "/",              icon: LayoutDashboard },
-    { name: "Asset Register",      href: "/register",      icon: Boxes },
-    { name: "Reports",             href: "/reports/category", icon: FileText },
-    { name: "Approvals",           href: "/approvals",     icon: Inbox },
-    { name: "Verification",        href: "/verification",  icon: ScanLine },
-    { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2 },
-    { name: "Gate Passes",         href: "/gate-passes",   icon: ShieldAlert },
-    { name: "People & Toolboxes",  href: "/people",        icon: Users },
-    { name: "Departments",         href: "/departments",   icon: Building2 },
-    { name: "Fleet & Non-IT",      href: "/fleet",         icon: Truck },
+  // Each entry shows only for the roles that may use it (lib/roles.ts mirrors the API); the API refuses the rest anyway.
+  type Entry = { name: string; href: string; icon: typeof Box; roles: RoleGroup | UserRole[] };
+  const navigation: Entry[] = [
+    { name: "Dashboard",           href: "/",              icon: LayoutDashboard, roles: "everyone" },
+    { name: "Scan",                href: "/scan",          icon: ScanLine,  roles: "scanners" },
+    { name: "Asset Register",      href: "/register",      icon: Boxes,     roles: "financeReaders" },
+    { name: "Reports",             href: "/reports/category", icon: FileText, roles: "financeReaders" },
+    { name: "Approvals",           href: "/approvals",     icon: Inbox,     roles: "financeReaders" },
+    { name: "Verification",        href: "/verification",  icon: ScanLine,  roles: "financeReaders" },
+    { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2, roles: ["stores", "sbu_finance", "sbu_it", "sbu_admin"] },
+    { name: "Gate Passes",         href: "/gate-passes",   icon: ShieldAlert, roles: "gatePassReaders" },
+    { name: "People & Toolboxes",  href: "/people",        icon: Users,     roles: "peopleReaders" },
+    { name: "Departments",         href: "/departments",   icon: Building2, roles: "peopleReaders" },
+    { name: "Fleet & Non-IT",      href: "/fleet",         icon: Truck,     roles: ["sbu_admin", "sbu_finance", "group_finance", "auditor"] },
   ];
-  const tracking = [
-    { name: "Operations",          href: "/operations",    icon: Gauge },
-    { name: "Assets (tracking)",   href: "/assets",        icon: Box },
-    { name: "SBUs",                href: "/sbus",          icon: Building2 },
-    { name: "Locations",           href: "/locations",     icon: MapPin },
-    { name: "Movements",           href: "/movements",     icon: Activity },
-    { name: "RFID Simulator",      href: "/rfid-simulator",icon: Radio },
-    { name: "AI Insights",         href: "/insights",      icon: Database },
-    { name: "CSV Reports",         href: "/reports",       icon: FileDown },
-    { name: "BC Sync",             href: "/bc-sync",       icon: HardDrive },
-    { name: "Administration",      href: "/administration", icon: Settings2 },
+  const tracking: Entry[] = [
+    { name: "Operations",          href: "/operations",    icon: Gauge,     roles: "recordReaders" },
+    { name: user?.role === "employee" ? "My items" : "Assets (tracking)", href: "/assets", icon: Box, roles: "assetReaders" },
+    { name: "SBUs",                href: "/sbus",          icon: Building2, roles: "recordReaders" },
+    { name: "Locations",           href: "/locations",     icon: MapPin,    roles: "recordReaders" },
+    { name: "Movements",           href: "/movements",     icon: Activity,  roles: "gateLogReaders" },
+    { name: "RFID Simulator",      href: "/rfid-simulator",icon: Radio,     roles: "rfidSimulator" },
+    { name: "AI Insights",         href: "/insights",      icon: Database,  roles: "recordReaders" },
+    { name: "CSV Reports",         href: "/reports",       icon: FileDown,  roles: "recordReaders" },
+    { name: "BC Sync",             href: "/bc-sync",       icon: HardDrive, roles: "bcViewers" },
+    { name: "Administration",      href: "/administration", icon: Settings2, roles: [...ROLE_GROUPS.administrators, "sbu_finance", "sbu_it", "auditor"] },
   ];
+  const visible = (e: Entry) => (typeof e.roles === "string" ? inGroup(user, e.roles) : !!user && e.roles.includes(user.role));
+  const shownNav = navigation.filter(visible);
+  const shownTracking = tracking.filter(visible);
   const isActive = (href: string) =>
     location === href || (href !== "/" && href !== "/reports" && location.startsWith(href)) ||
     (href === "/register" && /^\/assets\/(new|\d+\/card)/.test(location));
@@ -79,7 +87,7 @@ export function Layout({ children }: LayoutProps) {
           </Link>
         </div>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {[...navigation, null, ...tracking].map((item) => {
+          {[...shownNav, ...(shownTracking.length > 0 ? [null, ...shownTracking] : [])].map((item) => {
             if (item === null) {
               return <div key="tracking" className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-wider text-sidebar-foreground/50">Tracking</div>;
             }

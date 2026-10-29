@@ -1,5 +1,9 @@
+using System.Linq.Expressions;
 using System.Text;
+using AssetIQ.Api.Auth;
+using AssetIQ.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace AssetIQ.Api.Data;
@@ -8,9 +12,14 @@ namespace AssetIQ.Api.Data;
 /// EF Core mapping of the AssetIQ database. The schema is owned by lib/db (the Drizzle schema and the SQL
 /// migrations in lib/db/migrations, applied by `pnpm db:migrate`); this context never creates or migrates
 /// tables, it only maps onto them.
+/// Assets, and every table that hangs off an asset, carry a global query filter: the request's
+/// <see cref="AccessScope"/> (Phase 2). A context made outside a request (tests, the BC worker) is unrestricted.
 /// </summary>
-public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options) : DbContext(options)
+public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options, AccessScope? scope = null) : DbContext(options)
 {
+    /// <summary>What the current caller may see; read by the query filters every time a query runs.</summary>
+    public AccessScope Scope { get; } = scope ?? new AccessScope();
+
     public DbSet<Sbu> Sbus => Set<Sbu>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
@@ -31,6 +40,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
     public DbSet<AccessLogEntry> AccessLog => Set<AccessLogEntry>();
     public DbSet<BcNumberRequest> BcNumberRequests => Set<BcNumberRequest>();
     public DbSet<BcMockNumberSeries> BcMockNumberSeries => Set<BcMockNumberSeries>();
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<AssetAttachment> AssetAttachments => Set<AssetAttachment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -52,7 +64,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
         {
             e.ToTable("users");
             e.HasIndex(x => x.Username).IsUnique().HasDatabaseName("users_username_unique");
+            e.HasIndex(x => x.EmployeeId).IsUnique().HasDatabaseName("users_employee_id_unique");
             e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<Sbu>(e =>
@@ -88,11 +102,15 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
             e.HasMany(x => x.Attributes).WithOne().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.CurrentLocation).WithMany().HasForeignKey(x => x.CurrentLocationId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.Sbu).WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.CustodianEmployeeId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.NoAction);
+            e.HasQueryFilter(AssetVisible);
         });
 
         modelBuilder.Entity<Movement>(e =>
         {
             e.ToTable("movements");
+            e.HasQueryFilter(VisibleThrough<Movement>(nameof(Movement.Asset)));
             e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.FromLocation).WithMany().HasForeignKey(x => x.FromLocationId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.ToLocation).WithMany().HasForeignKey(x => x.ToLocationId).OnDelete(DeleteBehavior.NoAction);
@@ -103,6 +121,7 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
         modelBuilder.Entity<GatePass>(e =>
         {
             e.ToTable("gate_passes");
+            e.HasQueryFilter(VisibleThrough<GatePass>(nameof(GatePass.Asset)));
             e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.GateLocation).WithMany().HasForeignKey(x => x.GateLocationId).OnDelete(DeleteBehavior.NoAction);
         });
@@ -110,6 +129,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
         modelBuilder.Entity<AiInsight>(e =>
         {
             e.ToTable("ai_insights");
+            // Insights about no particular asset are for Group-wide roles only.
+            e.HasQueryFilter(Or<AiInsight>(i => i.AssetId == null && (Scope.Unrestricted || (!Scope.Nothing && Scope.SbuId == null)),
+                VisibleThrough<AiInsight>(nameof(AiInsight.Asset))));
             e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.GatePass).WithMany().HasForeignKey(x => x.GatePassId).OnDelete(DeleteBehavior.NoAction);
         });
@@ -117,6 +139,7 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
         modelBuilder.Entity<AssetLifecycleEvent>(e =>
         {
             e.ToTable("asset_lifecycle_events");
+            e.HasQueryFilter(VisibleThrough<AssetLifecycleEvent>(nameof(AssetLifecycleEvent.Asset)));
             e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.FromSbu).WithMany().HasForeignKey(x => x.FromSbuId).OnDelete(DeleteBehavior.NoAction);
             e.HasOne(x => x.ToSbu).WithMany().HasForeignKey(x => x.ToSbuId).OnDelete(DeleteBehavior.NoAction);
@@ -129,6 +152,7 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
             e.HasIndex(x => x.Name).IsUnique().HasDatabaseName("asset_categories_name_unique");
             e.Property(x => x.SubCategories).HasColumnType("jsonb");
             e.Property(x => x.AnnualRate).HasColumnType("numeric(9,6)");
+            e.Property(x => x.DefaultResidualPercent).HasColumnType("numeric(5,2)");
             e.HasMany(x => x.Fields).WithOne().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -158,7 +182,10 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
             e.ToTable("asset_upgrades");
             e.Property(x => x.FieldChanges).HasColumnType("jsonb");
             e.Property(x => x.Cost).HasColumnType("numeric(18,2)");
+            e.Property(x => x.InvoiceAmount).HasColumnType("numeric(18,2)");
+            e.Property(x => x.ExchangeRate).HasColumnType("numeric(18,6)");
             e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+            e.HasQueryFilter(VisibleThrough<AssetUpgrade>(nameof(AssetUpgrade.Asset)));
         });
 
         modelBuilder.Entity<DepreciationEntry>(e =>
@@ -192,6 +219,29 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
             e.HasIndex(x => x.Prefix).IsUnique().HasDatabaseName("bc_mock_number_series_prefix_unique");
         });
 
+        modelBuilder.Entity<Department>(e =>
+        {
+            e.ToTable("departments");
+            e.HasIndex(x => new { x.SbuId, x.Name }).IsUnique().HasDatabaseName("departments_sbu_name_unique");
+            e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<Employee>(e =>
+        {
+            e.ToTable("employees");
+            e.HasIndex(x => x.EmployeeNo).IsUnique().HasDatabaseName("employees_employee_no_unique");
+            e.HasOne<Sbu>().WithMany().HasForeignKey(x => x.SbuId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<Employee>().WithMany().HasForeignKey(x => x.LineManagerId).OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<AssetAttachment>(e =>
+        {
+            e.ToTable("asset_attachments");
+            e.Property(x => x.Content).HasColumnType("bytea");
+            e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<AssetUpgrade>().WithMany().HasForeignKey(x => x.UpgradeId).OnDelete(DeleteBehavior.NoAction);
+            e.HasQueryFilter(VisibleThrough<AssetAttachment>(nameof(AssetAttachment.Asset)));
+        });
+
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entity.GetProperties())
@@ -199,6 +249,30 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options)
                 property.SetColumnName(SnakeCase(property.Name));
             }
         }
+    }
+
+    /// <summary>The "View assets" rule of <see cref="AccessScope"/>, evaluated with this request's scope (AccessPolicy.Visible mirrors it).</summary>
+    private Expression<Func<Asset, bool>> AssetVisible => a => Scope.Unrestricted || (!Scope.Nothing
+        && (Scope.SbuId == null || a.SbuId == Scope.SbuId)
+        && (Scope.It == null || a.AssetCategory.IsIt == Scope.It)
+        && (!Scope.InStoreOnly || (a.CustodianEmployeeId == null && a.DepartmentId == null))
+        && (Scope.DepartmentId == null || a.DepartmentId == Scope.DepartmentId)
+        && (Scope.EmployeeId == null || a.CustodianEmployeeId == Scope.EmployeeId)
+        && (!Scope.HeldByEmployee || a.CustodianEmployeeId != null));
+
+    /// <summary>A row is visible when the asset it belongs to (through <paramref name="navigation"/>) is.</summary>
+    private Expression<Func<T, bool>> VisibleThrough<T>(string navigation)
+    {
+        var visible = AssetVisible;
+        var row = Expression.Parameter(typeof(T), "row");
+        var body = ReplacingExpressionVisitor.Replace(visible.Parameters[0], Expression.Property(row, navigation), visible.Body);
+        return Expression.Lambda<Func<T, bool>>(body, row);
+    }
+
+    private static Expression<Func<T, bool>> Or<T>(Expression<Func<T, bool>> left, Expression<Func<T, bool>> right)
+    {
+        var body = ReplacingExpressionVisitor.Replace(right.Parameters[0], left.Parameters[0], right.Body);
+        return Expression.Lambda<Func<T, bool>>(Expression.OrElse(left.Body, body), left.Parameters[0]);
     }
 
     /// <summary>"CurrentLocationId" → "current_location_id".</summary>

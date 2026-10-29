@@ -29,7 +29,7 @@ public sealed class ReportTests(ApiFixture api) : IAsyncLifetime
     private async Task<Download> Get(string path, string? token = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api" + path);
-        var bearer = token ?? w.ViewerToken;
+        var bearer = token ?? w.GroupItToken;
         if (bearer.Length > 0) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
         using var response = await api.Client.SendAsync(request);
         return new Download(
@@ -121,7 +121,8 @@ public sealed class ReportTests(ApiFixture api) : IAsyncLifetime
     public async Task Downloads_need_a_signed_in_user_and_valid_dates()
     {
         Assert.Equal(401, (await Get("/reports/assets.csv", ApiFixture.Anonymous)).Status);
-        Assert.Equal(200, (await Get("/reports/movements.csv", w.ViewerToken)).Status);
+        Assert.Equal(200, (await Get("/reports/movements.csv", w.SbuItToken)).Status);
+        Assert.Equal(403, (await Get("/reports/movements.csv", w.GroupFinanceToken)).Status); // the gate log is not Finance's (matrix)
         Assert.Equal(400, (await Get("/reports/movements.csv?from=14/10/2026")).Status);
         Assert.Equal(400, (await Get("/reports/movements.csv?from=2026-10-15&to=2026-10-14")).Status);
         Assert.Equal(400, (await Get("/reports/gate-passes.csv?to=2026-02-30")).Status);

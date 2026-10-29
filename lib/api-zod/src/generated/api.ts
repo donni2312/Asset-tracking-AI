@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 import * as zod from 'zod';
 
@@ -35,11 +35,15 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
   "roleName": zod.string().describe('Display name of the role, as on the sidebar'),
   "sbuId": zod.number().nullish(),
   "sbuCode": zod.string().nullish(),
   "scope": zod.string().describe('The data scope shown under the role (\"All SBUs\", \"BAK Logistics (IT assets)\")'),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
   "accessExpiresAt": zod.coerce.date().nullish(),
   "lastLoginAt": zod.coerce.date().nullish()
 })
@@ -53,11 +57,15 @@ export const GetCurrentUserResponse = zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "name": zod.string().describe('Display name, recorded on approvals and movements'),
-  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
   "roleName": zod.string().describe('Display name of the role, as on the sidebar'),
   "sbuId": zod.number().nullish(),
   "sbuCode": zod.string().nullish(),
   "scope": zod.string().describe('The data scope shown under the role (\"All SBUs\", \"BAK Logistics (IT assets)\")'),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
   "accessExpiresAt": zod.coerce.date().nullish(),
   "lastLoginAt": zod.coerce.date().nullish()
 })
@@ -81,7 +89,6 @@ export const ListSbusResponse = zod.array(ListSbusResponseItem)
 
 
 /**
- * Requires the `operator` role.
  * @summary Create an SBU
  */
 export const CreateSbuBody = zod.object({
@@ -126,7 +133,6 @@ export const GetSbuResponse = zod.object({
 
 
 /**
- * Requires the `operator` role.
  * @summary Update an SBU
  */
 export const UpdateSbuParams = zod.object({
@@ -261,7 +267,7 @@ export const ListAssetsResponse = zod.array(ListAssetsResponseItem)
 
 
 /**
- * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU and the original operator / admin roles; non-IT assets only by that SBU's Admin Manager). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
+ * There is no generic form: the category's template decides the fields. The API rejects a missing category, a missing required field or a field of another category (400), a serial / MAC used anywhere in the Group (409, naming the asset that has it; the attempt is logged), and a role that may not register this kind of asset (403: IT assets by Group IT, SBU IT or Stores of the SBU; non-IT assets by that SBU's Admin Manager or its Stores at receipt). The description is generated and the Business Central asset number is requested; until it is issued the status is pending_asset_number.
  * @summary Register a new asset from its category template (AU-01 … AU-03)
  */
 export const CreateAssetBody = zod.object({
@@ -393,6 +399,8 @@ export const UpdateAssetBody = zod.object({
   "sbuId": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "warrantyEnds": zod.coerce.date().nullish(),
+  "custodianEmployeeId": zod.number().nullish().describe('The employee holding the asset (sets the holder\'s name and department); null clears it'),
+  "departmentId": zod.number().nullish().describe('The department holding the asset (LM-01)'),
   "reason": zod.string().optional().describe('Saved with the audit entries')
 })
 
@@ -440,7 +448,7 @@ export const UpdateAssetResponse = zod.object({
 
 
 /**
- * Requires the `operator` role and edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
+ * Needs edit rights on the asset. An asset with a Business Central asset number can never be deleted (409), so its number is never reused; nor can one with history.
  * @summary Delete a mistaken registration
  */
 export const DeleteAssetParams = zod.object({
@@ -510,7 +518,6 @@ export const ListAssetLifecycleEventsResponse = zod.array(ListAssetLifecycleEven
 
 
 /**
- * Requires the `operator` role.
  * @summary Record a lifecycle event for an asset
  */
 export const CreateAssetLifecycleEventParams = zod.object({
@@ -523,6 +530,7 @@ export const CreateAssetLifecycleEventBody = zod.object({
   "fromSbuId": zod.number().optional(),
   "toSbuId": zod.number().optional(),
   "assignedTo": zod.string().optional(),
+  "custodianEmployeeId": zod.number().optional().describe('deployment - issue to this employee record (holder name and department follow)'),
   "vendor": zod.string().optional(),
   "ticketRef": zod.string().optional(),
   "conditionBefore": zod.string().optional(),
@@ -609,7 +617,6 @@ export const ListLocationsResponse = zod.array(ListLocationsResponseItem)
 
 
 /**
- * Requires the `operator` role.
  * @summary Create a location
  */
 export const CreateLocationBody = zod.object({
@@ -659,7 +666,6 @@ export const GetLocationResponse = zod.object({
 
 
 /**
- * Requires the `operator` role.
  * @summary Update a location
  */
 export const UpdateLocationParams = zod.object({
@@ -774,7 +780,6 @@ export const ListMovementsResponse = zod.array(ListMovementsResponseItem)
 
 
 /**
- * Requires the `viewer` role.
  * @summary Record a manual movement event
  */
 export const CreateMovementBody = zod.object({
@@ -865,7 +870,6 @@ export const ListGatePassesResponse = zod.array(ListGatePassesResponseItem)
 
 
 /**
- * Requires the `operator` role.
  * @summary Submit a gate pass request
  */
 
@@ -943,11 +947,8 @@ export const ApproveGatePassParams = zod.object({
   "id": zod.coerce.number()
 })
 
-
-
-
 export const ApproveGatePassBody = zod.object({
-  "decidedBy": zod.string().min(1).describe('Name of the approver taking the decision'),
+  "decidedBy": zod.string().optional().describe('Ignored since Phase 2 - the signed-in approver is recorded'),
   "note": zod.string().optional()
 })
 
@@ -983,11 +984,8 @@ export const RejectGatePassParams = zod.object({
   "id": zod.coerce.number()
 })
 
-
-
-
 export const RejectGatePassBody = zod.object({
-  "decidedBy": zod.string().min(1).describe('Name of the approver taking the decision'),
+  "decidedBy": zod.string().optional().describe('Ignored since Phase 2 - the signed-in approver is recorded'),
   "note": zod.string().optional()
 })
 
@@ -1242,7 +1240,6 @@ export const ListInsightsResponse = zod.array(ListInsightsResponseItem)
 
 
 /**
- * Requires the `operator` role.
  * @summary Dismiss an insight
  */
 export const DismissInsightParams = zod.object({
@@ -1343,7 +1340,6 @@ export const AiQueryResponse = zod.object({
 
 
 /**
- * Requires the `viewer` role.
  * @summary Asset register as CSV (same filters as listAssets)
  */
 export const DownloadAssetsReportQueryParams = zod.object({
@@ -1358,7 +1354,6 @@ export const DownloadAssetsReportResponse = zod.unknown()
 
 
 /**
- * Requires the `viewer` role.
  * @summary Movement log as CSV, oldest first
  */
 export const DownloadMovementsReportQueryParams = zod.object({
@@ -1372,7 +1367,6 @@ export const DownloadMovementsReportResponse = zod.unknown()
 
 
 /**
- * Requires the `viewer` role.
  * @summary Gate passes requested in a period as CSV, newest first
  */
 export const DownloadGatePassesReportQueryParams = zod.object({
@@ -1386,7 +1380,6 @@ export const DownloadGatePassesReportResponse = zod.unknown()
 
 
 /**
- * Requires the `viewer` role.
  * @summary AI alerts as CSV, newest first
  */
 export const DownloadInsightsReportQueryParams = zod.object({
@@ -1397,7 +1390,6 @@ export const DownloadInsightsReportResponse = zod.unknown()
 
 
 /**
- * Requires the `viewer` role.
  * @summary Lifecycle events in a period as CSV, oldest first
  */
 export const DownloadLifecycleReportQueryParams = zod.object({
@@ -1426,7 +1418,6 @@ export const GetBcSyncStatusResponse = zod.object({
 
 
 /**
- * Requires the `admin` role.
  * @summary Trigger a sync with Business Central
  */
 export const TriggerBcSyncResponse = zod.object({
@@ -1459,6 +1450,7 @@ export const ListCategoriesResponseItem = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1501,6 +1493,7 @@ export const CreateCategoryResponse = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1534,6 +1527,7 @@ export const GetCategoryResponse = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1562,6 +1556,7 @@ export const UpdateCategoryBody = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']).optional(),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().optional(),
   "active": zod.boolean().optional(),
   "descriptionPattern": zod.string().optional(),
   "identifierFieldKey": zod.string().nullish(),
@@ -1579,6 +1574,7 @@ export const UpdateCategoryResponse = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1622,6 +1618,7 @@ export const AddCategoryFieldResponse = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1663,6 +1660,7 @@ export const UpdateCategoryFieldResponse = zod.object({
   "depreciationMethod": zod.enum(['straight_line', 'reducing_balance']),
   "usefulLifeMonths": zod.number().nullish(),
   "annualRate": zod.number().nullish(),
+  "defaultResidualPercent": zod.number().describe('Residual value proposed at capitalisation, as a % of cost (0 by default)'),
   "active": zod.boolean(),
   "fields": zod.array(zod.object({
   "id": zod.number(),
@@ -1810,7 +1808,10 @@ export const GetAssetCardResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number(),
+  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
+  "invoiceAmount": zod.number(),
+  "exchangeRate": zod.number(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -1848,7 +1849,8 @@ export const GetAssetCardResponse = zod.object({
   "logUpgrade": zod.boolean(),
   "decideUpgrades": zod.boolean(),
   "changeCategory": zod.boolean(),
-  "tag": zod.boolean()
+  "tag": zod.boolean(),
+  "attach": zod.boolean()
 })
 })
 
@@ -2194,7 +2196,10 @@ export const ListAssetUpgradesResponseItem = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number(),
+  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
+  "invoiceAmount": zod.number(),
+  "exchangeRate": zod.number(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -2222,11 +2227,14 @@ export const LogAssetUpgradeBody = zod.object({
   "description": zod.string(),
   "beforeText": zod.string(),
   "afterText": zod.string(),
-  "cost": zod.number(),
+  "invoiceAmount": zod.number().optional(),
+  "currency": zod.string().optional().describe('ISO 4217, default USD'),
+  "exchangeRate": zod.number().optional().describe('currency → USD; required unless USD'),
+  "cost": zod.number().optional().describe('USD amount, when no invoiceAmount is given'),
   "supplier": zod.string().optional(),
   "invoiceNo": zod.string().optional(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).optional().describe('Template field key → value (string or number; null clears an optional field)')
-})
+}).describe('The invoice as invoiced - invoiceAmount, currency and exchangeRate (needed unless USD); cost (USD) alone is still accepted.')
 
 export const LogAssetUpgradeResponse = zod.object({
   "id": zod.number(),
@@ -2238,7 +2246,10 @@ export const LogAssetUpgradeResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number(),
+  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
+  "invoiceAmount": zod.number(),
+  "exchangeRate": zod.number(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -2264,7 +2275,8 @@ export const DecideUpgradeBody = zod.object({
   "treatment": zod.enum(['capitalise', 'expense', 'reject']),
   "comment": zod.string().optional(),
   "revisedLifeMonths": zod.number().optional().describe('Capitalise only - remaining life from the effective month'),
-  "effectivePeriod": zod.string().optional().describe('Capitalise only - YYYY-MM, default the month of approval')
+  "effectivePeriod": zod.string().optional().describe('Capitalise only - YYYY-MM, default the month of approval'),
+  "exchangeRate": zod.number().optional().describe('The rate Finance confirms for a foreign-currency invoice (the USD cost is recalculated)')
 })
 
 export const DecideUpgradeResponse = zod.object({
@@ -2277,7 +2289,10 @@ export const DecideUpgradeResponse = zod.object({
   "beforeText": zod.string(),
   "afterText": zod.string(),
   "fieldChanges": zod.record(zod.string(), zod.union([zod.string(),zod.number()]).nullable()).describe('Template field key → value (string or number; null clears an optional field)'),
-  "cost": zod.number(),
+  "cost": zod.number().describe('USD - invoiceAmount × exchangeRate'),
+  "currency": zod.string().describe('The invoice\'s currency, as invoiced (ISO 4217)'),
+  "invoiceAmount": zod.number(),
+  "exchangeRate": zod.number(),
   "supplier": zod.string().nullish(),
   "invoiceNo": zod.string().nullish(),
   "loggedBy": zod.string(),
@@ -2606,9 +2621,10 @@ export const LockDepreciationMonthResponse = zod.object({
  */
 export const ListAuditorsResponseItem = zod.object({
   "id": zod.number(),
+  "employeeId": zod.number().nullish(),
   "username": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
   "sbuId": zod.number().nullish(),
   "accessExpiresAt": zod.coerce.date().nullish(),
   "active": zod.boolean(),
@@ -2633,9 +2649,10 @@ export const CreateAuditorBody = zod.object({
 
 export const CreateAuditorResponse = zod.object({
   "id": zod.number(),
+  "employeeId": zod.number().nullish(),
   "username": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
   "sbuId": zod.number().nullish(),
   "accessExpiresAt": zod.coerce.date().nullish(),
   "active": zod.boolean(),
@@ -2657,9 +2674,10 @@ export const UpdateAuditorAccessBody = zod.object({
 
 export const UpdateAuditorAccessResponse = zod.object({
   "id": zod.number(),
+  "employeeId": zod.number().nullish(),
   "username": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['viewer', 'operator', 'admin', 'group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'sbu_admin', 'stores', 'auditor']).describe('The original roles - viewer = read everything and record asset movements; operator = every change except the RFID simulator and the Business Central sync; admin = everything - plus the scoped roles of docs\/user-stories.md (Phase 1). SBU roles act on their own SBU only; auditor is read-only on every SBU until its expiry date.'),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
   "sbuId": zod.number().nullish(),
   "accessExpiresAt": zod.coerce.date().nullish(),
   "active": zod.boolean(),
@@ -2683,5 +2701,354 @@ export const ListAccessLogResponseItem = zod.object({
   "detail": zod.string().nullish()
 })
 export const ListAccessLogResponse = zod.array(ListAccessLogResponseItem)
+
+
+/**
+ * @summary The roles, their display names and whether they need an SBU / employee link
+ */
+export const ListRolesResponseItem = zod.object({
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
+  "name": zod.string(),
+  "sbuScoped": zod.boolean(),
+  "needsEmployee": zod.boolean()
+})
+export const ListRolesResponse = zod.array(ListRolesResponseItem)
+
+
+/**
+ * @summary User accounts (Group IT - all; SBU IT - its own SBU; GI-08)
+ */
+export const ListUsersQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "role": zod.coerce.string().optional()
+})
+
+export const ListUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.string().describe('One of UserRole, or a retired role (viewer \/ operator \/ admin) on a disabled account'),
+  "roleName": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
+ * @summary Create an account (Group IT any role but auditor; SBU IT - SBU roles of its own SBU)
+ */
+export const createUserBodyUsernameMin = 3;
+
+export const createUserBodyNameMin = 2;
+
+export const createUserBodyPasswordMin = 10;
+
+
+
+export const CreateUserBody = zod.object({
+  "username": zod.string().min(createUserBodyUsernameMin),
+  "name": zod.string().min(createUserBodyNameMin),
+  "password": zod.string().min(createUserBodyPasswordMin),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
+  "sbuId": zod.number().optional().describe('Required for SBU roles (SBU IT - defaults to its own SBU)'),
+  "employeeId": zod.number().optional().describe('Required for the HOD and Employee roles')
+})
+
+export const CreateUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.string().describe('One of UserRole, or a retired role (viewer \/ operator \/ admin) on a disabled account'),
+  "roleName": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Change role, SBU, employee link, name, access or password (audit-logged; nobody changes their own role)
+ */
+export const UpdateUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateUserBodyPasswordMin = 10;
+
+
+
+export const UpdateUserBody = zod.object({
+  "name": zod.string().optional(),
+  "role": zod.enum(['group_finance', 'group_it', 'sbu_it', 'sbu_finance', 'gate_officer', 'hod', 'sbu_hr', 'stores', 'sbu_admin', 'auditor', 'employee', 'system_admin']).optional().describe('The roles of the docs\/user-stories.md Permissions matrix (Phase 2) plus the auditor (read-only, every SBU, until its expiry date), the employee (their own items) and the system administrator (categories, final depreciation rates and Group settings only). SBU roles act on their own SBU only. The original viewer \/ operator \/ admin roles were retired by migration 0004.'),
+  "sbuId": zod.number().nullish(),
+  "employeeId": zod.number().nullish(),
+  "active": zod.boolean().optional(),
+  "password": zod.string().min(updateUserBodyPasswordMin).optional(),
+  "reason": zod.string().optional()
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "role": zod.string().describe('One of UserRole, or a retired role (viewer \/ operator \/ admin) on a disabled account'),
+  "roleName": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "employeeId": zod.number().nullish(),
+  "employeeName": zod.string().nullish(),
+  "accessExpiresAt": zod.coerce.date().nullish(),
+  "active": zod.boolean(),
+  "lastLoginAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Departments the caller may see (Group roles all; SBU roles their SBU; the HOD theirs)
+ */
+export const ListDepartmentsQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const ListDepartmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "name": zod.string(),
+  "employeeCount": zod.number()
+})
+export const ListDepartmentsResponse = zod.array(ListDepartmentsResponseItem)
+
+
+/**
+ * @summary Add a department to the caller's SBU (SBU HR)
+ */
+export const CreateDepartmentBody = zod.object({
+  "name": zod.string(),
+  "sbuId": zod.number().optional()
+})
+
+export const CreateDepartmentResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "name": zod.string(),
+  "employeeCount": zod.number()
+})
+
+
+/**
+ * @summary Employees the caller may see (Group roles all; the HOD their department; SBU roles their SBU)
+ */
+export const ListEmployeesQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "departmentId": zod.coerce.number().optional(),
+  "q": zod.coerce.string().optional(),
+  "includeLeavers": zod.coerce.boolean().optional()
+})
+
+export const ListEmployeesResponseItem = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "lineManagerId": zod.number().nullish(),
+  "lineManagerName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "active": zod.boolean(),
+  "itemsHeld": zod.number()
+})
+export const ListEmployeesResponse = zod.array(ListEmployeesResponseItem)
+
+
+/**
+ * @summary Add an employee to the caller's SBU (SBU HR)
+ */
+export const CreateEmployeeBody = zod.object({
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "sbuId": zod.number().optional(),
+  "departmentId": zod.number().optional(),
+  "lineManagerId": zod.number().optional(),
+  "jobRole": zod.string().optional(),
+  "email": zod.string().optional(),
+  "phone": zod.string().optional()
+})
+
+export const CreateEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "lineManagerId": zod.number().nullish(),
+  "lineManagerName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "active": zod.boolean(),
+  "itemsHeld": zod.number()
+})
+
+
+/**
+ * @summary One employee (403 outside the caller's scope)
+ */
+export const GetEmployeeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "lineManagerId": zod.number().nullish(),
+  "lineManagerName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "active": zod.boolean(),
+  "itemsHeld": zod.number()
+})
+
+
+/**
+ * @summary Change an employee of the caller's SBU (SBU HR; audit-logged)
+ */
+export const UpdateEmployeeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateEmployeeBody = zod.object({
+  "name": zod.string().optional(),
+  "departmentId": zod.number().nullish(),
+  "lineManagerId": zod.number().nullish(),
+  "jobRole": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "active": zod.boolean().optional(),
+  "reason": zod.string().optional()
+})
+
+export const UpdateEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string(),
+  "departmentId": zod.number().nullish(),
+  "departmentName": zod.string().nullish(),
+  "employeeNo": zod.string(),
+  "name": zod.string(),
+  "jobRole": zod.string().nullish(),
+  "lineManagerId": zod.number().nullish(),
+  "lineManagerName": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "active": zod.boolean(),
+  "itemsHeld": zod.number()
+})
+
+
+/**
+ * @summary Invoices, photos and documents on the asset, newest first
+ */
+export const ListAssetAttachmentsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAssetAttachmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "upgradeId": zod.number().nullish(),
+  "kind": zod.enum(['invoice', 'photo', 'other']),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number(),
+  "uploadedBy": zod.string(),
+  "uploadedAt": zod.coerce.date()
+})
+export const ListAssetAttachmentsResponse = zod.array(ListAssetAttachmentsResponseItem)
+
+
+/**
+ * @summary Attach a PDF, JPEG or PNG (up to 10 MB). Attachments are never deleted.
+ */
+export const UploadAssetAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UploadAssetAttachmentBody = zod.object({
+  "file": zod.string(),
+  "kind": zod.enum(['invoice', 'photo', 'other']),
+  "upgradeId": zod.number().optional()
+}).describe('multipart\/form-data. The file part carries the PDF, JPEG or PNG itself (up to 10 MB; its type is checked from its content); it is described as a string here so the generated libraries need no browser types.')
+
+export const UploadAssetAttachmentResponse = zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "upgradeId": zod.number().nullish(),
+  "kind": zod.enum(['invoice', 'photo', 'other']),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number(),
+  "uploadedBy": zod.string(),
+  "uploadedAt": zod.coerce.date()
+})
+
+
+/**
+ * Add ?inline=true to display the file (photo, PDF preview) instead of downloading it.
+ * @summary The file; every download is recorded in the access log
+ */
+export const DownloadAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DownloadAttachmentResponse = zod.unknown()
+
+
+/**
+ * @summary Look up a scanned tag, asset number or serial (the Gate Officer's only view of an asset)
+ */
+export const ScanCodeQueryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const ScanCodeResponse = zod.object({
+  "assetId": zod.number(),
+  "canOpen": zod.boolean().describe('The caller may open the asset card'),
+  "description": zod.string(),
+  "assetNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "sbuName": zod.string().nullish(),
+  "status": zod.string(),
+  "holder": zod.string().nullish(),
+  "photoAttachmentId": zod.number().nullish(),
+  "gateClearance": zod.enum(['approved', 'not_approved', 'not_shown']),
+  "gatePassId": zod.number().nullish(),
+  "gatePassStatus": zod.string().nullish(),
+  "gatePassReturnDate": zod.string().nullish()
+})
 
 

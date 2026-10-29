@@ -29,10 +29,10 @@ public sealed class ApiFixture : IAsyncLifetime
 
     // TRUNCATE bypasses the append-only triggers on audit_log / access_log, which only reject UPDATE and DELETE.
     private const string TruncateAll =
-        "TRUNCATE \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", " +
+        "TRUNCATE \"asset_attachments\", \"users\", \"ai_insights\", \"asset_lifecycle_events\", \"movements\", \"gate_passes\", " +
         "\"asset_attribute_values\", \"asset_upgrades\", \"depreciation_entries\", \"depreciation_locks\", \"bc_number_requests\", " +
         "\"bc_mock_number_series\", \"assets\", \"category_template_fields\", \"asset_categories\", \"group_settings\", " +
-        "\"audit_log\", \"access_log\", \"rfid_readers\", \"locations\", \"sbus\" RESTART IDENTITY CASCADE";
+        "\"audit_log\", \"access_log\", \"employees\", \"departments\", \"rfid_readers\", \"locations\", \"sbus\" RESTART IDENTITY CASCADE";
 
     /// <summary>The reference data (category templates, Group settings) of migration 0002, re-inserted after every reset.</summary>
     private string _referenceData = "";
@@ -155,7 +155,7 @@ public sealed class ApiFixture : IAsyncLifetime
     /// <summary>Pass as <c>token</c> to send a request signed out.</summary>
     public const string Anonymous = "";
 
-    /// <summary>Token used when a call names none: the administrator of the current <see cref="TestWorld"/>.</summary>
+    /// <summary>Token used when a call names none: the Group IT account of the current <see cref="TestWorld"/>.</summary>
     public string? DefaultToken { get; set; }
 
     /// <summary>Sends a request as <paramref name="token"/>, or as <see cref="DefaultToken"/> when it is null.</summary>

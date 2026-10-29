@@ -14,19 +14,22 @@ namespace AssetIQ.Api.Controllers;
 public sealed class LocationsController(AssetIqDbContext db, AppClock clock, AssetQueries assets) : ApiControllerBase
 {
     [HttpGet("locations")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to list locations")]
     public Task<List<LocationDto>> List([FromQuery] string? sbuId, [FromQuery] string? type)
     {
         var sbuFilter = RequestValues.OptionalInt(sbuId);
         var typeFilter = RequestValues.OptionalText(type);
         var query = db.Locations.AsNoTracking();
+        // SBU roles work with their own SBU's sites (Group roles with every SBU's).
+        if (Roles.IsSbuScoped(Caller.Role)) query = query.Where(l => l.SbuId == Caller.SbuId);
         if (sbuFilter is not null) query = query.Where(l => l.SbuId == sbuFilter);
         if (typeFilter is not null) query = query.Where(l => l.Type == typeFilter);
         return Project(query.OrderBy(l => l.Sbu!.Code).ThenBy(l => l.Name)).ToListAsync(Aborted);
     }
 
     [HttpPost("locations")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.LocationManagers)]
     [FailureMessage("Failed to create location")]
     public async Task<IActionResult> Create([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -38,6 +41,7 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
         var description = input.OptionalString("description");
         var sbuId = input.OptionalInt("sbuId");
         input.ThrowIfInvalid();
+        if (!AccessPolicy.CanManageLocation(Caller, sbuId)) throw AccessPolicy.Deny(Caller, "add locations for this SBU");
 
         var now = clock.UtcNow;
         var location = new Location
@@ -58,11 +62,17 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
     }
 
     [HttpGet("locations/{id}")]
+    [RequireRole(Roles.Everyone)]
     [FailureMessage("Failed to get location")]
-    public Task<LocationDto> Get(string id) => GetDtoAsync(RequestValues.Id(id));
+    public async Task<LocationDto> Get(string id)
+    {
+        var location = await GetDtoAsync(RequestValues.Id(id));
+        if (Roles.IsSbuScoped(Caller.Role) && location.SbuId != Caller.SbuId) throw AccessPolicy.Deny(Caller, "see another SBU's locations");
+        return location;
+    }
 
     [HttpPatch("locations/{id}")]
-    [RequireRole(Roles.Operator)]
+    [RequireRole(Roles.LocationManagers)]
     [FailureMessage("Failed to update location")]
     public async Task<LocationDto> Update(string id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
     {
@@ -78,6 +88,8 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
 
         var location = await db.Locations.FirstOrDefaultAsync(l => l.Id == locationId, Aborted)
             ?? throw new ApiException(StatusCodes.Status404NotFound, "Location not found");
+        if (!AccessPolicy.CanManageLocation(Caller, location.SbuId) || (sbuId.IsSet && !AccessPolicy.CanManageLocation(Caller, sbuId.Value)))
+            throw AccessPolicy.Deny(Caller, "change this location");
         if (name is not null) location.Name = name;
         if (type is not null) location.Type = type;
         if (building is not null) location.Building = building;
@@ -90,11 +102,14 @@ public sealed class LocationsController(AssetIqDbContext db, AppClock clock, Ass
     }
 
     [HttpGet("locations/{id}/assets")]
+    [RequireRole(Roles.AssetReaders)]
     [FailureMessage("Failed to get location assets")]
-    public Task<List<AssetDto>> Assets(string id)
+    public async Task<List<AssetDto>> Assets(string id)
     {
         var locationId = RequestValues.Id(id);
-        return assets.ListDetailedAsync(a => a.CurrentLocationId == locationId, Aborted);
+        var location = await GetDtoAsync(locationId);
+        if (Roles.IsSbuScoped(Caller.Role) && location.SbuId != Caller.SbuId) throw AccessPolicy.Deny(Caller, "see another SBU's locations");
+        return await assets.ListDetailedAsync(a => a.CurrentLocationId == locationId, Aborted);
     }
 
     private async Task<LocationDto> GetDtoAsync(int id) =>

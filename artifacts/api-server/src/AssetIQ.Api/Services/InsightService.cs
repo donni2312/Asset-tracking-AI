@@ -40,7 +40,7 @@ public sealed class InsightService(
     /// <summary>Persist an insight unless an identical one is still open. Returns the new row, or null.</summary>
     public async Task<AiInsight?> RaiseAsync(InsightDraft draft, InsightDedupe dedupe, CancellationToken ct)
     {
-        var open = db.AiInsights.Where(i => i.Type == draft.Type && !i.Dismissed && i.AssetId == draft.AssetId);
+        var open = db.AiInsights.IgnoreQueryFilters().Where(i => i.Type == draft.Type && !i.Dismissed && i.AssetId == draft.AssetId);
         if (dedupe == InsightDedupe.Message) open = open.Where(i => i.Message == draft.Message);
         if (await open.AnyAsync(ct)) return null;
 
@@ -64,11 +64,11 @@ public sealed class InsightService(
     {
         if (rows.Count == 0) return [];
         var ids = rows.Select(r => r.Id).ToList();
-        var byId = await db.AiInsights.AsNoTracking().Where(i => ids.Contains(i.Id)).Select(ToDto).ToDictionaryAsync(d => d.Id, ct);
+        var byId = await db.AiInsights.IgnoreQueryFilters().AsNoTracking().Where(i => ids.Contains(i.Id)).Select(ToDto).ToDictionaryAsync(d => d.Id, ct);
         return ids.Select(id => byId[id]).ToList();
     }
 
-    /// <summary>Every insight, newest first.</summary>
+    /// <summary>Every insight the caller may see (the query filter scopes them), newest first.</summary>
     public Task<List<InsightDto>> ListAsync(CancellationToken ct) =>
         db.AiInsights.AsNoTracking()
             .OrderByDescending(i => i.CreatedAt)
@@ -85,12 +85,12 @@ public sealed class InsightService(
         try
         {
             var now = clock.UtcNow;
-            var all = await db.Assets.AsNoTracking()
+            var all = await db.Assets.IgnoreQueryFilters().AsNoTracking()
                 .OrderBy(a => a.Id)
                 .Select(a => new PeriodicAsset(a.Id, a.Name, a.Status, a.SerialNumber ?? "no serial", a.CreatedAt))
                 .ToListAsync(ct);
             var lastMoved = await assets.LastMovedAtAsync(ct);
-            var open = (await db.AiInsights.AsNoTracking()
+            var open = (await db.AiInsights.IgnoreQueryFilters().AsNoTracking()
                     .Where(i => !i.Dismissed && i.AssetId != null && (i.Type == InsightTypes.IdleAsset || i.Type == InsightTypes.MissingAsset))
                     .Select(i => new { i.Type, AssetId = i.AssetId!.Value })
                     .ToListAsync(ct))

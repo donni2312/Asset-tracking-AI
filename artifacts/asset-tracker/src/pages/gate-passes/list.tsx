@@ -68,7 +68,7 @@ export default function GatePassList() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [decision, setDecision] = useState<{ pass: GatePass; action: GatePassAction } | null>(null);
   const { data: allPasses, isLoading } = useListGatePasses();
-  const decide = usePermission("operator", "approve or reject gate passes");
+  const decide = usePermission("gatePassApprovers", "approve or reject gate passes");
 
   const counts = {
     pending: allPasses?.filter((p) => p.status === "pending").length ?? 0,
@@ -86,7 +86,7 @@ export default function GatePassList() {
           </div>
           <div className="flex items-center gap-2">
             <ExportCsvButton request={{ report: "gate-passes", params: { status: filter } }} label={`Export ${filter} (CSV)`} />
-            <Permitted role="operator" action="request gate passes" label="Request Gate Pass" variant="default">
+            <Permitted role="gatePassRaisers" action="request gate passes" label="Request Gate Pass" variant="default">
               <Button onClick={() => setRequestOpen(true)} className="gap-2 flex-shrink-0">
                 <ShieldPlus className="w-4 h-4" /> Request Gate Pass
               </Button>

@@ -35,7 +35,7 @@ export default function EditAsset() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const user = useCurrentUser();
-  const canEdit = useHasRole("operator");
+  const canEdit = useHasRole("technicalEditors");
 
   const { data: asset, isLoading, isError } = useGetAsset(assetId, {
     query: { enabled: Number.isInteger(assetId) && assetId > 0, queryKey: getGetAssetQueryKey(assetId) },

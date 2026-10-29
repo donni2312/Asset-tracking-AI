@@ -24,21 +24,29 @@ public sealed class TestWorld
     public required Asset Laptop { get; init; }
     public required Asset Projector { get; init; }
 
-    /// <summary>Bearer tokens for one account per role; <see cref="ApiFixture.DefaultToken"/> is the admin's.</summary>
-    public required string AdminToken { get; init; }
-    public required string OperatorToken { get; init; }
-    public required string ViewerToken { get; init; }
+    /// <summary>
+    /// Bearer tokens (Phase 2 roles): Group IT (all SBUs' IT assets; <see cref="ApiFixture.DefaultToken"/>), TSAS SBU
+    /// IT, and Group Finance (reads every SBU, no operational changes).
+    /// </summary>
+    public required string GroupItToken { get; init; }
+    public required string SbuItToken { get; init; }
+    public required string GroupFinanceToken { get; init; }
 
     public static async Task<TestWorld> SeedAsync(ApiFixture api)
     {
         await using var db = api.NewDbContext();
         var now = api.Now;
 
+        var tsas = new Sbu { Code = "TSAS", Name = "Tobacco Sales Administration Services", Color = "#2563EB", CreatedAt = now, UpdatedAt = now };
+        var bak = new Sbu { Code = "BAK", Name = "Bak Logistics", Color = "#DC2626", CreatedAt = now, UpdatedAt = now };
+        db.Sbus.AddRange(tsas, bak);
+        await db.SaveChangesAsync();
+
         // Tokens are minted directly (no password check), so the accounts need no real password hash.
-        var accounts = new[] { ("test-admin", Roles.Admin), ("test-operator", Roles.Operator), ("test-viewer", Roles.Viewer) }
+        var accounts = new[] { ("test-group-it", Roles.GroupIt, (int?)null), ("test-tsas-it", Roles.SbuIt, tsas.Id), ("test-group-finance", Roles.GroupFinance, null) }
             .Select(a => new UserAccount
             {
-                Username = a.Item1, Name = $"{a.Item1} user", Role = a.Item2, PasswordHash = "scrypt$00$00",
+                Username = a.Item1, Name = $"{a.Item1} user", Role = a.Item2, SbuId = a.Item3, PasswordHash = "scrypt$00$00",
                 CreatedAt = now, UpdatedAt = now,
             })
             .ToList();
@@ -47,13 +55,8 @@ public sealed class TestWorld
         // Valid far beyond any instant a test moves the clock to.
         string Token(UserAccount u) =>
             TokenService.Sign(new TokenPayload(u.Id, u.Username, u.Role, new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()), ApiFixture.AuthSecret);
-        var adminToken = Token(accounts[0]);
-        api.DefaultToken = adminToken;
-
-        var tsas = new Sbu { Code = "TSAS", Name = "Tobacco Sales Administration Services", Color = "#2563EB", CreatedAt = now, UpdatedAt = now };
-        var bak = new Sbu { Code = "BAK", Name = "Bak Logistics", Color = "#DC2626", CreatedAt = now, UpdatedAt = now };
-        db.Sbus.AddRange(tsas, bak);
-        await db.SaveChangesAsync();
+        var groupItToken = Token(accounts[0]);
+        api.DefaultToken = groupItToken;
 
         Location NewLocation(string name, string type, string building, Sbu sbu) =>
             new() { Name = name, Type = type, Building = building, SbuId = sbu.Id, CreatedAt = now, UpdatedAt = now };
@@ -95,7 +98,7 @@ public sealed class TestWorld
             Office = office, Gate = gate, BakGate = bakGate, BakWarehouse = bakWarehouse,
             OfficeReader = officeReader, GateReader = gateReader, BakGateReader = bakGateReader, InactiveReader = inactiveReader,
             Laptop = laptop, Projector = projector,
-            AdminToken = adminToken, OperatorToken = Token(accounts[1]), ViewerToken = Token(accounts[2]),
+            GroupItToken = groupItToken, SbuItToken = Token(accounts[1]), GroupFinanceToken = Token(accounts[2]),
         };
     }
 }
@@ -119,14 +122,14 @@ public static class Accounts
     private static int _counter;
 
     /// <summary>A new user with <paramref name="role"/> (and <paramref name="sbu"/> for SBU roles), and a bearer token for it.</summary>
-    public static async Task<string> TokenAsync(ApiFixture api, string role, Sbu? sbu = null, DateTime? accessExpiresAt = null, string? name = null)
+    public static async Task<string> TokenAsync(ApiFixture api, string role, Sbu? sbu = null, DateTime? accessExpiresAt = null, string? name = null, int? employeeId = null)
     {
         await using var db = api.NewDbContext();
         var n = Interlocked.Increment(ref _counter);
         var user = new UserAccount
         {
             Username = $"{role}-{sbu?.Code.ToLowerInvariant() ?? "group"}-{n}", Name = name ?? $"{Roles.DisplayName(role)} {sbu?.Code}".Trim(),
-            Role = role, SbuId = sbu?.Id, AccessExpiresAt = accessExpiresAt, PasswordHash = "scrypt$00$00", CreatedAt = api.Now, UpdatedAt = api.Now,
+            Role = role, SbuId = sbu?.Id, AccessExpiresAt = accessExpiresAt, EmployeeId = employeeId, PasswordHash = "scrypt$00$00", CreatedAt = api.Now, UpdatedAt = api.Now,
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();

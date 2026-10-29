@@ -70,7 +70,7 @@ export default function EditLocation() {
             {location ? `${location.name} · ${location.assetCount ?? 0} assets currently here` : "Update facility details."}
           </p>
         </div>
-        <PermissionNotice role="operator" action="edit locations" />
+        <PermissionNotice role="locationManagers" action="edit locations" />
         <Card>
           <CardHeader>
             <CardTitle>Location Details</CardTitle>

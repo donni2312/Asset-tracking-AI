@@ -20,9 +20,8 @@ export const SBUS: SbuSeed[] = [
   { code: "BAK", name: "Bak Logistics", description: "Warehousing, freight and distribution", headOffice: "BAK Depot, Harare", color: "#DC2626" },
   { code: "AGRI", name: "Agricura", description: "Agro-chemicals and farming inputs", headOffice: "Agricura House, Harare", color: "#16A34A" },
   { code: "PROP", name: "TSL Property Services", description: "Group head office, real estate and facilities", headOffice: "TSL Group Head Office, Harare", color: "#7C3AED" },
-  // ASSUMPTION: Propak's confirmed code "Prop" clashes with TSL Properties' PROP (codes prefix asset numbers) and
-  // green is Agricura's badge colour, so Propak is seeded as PPK in lime green until both are confirmed.
-  { code: "PPK", name: "Propak", description: "Packaging manufacture", headOffice: "Propak Plant, Harare", color: "#65A30D" },
+  // Propak: code PROP-H and lime green, confirmed by the product owner (29 Oct 2026).
+  { code: "PROP-H", name: "Propak", description: "Packaging manufacture", headOffice: "Propak Plant, Harare", color: "#65A30D" },
 ];
 
 export type LocationType = "office" | "gate" | "warehouse" | "meeting_room" | "lab" | "reception" | "server_room";
@@ -57,8 +56,8 @@ export const LOCATIONS: LocationSeed[] = [
   { key: "prop-reception", sbu: "PROP", name: "TSL Group Reception", type: "reception", building: "TSL Group Head Office", floor: "G", reader: "Group Reception Reader" },
   { key: "prop-conference", sbu: "PROP", name: "TSL Head Office – Conference Centre", type: "meeting_room", building: "TSL Group Head Office", floor: "1" },
   { key: "prop-gate", sbu: "PROP", name: "TSL Head Office Gate", type: "gate", building: "TSL Group Head Office", reader: "Head Office Gate Reader" },
-  { key: "ppk-office", sbu: "PPK", name: "Propak – Plant Office", type: "office", building: "Propak Plant", reader: "Propak Office Reader" },
-  { key: "ppk-gate", sbu: "PPK", name: "Propak Plant Gate", type: "gate", building: "Propak Plant", reader: "Propak Gate Reader" },
+  { key: "ppk-office", sbu: "PROP-H", name: "Propak – Plant Office", type: "office", building: "Propak Plant", reader: "Propak Office Reader" },
+  { key: "ppk-gate", sbu: "PROP-H", name: "Propak Plant Gate", type: "gate", building: "Propak Plant", reader: "Propak Gate Reader" },
 ];
 
 /** An extra reader that is offline, to show the simulator's inactive state. */
@@ -123,10 +122,10 @@ export const ASSETS: AssetSeed[] = [
   { key: "aeron", sbu: "PROP", name: "Herman Miller Aeron Chair", category: "Furniture", status: "active", location: "prop-conference", lastMovedDaysAgo: 5, moves: 2, registeredDaysAgo: 1000, value: 1400 },
   { key: "x1-carbon", sbu: "PROP", name: "Lenovo ThinkPad X1 Carbon", category: "Laptop", status: "active", assignedTo: "Tapiwa Chirwa", location: "prop-conference", visits: ["prop-reception"], lastMovedDaysAgo: 2, moves: 4, registeredDaysAgo: 120, value: 2100 },
   { key: "epson-x41", sbu: "PROP", name: "Epson EB-X41 Projector", category: "Projector", status: "retired", location: null, lastMovedDaysAgo: 95, moves: 1, registeredDaysAgo: 1400, value: 450, notes: "Disposed — lamp housing cracked" },
-  // ── PPK (Propak) ──
-  { key: "ppk-laptop", sbu: "PPK", name: "Dell Latitude 5450", category: "Laptop", status: "active", assignedTo: "Kudakwashe Moyo", location: "ppk-office", lastMovedDaysAgo: 3, moves: 1, registeredDaysAgo: 75, value: 1390 },
-  { key: "ppk-genset", sbu: "PPK", name: "Cummins C150 Generator", category: "Other", status: "active", location: "ppk-office", lastMovedDaysAgo: 40, moves: 1, registeredDaysAgo: 900, value: 24600 },
-  { key: "ppk-desk", sbu: "PPK", name: "Executive desk", category: "Furniture", status: "active", assignedTo: "Plant manager", location: "ppk-office", lastMovedDaysAgo: 60, moves: 1, registeredDaysAgo: 400, value: 640 },
+  // ── PROP-H (Propak) ──
+  { key: "ppk-laptop", sbu: "PROP-H", name: "Dell Latitude 5450", category: "Laptop", status: "active", assignedTo: "Kudakwashe Moyo", location: "ppk-office", lastMovedDaysAgo: 3, moves: 1, registeredDaysAgo: 75, value: 1390 },
+  { key: "ppk-genset", sbu: "PROP-H", name: "Cummins C150 Generator", category: "Other", status: "active", location: "ppk-office", lastMovedDaysAgo: 40, moves: 1, registeredDaysAgo: 900, value: 24600 },
+  { key: "ppk-desk", sbu: "PROP-H", name: "Executive desk", category: "Furniture", status: "active", assignedTo: "Plant manager", location: "ppk-office", lastMovedDaysAgo: 60, moves: 1, registeredDaysAgo: 400, value: 640 },
 ];
 
 /** People who approve gate passes in the demo. */
@@ -143,7 +142,9 @@ export const APPROVERS = { tsas: "Rudo Chikwanha", bak: "Simbarashe Chikore", pr
  *   viewer         read everything; the only change allowed is recording an asset movement
  */
 export const DEMO_USERS = [
-  { username: "administrator", name: APPROVERS.tsas, role: "admin", password: "admin123" },
-  { username: "operator", name: "Tendai Moyo",         role: "operator", password: "operator123" },
-  { username: "viewer",   name: "Nyasha Gumbo",        role: "viewer",   password: "viewer123" },
+  // Phase 2 retired viewer / operator / admin (migration 0004): the administrator is Group IT; the operator and
+  // viewer accounts are kept but disabled until Group IT gives them a role, exactly as on an existing database.
+  { username: "administrator", name: APPROVERS.tsas, role: "group_it", password: "admin123", active: true },
+  { username: "operator", name: "Tendai Moyo",         role: "operator", password: "operator123", active: false },
+  { username: "viewer",   name: "Nyasha Gumbo",        role: "viewer",   password: "viewer123", active: false },
 ] as const;

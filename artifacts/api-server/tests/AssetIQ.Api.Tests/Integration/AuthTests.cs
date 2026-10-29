@@ -1,5 +1,6 @@
 using AssetIQ.Api.Auth;
 using AssetIQ.Api.Data;
+using AssetIQ.Api.Domain;
 using AssetIQ.Api.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,9 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AssetIQ.Api.Tests.Integration;
 
 /// <summary>
-/// Sign-in and the permission matrix on asset records (ported from src/routes/auth.test.ts):
-/// viewer reads; operator may also change an asset's operational fields (status, holder, location,
-/// notes); admin may also change the record itself and register / delete assets.
+/// Sign-in, tokens and the asset-record rules (ported from src/routes/auth.test.ts, moved onto the Phase 2
+/// roles): Group IT and SBU IT edit and register IT assets; Group Finance reads but changes no technical
+/// record; nothing is readable signed out.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
@@ -30,6 +31,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
         var user = new UserAccount
         {
             Username = username, Name = $"{username} user", Role = role, PasswordHash = new PasswordHasher().Hash(password),
+            SbuId = Roles.IsSbuScoped(role) ? w.Tsas.Id : null,
             Active = active, CreatedAt = api.Now, UpdatedAt = api.Now,
         };
         db.Users.Add(user);
@@ -56,12 +58,12 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Login_returns_a_token_and_the_user_for_the_right_password()
     {
-        await CreateUser("rudo", "admin");
+        await CreateUser("rudo", Roles.GroupIt);
         var res = await api.CallAsync("POST", "/auth/login", new { username = "rudo", password = "secret123" });
 
         Assert.Equal(200, res.Status);
         Assert.False(string.IsNullOrEmpty(res.Body.Str("token")));
-        Assert.Equal(("rudo", "admin"), (res.Body.Prop("user").Str("username"), res.Body.Prop("user").Str("role")));
+        Assert.Equal(("rudo", Roles.GroupIt), (res.Body.Prop("user").Str("username"), res.Body.Prop("user").Str("role")));
         Assert.True(DateTimeOffset.Parse(res.Body.Str("expiresAt")!, System.Globalization.CultureInfo.InvariantCulture) > api.Clock.GetUtcNow());
         // The hash must never travel to the client.
         Assert.DoesNotContain("scrypt$", res.Body.GetRawText());
@@ -70,7 +72,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Login_records_the_sign_in_time()
     {
-        var user = await CreateUser("rudo", "admin");
+        var user = await CreateUser("rudo", Roles.GroupIt);
         Assert.Null(user.LastLoginAt);
         await TokenFor("rudo");
 
@@ -81,7 +83,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task A_wrong_password_is_answered_exactly_like_an_unknown_user()
     {
-        await CreateUser("rudo", "admin");
+        await CreateUser("rudo", Roles.GroupIt);
         var wrongPassword = await api.CallAsync("POST", "/auth/login", new { username = "rudo", password = "nope" });
         var unknownUser = await api.CallAsync("POST", "/auth/login", new { username = "ghost", password = "nope" });
 
@@ -93,30 +95,30 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task Login_refuses_a_disabled_account()
     {
-        await CreateUser("gone", "admin", "secret123", active: false);
+        await CreateUser("gone", Roles.GroupIt, "secret123", active: false);
         Assert.Equal(401, (await api.CallAsync("POST", "/auth/login", new { username = "gone", password = "secret123" })).Status);
     }
 
     [Fact]
     public async Task Login_is_case_insensitive_about_the_username()
     {
-        await CreateUser("rudo", "viewer");
+        await CreateUser("rudo", Roles.GroupFinance);
         Assert.Equal(200, (await api.CallAsync("POST", "/auth/login", new { username = "  RUDO  ", password = "secret123" })).Status);
     }
 
     [Fact]
     public async Task Me_returns_the_signed_in_user()
     {
-        await CreateUser("rudo", "operator");
+        await CreateUser("rudo", Roles.SbuIt);
         var res = await api.CallAsync("GET", "/auth/me", token: await TokenFor("rudo"));
         Assert.Equal(200, res.Status);
-        Assert.Equal(("rudo", "operator"), (res.Body.Str("username"), res.Body.Str("role")));
+        Assert.Equal(("rudo", Roles.SbuIt, w.Tsas.Id), (res.Body.Str("username"), res.Body.Str("role"), res.Body.Int("sbuId")));
     }
 
     [Fact]
     public async Task Me_rejects_a_missing_forged_or_expired_token()
     {
-        var user = await CreateUser("rudo", "operator");
+        var user = await CreateUser("rudo", Roles.SbuIt);
         var nowSeconds = api.Clock.GetUtcNow().ToUnixTimeSeconds();
         var forged = TokenService.Sign(new TokenPayload(user.Id, "rudo", "admin", nowSeconds + 3600), "the-wrong-secret");
         var expired = TokenService.Sign(new TokenPayload(user.Id, "rudo", "admin", nowSeconds - 60), ApiFixture.AuthSecret);
@@ -134,9 +136,9 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_viewer_is_refused_with_403_and_the_asset_is_untouched()
+    public async Task Group_finance_is_refused_a_technical_edit_with_403_and_the_asset_is_untouched()
     {
-        await CreateUser("nyasha", "viewer");
+        await CreateUser("nyasha", Roles.GroupFinance);
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "missing" }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
@@ -144,9 +146,9 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_operator_may_change_the_operational_fields()
+    public async Task Sbu_it_may_change_the_operational_fields_of_its_sbus_it_assets()
     {
-        await CreateUser("tendai", "operator");
+        await CreateUser("tendai", Roles.SbuIt);
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}",
             new { status = "maintenance", assignedTo = "Rudo Chikwanha", notes = "In for a battery" }, await TokenFor("tendai"));
 
@@ -155,10 +157,12 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_operator_may_edit_the_technical_record_of_an_it_asset()
+    public async Task Group_it_may_move_an_it_asset_to_another_sbu_and_sbu_it_may_not()
     {
-        await CreateUser("tendai", "operator");
-        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id, status = "maintenance" }, await TokenFor("tendai"));
+        await CreateUser("tendai", Roles.SbuIt);
+        await CreateUser("kudzai", Roles.GroupIt);
+        Assert.Equal(403, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id }, await TokenFor("tendai"))).Status);
+        var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { sbuId = w.Bak.Id, status = "maintenance" }, await TokenFor("kudzai"));
 
         Assert.Equal(200, res.Status);
         Assert.Equal((w.Bak.Id, "maintenance"), (res.Body.Int("sbuId"), res.Body.Str("status")));
@@ -167,7 +171,7 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task AU_01_nobody_types_the_description_or_changes_the_category_through_an_edit()
     {
-        await CreateUser("rudo", "admin");
+        await CreateUser("rudo", Roles.GroupIt);
         var token = await TokenFor("rudo");
         var named = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { name = "Dell Latitude 5450" }, token);
         var recategorised = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { category = "Desktop" }, token);
@@ -179,21 +183,25 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_viewer_changes_nothing_on_the_asset_and_is_told_which_role_is_needed()
+    public async Task A_refused_role_changes_nothing_on_the_asset_and_is_told_why()
     {
-        await CreateUser("nyasha", "viewer");
+        await CreateUser("nyasha", Roles.GroupFinance);
+        await CreateUser("bak", Roles.SbuAdmin);
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "maintenance", sbuId = w.Bak.Id }, await TokenFor("nyasha"));
 
         Assert.Equal(403, res.Status);
-        Assert.Equal("Your role (Viewer) may not edit this asset's technical fields.", res.Error());
+        Assert.Equal("Your role (Group Finance Executive) may not do this.", res.Error());
+        // A role that edits technical records, but not IT ones: the record-level rule says why.
+        var admin = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { status = "maintenance" }, await TokenFor("bak"));
+        Assert.Equal("Your role (SBU Admin Manager) may not edit this asset's technical fields.", admin.Error());
         var after = await api.CallAsync("GET", $"/assets/{w.Laptop.Id}");
         Assert.Equal(("active", w.Tsas.Id), (after.Body.Str("status"), after.Body.Int("sbuId"))); // nothing was applied
     }
 
     [Fact]
-    public async Task An_admin_edits_template_fields_and_the_description_follows()
+    public async Task Group_it_edits_template_fields_and_the_description_follows()
     {
-        await CreateUser("rudo", "admin");
+        await CreateUser("rudo", Roles.GroupIt);
         var res = await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new
         {
             subCategory = "Laptop",
@@ -205,10 +213,10 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Operators_and_admins_may_register_or_delete_an_asset_viewers_may_not()
+    public async Task Sbu_it_may_register_or_delete_an_it_asset_group_finance_may_not()
     {
-        await CreateUser("nyasha", "viewer");
-        await CreateUser("tendai", "operator");
+        await CreateUser("nyasha", Roles.GroupFinance);
+        await CreateUser("tendai", Roles.SbuIt);
         var viewerToken = await TokenFor("nyasha");
         var operatorToken = await TokenFor("tendai");
         var asset = new
@@ -232,18 +240,18 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     [Fact]
     public async Task A_demotion_applies_to_the_next_request_without_waiting_for_the_token_to_expire()
     {
-        var user = await CreateUser("rudo", "admin");
+        var user = await CreateUser("rudo", Roles.GroupIt);
         var token = await TokenFor("rudo");
         Assert.Equal(200, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { notes = "Renamed" }, token)).Status);
 
-        await SetUser(user.Id, role: "viewer");
+        await SetUser(user.Id, role: Roles.GroupFinance);
         Assert.Equal(403, (await api.CallAsync("PATCH", $"/assets/{w.Laptop.Id}", new { notes = "Renamed again" }, token)).Status);
     }
 
     [Fact]
     public async Task A_disabled_account_is_stopped_dead_token_or_not()
     {
-        var user = await CreateUser("rudo", "admin");
+        var user = await CreateUser("rudo", Roles.GroupIt);
         var token = await TokenFor("rudo");
 
         await SetUser(user.Id, active: false);
@@ -251,19 +259,19 @@ public sealed class AuthTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Reading_stays_open_so_the_dashboard_works_signed_out()
+    public async Task Phase2_reading_needs_a_sign_in_too()
     {
-        Assert.Equal(200, (await api.CallAsync("GET", "/assets", token: ApiFixture.Anonymous)).Status);
-        Assert.Equal(200, (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}", token: ApiFixture.Anonymous)).Status);
+        Assert.Equal(401, (await api.CallAsync("GET", "/assets", token: ApiFixture.Anonymous)).Status);
+        Assert.Equal(401, (await api.CallAsync("GET", $"/assets/{w.Laptop.Id}", token: ApiFixture.Anonymous)).Status);
     }
 
     [Fact]
     public async Task A_session_signed_in_on_the_node_api_keeps_working()
     {
         // Same AUTH_SECRET, same token format: browsers signed in before the switch stay signed in.
-        var user = await CreateUser("rudo", "operator");
+        var user = await CreateUser("rudo", Roles.SbuIt);
         var exp = api.Clock.GetUtcNow().ToUnixTimeSeconds() + 3600;
-        var nodeStyleToken = TokenService.Sign(new TokenPayload(user.Id, "rudo", "operator", exp), ApiFixture.AuthSecret);
+        var nodeStyleToken = TokenService.Sign(new TokenPayload(user.Id, "rudo", Roles.SbuIt, exp), ApiFixture.AuthSecret);
 
         var me = await api.CallAsync("GET", "/auth/me", token: nodeStyleToken);
         Assert.Equal((200, "rudo"), (me.Status, me.Body.Str("username")));

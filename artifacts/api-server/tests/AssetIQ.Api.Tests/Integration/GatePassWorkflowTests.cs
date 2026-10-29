@@ -87,7 +87,8 @@ public sealed class GatePassWorkflowTests(ApiFixture api) : IAsyncLifetime
         var res = await Decide(passId, "approve", new { decidedBy = "Rudo Chikwanha", note = "Client visit confirmed" });
 
         Assert.Equal(200, res.Status);
-        Assert.Equal(("approved", "Rudo Chikwanha", "Client visit confirmed", "2026-10-14T08:20:00.000Z", "2026-10-14T08:20:00.000Z"),
+        // Phase 2: the signed-in approver (the Group IT account here) is recorded, not the typed name.
+        Assert.Equal(("approved", "test-group-it user", "Client visit confirmed", "2026-10-14T08:20:00.000Z", "2026-10-14T08:20:00.000Z"),
             (res.Body.Str("status"), res.Body.Str("approvedBy"), res.Body.Str("decisionNote"), res.Body.Str("decidedAt"), res.Body.Str("exitedAt")));
 
         var exit = Assert.Single(await MovementsOf(w.Laptop.Id), m => m.TriggeredBy == "gate_pass");
@@ -129,13 +130,12 @@ public sealed class GatePassWorkflowTests(ApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Requires_a_real_approver_name()
+    public async Task The_signed_in_approver_is_recorded_whatever_name_is_typed()
     {
         var created = await Request(new { assetId = w.Projector.Id, requestedBy = "Tendai Moyo", reason = "Event" });
         var id = created.Body.Int("id");
-        Assert.Equal(400, (await Decide(id, "approve", new { })).Status);
-        Assert.Equal(400, (await Decide(id, "approve", new { decidedBy = "" })).Status);
-        Assert.Equal(400, (await Decide(id, "approve", new { decidedBy = "   " })).Status);
+        var approved = await Decide(id, "approve", new { decidedBy = "   " });
+        Assert.Equal((200, "test-group-it user"), (approved.Status, approved.Body.Str("approvedBy")));
         Assert.Equal(404, (await Decide(9999, "approve", new { decidedBy = "Rudo Chikwanha" })).Status);
         Assert.Equal(400, (await api.CallAsync("POST", "/gate-passes/abc/approve", new { decidedBy = "Rudo Chikwanha" })).Status);
     }
@@ -148,7 +148,7 @@ public sealed class GatePassWorkflowTests(ApiFixture api) : IAsyncLifetime
 
         var res = await Decide(passId, "reject", new { decidedBy = "Rudo Chikwanha", note = "No business reason" });
         Assert.Equal(200, res.Status);
-        Assert.Equal(("rejected", "Rudo Chikwanha", "No business reason"), (res.Body.Str("status"), res.Body.Str("approvedBy"), res.Body.Str("decisionNote")));
+        Assert.Equal(("rejected", "test-group-it user", "No business reason"), (res.Body.Str("status"), res.Body.Str("approvedBy"), res.Body.Str("decisionNote")));
 
         var open = Assert.Single(await AlertsFor(passId), a => !a.Dismissed);
         Assert.Equal(("unauthorized_movement", "critical", (int?)w.Laptop.Id), (open.Type, open.Severity, open.AssetId));
@@ -157,7 +157,7 @@ public sealed class GatePassWorkflowTests(ApiFixture api) : IAsyncLifetime
         await using (var db = api.NewDbContext())
         {
             var note = Assert.Single(await db.AssetLifecycleEvents.AsNoTracking().Where(e => e.AssetId == w.Laptop.Id).ToListAsync());
-            Assert.Equal(("note", "Rudo Chikwanha"), (note.EventType, note.PerformedBy));
+            Assert.Equal(("note", "test-group-it user"), (note.EventType, note.PerformedBy));
         }
 
         Assert.Equal(w.Gate.Id, (await AssetRow(w.Laptop.Id)).CurrentLocationId);

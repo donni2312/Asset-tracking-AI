@@ -77,8 +77,12 @@ public sealed class Asset
     public string Status { get; set; } = "active";
     /// <summary>new | good | fair | poor | damaged</summary>
     public string? Condition { get; set; }
-    /// <summary>The custodian.</summary>
+    /// <summary>The custodian (the employee's name when <see cref="CustodianEmployeeId"/> is set).</summary>
     public string? AssignedTo { get; set; }
+    /// <summary>The employee holding the asset (HR toolbox, Employee scope).</summary>
+    public int? CustodianEmployeeId { get; set; }
+    /// <summary>The department holding the asset (HOD scope, LM-01).</summary>
+    public int? DepartmentId { get; set; }
     public int? CurrentLocationId { get; set; }
     public int? SbuId { get; set; }
     public decimal? OriginalCost { get; set; }
@@ -216,9 +220,11 @@ public sealed class UserAccount
     /// <summary>Display name, recorded on decisions.</summary>
     public string Name { get; set; } = "";
     /// <summary>One of <see cref="Domain.Roles.All"/>.</summary>
-    public string Role { get; set; } = "viewer";
+    public string Role { get; set; } = Domain.Roles.Employee;
     /// <summary>The SBU an SBU role acts on.</summary>
     public int? SbuId { get; set; }
+    /// <summary>The employee the account belongs to (required for the HOD and Employee roles).</summary>
+    public int? EmployeeId { get; set; }
     /// <summary>Auditors: refused after this instant (set by Group Finance).</summary>
     public DateTime? AccessExpiresAt { get; set; }
     public string PasswordHash { get; set; } = "";
@@ -244,6 +250,8 @@ public sealed class AssetCategory
     public string DepreciationMethod { get; set; } = "";
     public int? UsefulLifeMonths { get; set; }
     public decimal? AnnualRate { get; set; }
+    /// <summary>Residual value as a % of cost, proposed at capitalisation (0 by default).</summary>
+    public decimal DefaultResidualPercent { get; set; }
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -306,7 +314,14 @@ public sealed class AssetUpgrade
     public string AfterText { get; set; } = "";
     /// <summary>JSON object: template field key → value after the upgrade.</summary>
     public string FieldChanges { get; set; } = "{}";
+    /// <summary>USD: <see cref="InvoiceAmount"/> × <see cref="ExchangeRate"/>.</summary>
     public decimal Cost { get; set; }
+    /// <summary>The invoice's currency (ISO 4217), as invoiced.</summary>
+    public string Currency { get; set; } = "USD";
+    /// <summary>The invoice amount in <see cref="Currency"/>.</summary>
+    public decimal? InvoiceAmount { get; set; }
+    /// <summary><see cref="Currency"/> → USD.</summary>
+    public decimal ExchangeRate { get; set; } = 1m;
     public string? Supplier { get; set; }
     public string? InvoiceNo { get; set; }
     public string LoggedBy { get; set; } = "";
@@ -401,4 +416,53 @@ public sealed class BcMockNumberSeries
     public int Id { get; set; }
     public string Prefix { get; set; } = "";
     public int LastNumber { get; set; }
+}
+
+/// <summary>`departments`: a department of one SBU (Phase 2).</summary>
+public sealed class Department
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public string Name { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>`employees`: an employee of one SBU (Phase 2; the toolbox stories build on it in Phase 4).</summary>
+public sealed class Employee
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public int? DepartmentId { get; set; }
+    public string EmployeeNo { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? JobRole { get; set; }
+    public int? LineManagerId { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Department? Department { get; set; }
+}
+
+/// <summary>`asset_attachments`: an invoice, photo or document on an asset. Append-only (database trigger).</summary>
+public sealed class AssetAttachment
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public int? UpgradeId { get; set; }
+    /// <summary>invoice | photo | other</summary>
+    public string Kind { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string ContentType { get; set; } = "";
+    public int SizeBytes { get; set; }
+    public string Sha256 { get; set; } = "";
+    public byte[] Content { get; set; } = [];
+    public string UploadedBy { get; set; } = "";
+    public string UploadedByRole { get; set; } = "";
+    public DateTime UploadedAt { get; set; }
+
+    public Asset Asset { get; set; } = null!;
 }

@@ -84,7 +84,7 @@ export default function AssetList() {
             <ExportCsvButton
               request={{ report: "assets", params: { q: search || undefined, sbuId: sbuFilter ?? undefined, status: statusFilter ?? undefined } }}
             />
-            <Permitted role="operator" action="register assets" label="Register Asset" variant="default">
+            <Permitted role="registrars" action="register assets" label="Register Asset" variant="default">
               <Link href="/assets/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">
                 <Plus className="w-4 h-4 mr-2" />Register Asset
               </Link>

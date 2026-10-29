@@ -70,7 +70,7 @@ export default function Insights() {
   const { data: insights } = useListInsights();
   const dismissInsight = useDismissInsight();
   const askAi = useAiQuery();
-  const { allowed: canDismiss } = usePermission("operator", "dismiss alerts");
+  const { allowed: canDismiss } = usePermission("insightManagers", "dismiss alerts");
 
   const [question, setQuestion] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([

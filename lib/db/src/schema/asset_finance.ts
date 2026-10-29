@@ -14,7 +14,10 @@ export const assetUpgradesTable = pgTable("asset_upgrades", {
   beforeText: text("before_text").notNull(),        // "8 GB"
   afterText: text("after_text").notNull(),          // "16 GB"
   fieldChanges: jsonb("field_changes").notNull().default({}), // template field key → value after the upgrade
-  cost: numeric("cost", { precision: 18, scale: 2 }).notNull(),
+  cost: numeric("cost", { precision: 18, scale: 2 }).notNull(),   // USD = invoice_amount × exchange_rate
+  currency: text("currency").notNull().default("USD"),             // the invoice's currency, as invoiced
+  invoiceAmount: numeric("invoice_amount", { precision: 18, scale: 2 }), // the invoice amount in that currency
+  exchangeRate: numeric("exchange_rate", { precision: 18, scale: 6 }).notNull().default("1"), // currency → USD
   supplier: text("supplier"),
   invoiceNo: text("invoice_no"),
   loggedBy: text("logged_by").notNull(),

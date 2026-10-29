@@ -46,7 +46,7 @@ export default function NewLocation() {
           <h1 className="text-2xl font-bold tracking-tight">Add Location</h1>
           <p className="text-muted-foreground text-sm">Register an office, gate, warehouse or other facility.</p>
         </div>
-        <PermissionNotice role="operator" action="add locations" />
+        <PermissionNotice role="locationManagers" action="add locations" />
         <Card>
           <CardHeader>
             <CardTitle>Location Details</CardTitle>

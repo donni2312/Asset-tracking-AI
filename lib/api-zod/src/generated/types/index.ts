@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * TSL AssetIQ — Intelligent Asset Management & Tracking System for TSL Limited, Zimbabwe
- * OpenAPI spec version: 0.4.0
+ * OpenAPI spec version: 0.5.0
  */
 
 export * from './accessLogEntry';
@@ -44,6 +44,10 @@ export * from './assetUpdateStatus';
 export * from './assetUpgrade';
 export * from './assetUpgradeStatus';
 export * from './assetValue';
+export * from './attachment';
+export * from './attachmentKind';
+export * from './attachmentUpload';
+export * from './attachmentUploadKind';
 export * from './auditEntry';
 export * from './auditorAccessUpdate';
 export * from './auditorInput';
@@ -62,6 +66,8 @@ export * from './completenessGap';
 export * from './completenessReport';
 export * from './completenessRow';
 export * from './dashboardSummary';
+export * from './department';
+export * from './departmentInput';
 export * from './depreciationLine';
 export * from './depreciationLock';
 export * from './depreciationRun';
@@ -78,6 +84,9 @@ export * from './downloadInsightsReportParams';
 export * from './downloadLifecycleReportEventType';
 export * from './downloadLifecycleReportParams';
 export * from './downloadMovementsReportParams';
+export * from './employee';
+export * from './employeeInput';
+export * from './employeeUpdate';
 export * from './financeDashboard';
 export * from './financialUpdate';
 export * from './gateActivityItem';
@@ -106,6 +115,8 @@ export * from './listAssetsParams';
 export * from './listAssetsStatus';
 export * from './listCategoriesIncludeInactive';
 export * from './listCategoriesParams';
+export * from './listDepartmentsParams';
+export * from './listEmployeesParams';
 export * from './listGatePassesParams';
 export * from './listGatePassesStatus';
 export * from './listLifecycleEventsEventType';
@@ -114,6 +125,7 @@ export * from './listLocationsParams';
 export * from './listLocationsType';
 export * from './listMovementsParams';
 export * from './listRfidReadersParams';
+export * from './listUsersParams';
 export * from './location';
 export * from './locationBreakdown';
 export * from './locationFilterParameter';
@@ -141,12 +153,16 @@ export * from './rFIDReader';
 export * from './rFIDReaderStatus';
 export * from './rFIDScanResult';
 export * from './rFIDSimulateInput';
+export * from './roleInfo';
 export * from './sbu';
 export * from './sBUBreakdown';
 export * from './sbuCompleteness';
 export * from './sbuFilterParameter';
 export * from './sBUInput';
 export * from './sbuValue';
+export * from './scanCodeParams';
+export * from './scanResult';
+export * from './scanResultGateClearance';
 export * from './settingUpdate';
 export * from './tagInput';
 export * from './templateField';
@@ -161,4 +177,7 @@ export * from './upgradeDecision';
 export * from './upgradeDecisionTreatment';
 export * from './upgradeInput';
 export * from './user';
+export * from './userAccount';
+export * from './userAccountInput';
+export * from './userAccountUpdate';
 export * from './userRole';
