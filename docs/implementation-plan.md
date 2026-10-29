@@ -573,3 +573,13 @@ stolen with placeholder incident details).
 3. **tsas.it** → *Assign* an untagged item: refused (ST-02).
 4. **group.it** → any asset card: no cost section; the asset list shows no values. **group.finance**: values shown.
 5. **sys.admin** → Administration → Gates & readers: add a gate and a reader; Access log shows every request.
+
+### 11.7 Answers to §11.5 (product owner, 29 Oct 2026)
+
+1. **Confirmed (C1):** nobody outside the finance team (Group Finance, SBU Finance; plus auditors and the System
+   Administrator) sees money. Finance decides whether an IT asset is approved for repair. No code change: this is the
+   rule as built. **For Phase 4:** repairs (SI-05) get a Finance approval step before "send for repair"; repair costs
+   are captured on the Finance side only.
+2. **Confirmed (C2):** disposals stay decided by SBU Finance / Group Finance directly until Phase 4 adds the Group
+   sign-offs (GF-04 above threshold, GI-10 data wipe), as planned.
+
