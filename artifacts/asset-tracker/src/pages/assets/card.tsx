@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RevaluationsPanel } from "@/components/revaluations";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -147,6 +148,8 @@ export default function AssetCardPage() {
         </section>
 
         <AttachmentsPanel assetId={a.id} canAttach={card.can.attach} />
+
+        {card.value && card.value.capitalised && <RevaluationsPanel assetId={a.id} canRecord={card.can.editFinancial} />}
 
         <section className="rounded-md border bg-card">
           <div className="p-4">

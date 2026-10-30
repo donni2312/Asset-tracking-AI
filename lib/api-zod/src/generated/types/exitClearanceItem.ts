@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.8.0
  */
 import type { ExitClearanceItemOutcome } from './exitClearanceItemOutcome';
+import type { ExitClearanceItemRecoveryOutcome } from './exitClearanceItemRecoveryOutcome';
 
 export interface ExitClearanceItem {
   id: number;
@@ -21,4 +22,15 @@ export interface ExitClearanceItem {
   recordedAt?: Date | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  recoveryOutcome?: ExitClearanceItemRecoveryOutcome;
+  /** @nullable */
+  recoveryApprovedBy?: string | null;
+  /** @nullable */
+  recoveryNote?: string | null;
+  /**
+     * HR-05 - the item's NBV (USD), for the Finance roles only
+     * @nullable
+     */
+  netBookValue?: number | null;
 }

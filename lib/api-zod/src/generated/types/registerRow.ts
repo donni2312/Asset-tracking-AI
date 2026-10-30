@@ -28,6 +28,8 @@ export interface RegisterRow {
   originalCost: number;
   upgradesInPeriod: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   depreciationYtd: number;

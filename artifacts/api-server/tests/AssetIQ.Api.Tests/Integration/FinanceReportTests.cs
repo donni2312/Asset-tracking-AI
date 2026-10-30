@@ -52,7 +52,7 @@ public sealed class FinanceReportTests(ApiFixture api) : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private static readonly string[] MoneyKeys = ["originalCost", "upgradesInPeriod", "capitalisedUpgrades", "totalCost", "depreciationMonth", "depreciationYtd", "accumulatedDepreciation", "netBookValue"];
+    private static readonly string[] MoneyKeys = ["originalCost", "upgradesInPeriod", "capitalisedUpgrades", "revaluations", "totalCost", "depreciationMonth", "depreciationYtd", "accumulatedDepreciation", "netBookValue"];
 
     private static decimal M(JsonElement e, string key) => e.Prop(key).GetDecimal();
 
@@ -98,7 +98,8 @@ public sealed class FinanceReportTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(144.00m, M(computers, "upgradesInPeriod"));
         Assert.Equal(2844.00m, M(computers, "totalCost"));
         Assert.Equal(60.25m, M(computers, "depreciationMonth"));
-        Assert.Equal(29m + 9 * 25m + 10 * 31.25m, M(computers, "depreciationYtd"));
+        // The financial year starts on 1 November: Nov 2025 – Sep 2026 at 25.00 plus October's 29.00; BAK from January.
+        Assert.Equal(29m + 11 * 25m + 10 * 31.25m, M(computers, "depreciationYtd"));
         Assert.Equal(329m + 312.50m, M(computers, "accumulatedDepreciation"));
         Assert.Equal(2844m - 641.50m, M(computers, "netBookValue"));
 
@@ -106,6 +107,17 @@ public sealed class FinanceReportTests(ApiFixture api) : IAsyncLifetime
         var september = (await api.CallAsync("GET", "/finance/category-report?period=2026-09", token: a.GroupFinance)).Body;
         var sepComputers = september.Prop("categories").Items().Single(c => c.Str("categoryName") == "Computers & Laptops").Prop("totals");
         Assert.Equal((2700m, 56.25m), (M(sepComputers, "totalCost"), M(sepComputers, "depreciationMonth")));
+    }
+
+    [Fact]
+    public async Task FY_the_year_to_date_restarts_on_1_november()
+    {
+        api.SetNow("2026-11-10T08:00:00Z");
+        var november = (await api.CallAsync("GET", "/finance/category-report?period=2026-11", token: a.GroupFinance)).Body;
+        var computers = november.Prop("categories").Items().Single(c => c.Str("categoryName") == "Computers & Laptops").Prop("totals");
+        Assert.Equal(M(computers, "depreciationMonth"), M(computers, "depreciationYtd")); // FY2027 has one month so far
+        Assert.Equal(0m, M(computers, "upgradesInPeriod"));                            // October's upgrade belongs to FY2026
+        Assert.Equal(0, november.Prop("totals").Int("additions"));
     }
 
     [Fact]
@@ -137,7 +149,7 @@ public sealed class FinanceReportTests(ApiFixture api) : IAsyncLifetime
         Assert.Contains("Grand total", cells);
         var report = (await api.CallAsync("GET", $"/finance/category-report?sbuId={a.W.Tsas.Id}", token: a.TsasFinance)).Body;
         var totalRow = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Grand total");
-        Assert.Equal(M(report.Prop("totals"), "netBookValue"), totalRow.Cell(12).GetValue<decimal>());
+        Assert.Equal(M(report.Prop("totals"), "netBookValue"), totalRow.Cell(13).GetValue<decimal>()); // after the Revaluations column (Phase 5a)
 
         using var pdf = await Download("/finance/register.pdf", a.GroupFinance);
         Assert.Equal("application/pdf", pdf.Content.Headers.ContentType!.MediaType);

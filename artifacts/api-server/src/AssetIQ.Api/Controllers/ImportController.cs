@@ -16,7 +16,7 @@ public sealed class ImportController(AssetIqDbContext db, AssetRegistrationServi
 
     /// <summary>The template: the standard columns, then the fields of the chosen category, with an example row.</summary>
     [HttpGet("imports/assets/template.{format:regex(^(csv|xlsx)$)}")]
-    [RequireRole(Roles.FinanceWriters)]
+    [RequireRole(Roles.Importers)]
     [FailureMessage("Failed to build the import template")]
     public async Task<IActionResult> Template(string format, [FromQuery] string? categoryId)
     {
@@ -43,14 +43,14 @@ public sealed class ImportController(AssetIqDbContext db, AssetRegistrationServi
 
     /// <summary>SF-10: the validation report for an uploaded CSV / Excel file; nothing is saved.</summary>
     [HttpPost("imports/assets/validate")]
-    [RequireRole(Roles.FinanceWriters)]
+    [RequireRole(Roles.Importers)]
     [FailureMessage("Failed to check the file")]
     public async Task<ImportReportDto> Validate(IFormFile? file) =>
         await registration.ImportAsync(Caller, Read(file), commit: false, Aborted);
 
     /// <summary>SF-10: imports the file when the report shows no error (all rows or none); otherwise 409 with the report.</summary>
     [HttpPost("imports/assets")]
-    [RequireRole(Roles.FinanceWriters)]
+    [RequireRole(Roles.Importers)]
     [FailureMessage("Failed to import the file")]
     public async Task<IActionResult> Import(IFormFile? file)
     {

@@ -46,11 +46,15 @@ public sealed partial class AssetRegistrationService
 
     private static readonly HashSet<string> StandardColumns = ImportColumns.Select(c => c.Column).ToHashSet();
 
-    /// <summary>SF-10: who imports. SBU Finance for its SBU, Group Finance for any.</summary>
-    // ASSUMPTION: the import is Finance's (SF-10) and also loads non-IT assets, although AM-01 reserves creating
-    // non-IT records to the Admin Manager; listed under Questions. Editing afterwards follows the usual rules.
+    /// <summary>
+    /// SF-10: who imports. SBU Finance (its SBU) and Group Finance (any) import IT and non-IT assets; the SBU Admin
+    /// Manager imports too (product owner, 30 Oct 2026).
+    /// </summary>
     public static bool CanImport(AuthUser user, int sbuId) =>
-        AccessPolicy.Sys(user) || user.Role == Roles.GroupFinance || user.Role == Roles.SbuFinance && AccessPolicy.OwnSbu(user, sbuId);
+        AccessPolicy.Sys(user) || user.Role == Roles.GroupFinance || user.Role is Roles.SbuFinance or Roles.SbuAdmin && AccessPolicy.OwnSbu(user, sbuId);
+
+    // ASSUMPTION: the Admin Manager imports non-IT rows only, as AM-01 gives them the non-IT records and SBU IT the IT ones.
+    private static bool CanImportCategory(AuthUser user, bool isIt) => !(isIt && user.Role == Roles.SbuAdmin);
 
     public async Task<ImportReportDto> ImportAsync(AuthUser user, IReadOnlyList<SheetRow> rows, bool commit, CancellationToken ct)
     {
@@ -75,6 +79,7 @@ public sealed partial class AssetRegistrationService
                 : null;
             if (row["category"] is null) errors.Add("category: required");
             else if (template is null) errors.Add($"category: no category \"{row["category"]}\"");
+            else if (!CanImportCategory(user, template.IsIt)) errors.Add($"category: {template.Name} is IT equipment; SBU IT or SBU Finance imports it");
 
             var sbu = row["sbu"] is { } sbuCode ? sbus.FirstOrDefault(s => string.Equals(s.Code, sbuCode, StringComparison.OrdinalIgnoreCase))
                 : sbus.FirstOrDefault(s => s.Id == user.SbuId);

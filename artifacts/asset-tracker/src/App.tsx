@@ -31,6 +31,7 @@ import Scan from './pages/scan';
 import Fleet, { FleetItemPage } from './pages/fleet';
 import ItViews from './pages/it';
 import Import from './pages/finance/import';
+import Capex from './pages/finance/capex';
 import Gate from './pages/gate';
 import Stores from './pages/stores';
 import { AcknowledgeLink, DepartmentHoldingsPage, MyItems, ToolboxPage } from './pages/toolbox';
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/fleet" component={Fleet} />
       <Route path="/it" component={ItViews} />
       <Route path="/import" component={Import} />
+      <Route path="/capex" component={Capex} />
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />
       <Route path="/assets/new" component={NewAsset} />

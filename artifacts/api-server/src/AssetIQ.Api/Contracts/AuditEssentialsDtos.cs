@@ -60,6 +60,8 @@ public sealed record AssetValueDto
     public decimal? ExchangeRate { get; init; }
     public required decimal OriginalCost { get; init; }
     public required decimal CapitalisedUpgrades { get; init; }
+    /// <summary>SF-07: revaluations and impairments (negative = down).</summary>
+    public required decimal Revaluations { get; init; }
     public required decimal TotalCost { get; init; }
     public required decimal DepreciationMonth { get; init; }
     public required decimal AccumulatedDepreciation { get; init; }
@@ -136,6 +138,8 @@ public sealed record TotalsDto
     public required decimal OriginalCost { get; init; }
     public required decimal UpgradesInPeriod { get; init; }
     public required decimal CapitalisedUpgrades { get; init; }
+    /// <summary>SF-07: revaluations and impairments (negative = down).</summary>
+    public required decimal Revaluations { get; init; }
     public required decimal TotalCost { get; init; }
     public required decimal DepreciationMonth { get; init; }
     public required decimal DepreciationYtd { get; init; }
@@ -161,6 +165,8 @@ public sealed record RegisterRowDto
     public required decimal OriginalCost { get; init; }
     public required decimal UpgradesInPeriod { get; init; }
     public required decimal CapitalisedUpgrades { get; init; }
+    /// <summary>SF-07: revaluations and impairments (negative = down).</summary>
+    public required decimal Revaluations { get; init; }
     public required decimal TotalCost { get; init; }
     public required decimal DepreciationMonth { get; init; }
     public required decimal DepreciationYtd { get; init; }

@@ -1147,6 +1147,8 @@ export interface AssetValue {
   /** USD */
   originalCost: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   accumulatedDepreciation: number;
@@ -1372,6 +1374,8 @@ export interface Totals {
   /** Upgrades capitalised from January to the period */
   upgradesInPeriod: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   depreciationYtd: number;
@@ -1413,6 +1417,8 @@ export interface RegisterRow {
   originalCost: number;
   upgradesInPeriod: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   depreciationYtd: number;
@@ -2381,6 +2387,18 @@ export const ExitClearanceItemOutcome = {
   missing: 'missing',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ExitClearanceItemRecoveryOutcome = typeof ExitClearanceItemRecoveryOutcome[keyof typeof ExitClearanceItemRecoveryOutcome] | null;
+
+
+export const ExitClearanceItemRecoveryOutcome = {
+  recovered: 'recovered',
+  written_off: 'written_off',
+  cost_recovery: 'cost_recovery',
+} as const;
+
 export interface ExitClearanceItem {
   id: number;
   assetId: number;
@@ -2395,6 +2413,17 @@ export interface ExitClearanceItem {
   recordedAt?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  recoveryOutcome?: ExitClearanceItemRecoveryOutcome;
+  /** @nullable */
+  recoveryApprovedBy?: string | null;
+  /** @nullable */
+  recoveryNote?: string | null;
+  /**
+     * HR-05 - the item's NBV (USD), for the Finance roles only
+     * @nullable
+     */
+  netBookValue?: number | null;
 }
 
 export type ExitClearanceStatus = typeof ExitClearanceStatus[keyof typeof ExitClearanceStatus];
@@ -2988,6 +3017,145 @@ export interface ItStatusBoard {
   spare: ItInventoryRow[];
 }
 
+export type RevaluationKind = typeof RevaluationKind[keyof typeof RevaluationKind];
+
+
+export const RevaluationKind = {
+  revaluation: 'revaluation',
+  impairment: 'impairment',
+} as const;
+
+export interface Revaluation {
+  id: number;
+  kind: RevaluationKind;
+  period: string;
+  amount: number;
+  nbvBefore: number;
+  nbvAfter: number;
+  /** @nullable */
+  revisedLifeMonths?: number | null;
+  reason: string;
+  attachmentId: number;
+  recordedBy: string;
+  createdAt: string;
+}
+
+export type RevaluationInputKind = typeof RevaluationInputKind[keyof typeof RevaluationInputKind];
+
+
+export const RevaluationInputKind = {
+  revaluation: 'revaluation',
+  impairment: 'impairment',
+} as const;
+
+export interface RevaluationInput {
+  kind: RevaluationInputKind;
+  /** Revaluation - the new carrying amount (USD) */
+  newValue?: number;
+  /** Impairment - the loss (USD, positive) */
+  impairmentAmount?: number;
+  revisedLifeMonths?: number;
+  reason: string;
+  attachmentId: number;
+}
+
+export interface CapexLine {
+  sbuId: number;
+  /** @nullable */
+  sbuCode?: string | null;
+  categoryId: number;
+  categoryName: string;
+  budget: number;
+  actual: number;
+  variance: number;
+  /** @nullable */
+  usedPercent?: number | null;
+  overBudget: boolean;
+}
+
+export interface CapexSbu {
+  sbuId: number;
+  /** @nullable */
+  sbuCode?: string | null;
+  budget: number;
+  actual: number;
+  variance: number;
+  /** @nullable */
+  usedPercent?: number | null;
+  overBudget: boolean;
+}
+
+export interface CapexReport {
+  financialYear: number;
+  label: string;
+  startsOn: string;
+  endsOn: string;
+  lines: CapexLine[];
+  bySbu: CapexSbu[];
+}
+
+export interface CapexBudgetLineInput {
+  categoryId: number;
+  amount: number;
+}
+
+export interface CapexBudgetInput {
+  sbuId?: number;
+  financialYear: number;
+  lines: CapexBudgetLineInput[];
+}
+
+export interface MissingAsset {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  /** @nullable */
+  lastLocation?: string | null;
+  /** @nullable */
+  custodian?: string | null;
+  /** @nullable */
+  lastSeen?: string | null;
+  netBookValue: number;
+  /** @nullable */
+  resolution?: string | null;
+}
+
+export interface VerificationOutcome {
+  sessionId: number;
+  sbuId: number;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  locationName?: string | null;
+  scope: string;
+  status: string;
+  /** @nullable */
+  closedAt?: string | null;
+  found: number;
+  foundValue: number;
+  missing: number;
+  missingValue: number;
+  unrecorded: number;
+  unrecordedValue: number;
+  missingAssets: MissingAsset[];
+}
+
+export type RecoveryInputOutcome = typeof RecoveryInputOutcome[keyof typeof RecoveryInputOutcome];
+
+
+export const RecoveryInputOutcome = {
+  recovered: 'recovered',
+  written_off: 'written_off',
+  cost_recovery: 'cost_recovery',
+} as const;
+
+export interface RecoveryInput {
+  outcome: RecoveryInputOutcome;
+  approvedBy: string;
+  note?: string;
+}
+
 /**
  * Month (YYYY-MM); default the current month
  */
@@ -3472,5 +3640,17 @@ sbuId?: number;
 export type GetItStatusBoardParams = {
 departmentId?: number;
 locationId?: number;
+};
+
+export type GetCapexParams = {
+/**
+ * The year the financial year ends in (2027 = 1 Nov 2026 - 31 Oct 2027); default the current one
+ */
+financialYear?: number;
+sbuId?: number;
+};
+
+export type ListVerificationOutcomesParams = {
+sbuId?: number;
 };
 

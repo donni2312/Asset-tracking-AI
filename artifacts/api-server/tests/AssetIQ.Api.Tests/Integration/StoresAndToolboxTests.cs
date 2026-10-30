@@ -207,4 +207,27 @@ public sealed class StoresAndToolboxTests(ApiFixture api) : IAsyncLifetime
         Assert.Equal(System.Net.HttpStatusCode.OK, (await api.Client.SendAsync(request)).StatusCode);
         Assert.Equal(403, (await api.CallAsync("GET", $"/departments/{r.BakOps.Id}/holdings", token: r[Roles.Hod])).Status);
     }
+
+    [Fact]
+    public async Task HR_05_hr_records_the_recovery_outcome_with_the_approver_and_only_finance_sees_the_value()
+    {
+        var started = await api.CallAsync("POST", $"/employees/{r.TsasStaff.Id}/exit-clearance", new { reason = "resignation" }, r[Roles.SbuHr]);
+        var clearanceId = started.Body.Int("id");
+        var deskItem = started.Body.Prop("items").Items().Single(i => i.Int("assetId") == r.TsasDesk.Id).Int("id");
+        Assert.Equal(409, (await api.CallAsync("POST", $"/exit-clearances/{clearanceId}/items/{deskItem}/recovery", new { outcome = "cost_recovery", approvedBy = "Rudo Moyo" }, r[Roles.SbuHr])).Status); // not missing yet
+        await api.CallAsync("POST", $"/exit-clearances/{clearanceId}/items/{deskItem}", new { outcome = "missing", notes = "Not in the office" }, r[Roles.SbuHr]);
+
+        Assert.Equal(403, (await api.CallAsync("POST", $"/exit-clearances/{clearanceId}/items/{deskItem}/recovery", new { outcome = "written_off", approvedBy = "X" }, r[Roles.SbuFinance])).Status);
+        var recorded = await api.CallAsync("POST", $"/exit-clearances/{clearanceId}/items/{deskItem}/recovery",
+            new { outcome = "cost_recovery", approvedBy = "Rudo Moyo (HOD)", note = "Deducted from final pay per policy" }, r[Roles.SbuHr]);
+        Assert.True(recorded.Status == 200, recorded.Error());
+        var item = recorded.Body.Prop("items").Items().Single(i => i.Int("id") == deskItem);
+        Assert.Equal(("cost_recovery", "Rudo Moyo (HOD)"), (item.Str("recoveryOutcome"), item.Str("recoveryApprovedBy")));
+        Assert.True(item.IsNull("netBookValue")); // HR does not see money
+        Assert.Equal(2, (await api.CallAsync("GET", "/notifications", token: r[Roles.SbuFinance])).Body.Items().Count(n => n.Str("kind") == "loss"));
+        Assert.Equal(409, (await api.CallAsync("POST", $"/exit-clearances/{clearanceId}/items/{deskItem}/recovery", new { outcome = "recovered", approvedBy = "Rudo Moyo" }, r[Roles.SbuHr])).Status);
+
+        var finance = await api.CallAsync("GET", $"/exit-clearances/{clearanceId}", token: r[Roles.SbuFinance]);
+        Assert.Equal(1200m, finance.Body.Prop("items").Items().Single(i => i.Int("id") == deskItem).Prop("netBookValue").GetDecimal());
+    }
 }

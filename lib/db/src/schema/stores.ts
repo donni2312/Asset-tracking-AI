@@ -105,4 +105,10 @@ export const exitClearanceItemsTable = pgTable("exit_clearance_items", {
   recordedBy: text("recorded_by"),
   recordedAt: timestamp("recorded_at"),
   notes: text("notes"),
+  // HR-05 (Phase 5): what happened to a missing or damaged item, with who approved it.
+  recoveryOutcome: text("recovery_outcome"),           // recovered | written_off | cost_recovery
+  recoveryApprovedBy: text("recovery_approved_by"),
+  recoveryNote: text("recovery_note"),
+  recoveryRecordedBy: text("recovery_recorded_by"),
+  recoveryRecordedAt: timestamp("recovery_recorded_at"),
 });

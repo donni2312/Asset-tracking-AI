@@ -66,6 +66,8 @@ tags:
     description: Phase 4d - bulk import with a validation report (SF-10)
   - name: it
     description: Phase 4d - IT inventory, hardware refresh, status board (GI-01, GI-03, SI-06)
+  - name: planning
+    description: Phase 5a - revaluations and impairments, CAPEX budgets, verification outcomes
 
 # Phase 2: every endpoint needs a signed-in user except the health check and sign-in. What each role may do is
 # the Permissions matrix of docs/user-stories.md, enforced by the API (403 otherwise); lists and exports hold
@@ -3805,6 +3807,160 @@ paths:
               schema:
                 $ref: "#/components/schemas/ItStatusBoard"
 
+  /assets/{id}/revaluations:
+    get:
+      operationId: listRevaluations
+      tags: [planning]
+      summary: "SF-07: the asset's revaluations and impairments"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Revaluation"
+    post:
+      operationId: recordRevaluation
+      tags: [planning]
+      summary: "SF-07: revalue or impair (reason and supporting document required)"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevaluationInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "409":
+          description: Not capitalised, disposed, or the month is locked
+        "201":
+          description: The asset's revaluations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Revaluation"
+
+  /capex:
+    get:
+      operationId: getCapex
+      tags: [planning]
+      summary: "GF-05 / SF-09: CAPEX budget against capitalised spend for a financial year"
+      parameters:
+        - name: financialYear
+          in: query
+          description: The year the financial year ends in (2027 = 1 Nov 2026 - 31 Oct 2027); default the current one
+          schema:
+            type: integer
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapexReport"
+
+  /capex/budgets:
+    put:
+      operationId: setCapexBudget
+      tags: [planning]
+      summary: "SF-09: an SBU's CAPEX budget per category for a financial year"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapexBudgetInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapexReport"
+
+  /verification-outcomes:
+    get:
+      operationId: listVerificationOutcomes
+      tags: [planning]
+      summary: "GF-08: verification results per SBU with values and missing assets"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationOutcome"
+
+  /exit-clearances/{id}/items/{itemId}/recovery:
+    post:
+      operationId: recordExitRecovery
+      tags: [stores]
+      summary: "HR-05: the recovery outcome of a missing or damaged item"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoveryInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "409":
+          description: Not missing or damaged, or already recorded
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExitClearance"
+
 components:
   parameters:
     IdPath:
@@ -5012,7 +5168,7 @@ components:
 
     AssetValue:
       type: object
-      required: [period, capitalised, originalCost, capitalisedUpgrades, totalCost, depreciationMonth, accumulatedDepreciation, netBookValue, residualValue, depreciationMethod]
+      required: [period, capitalised, originalCost, capitalisedUpgrades, revaluations, totalCost, depreciationMonth, accumulatedDepreciation, netBookValue, residualValue, depreciationMethod]
       properties:
         period:
           type: string
@@ -5030,6 +5186,9 @@ components:
           description: USD
         capitalisedUpgrades:
           type: number
+        revaluations:
+          type: number
+          description: SF-07 revaluations and impairments (negative = down)
         totalCost:
           type: number
         depreciationMonth:
@@ -5347,7 +5506,7 @@ components:
 
     Totals:
       type: object
-      required: [count, originalCost, upgradesInPeriod, capitalisedUpgrades, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue, additions]
+      required: [count, originalCost, upgradesInPeriod, capitalisedUpgrades, revaluations, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue, additions]
       properties:
         count:
           type: integer
@@ -5358,6 +5517,9 @@ components:
           description: Upgrades capitalised from January to the period
         capitalisedUpgrades:
           type: number
+        revaluations:
+          type: number
+          description: SF-07 revaluations and impairments (negative = down)
         totalCost:
           type: number
         depreciationMonth:
@@ -5387,7 +5549,7 @@ components:
 
     RegisterRow:
       type: object
-      required: [assetId, description, categoryId, categoryName, status, capitalised, originalCost, upgradesInPeriod, capitalisedUpgrades, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue]
+      required: [assetId, description, categoryId, categoryName, status, capitalised, originalCost, upgradesInPeriod, capitalisedUpgrades, revaluations, totalCost, depreciationMonth, depreciationYtd, accumulatedDepreciation, netBookValue]
       properties:
         assetId:
           type: integer
@@ -5419,6 +5581,9 @@ components:
           type: number
         capitalisedUpgrades:
           type: number
+        revaluations:
+          type: number
+          description: SF-07 revaluations and impairments (negative = down)
         totalCost:
           type: number
         depreciationMonth:
@@ -6710,6 +6875,16 @@ components:
           format: date-time
         notes:
           type: ["string", "null"]
+        recoveryOutcome:
+          type: ["string", "null"]
+          enum: [recovered, written_off, cost_recovery, null]
+        recoveryApprovedBy:
+          type: ["string", "null"]
+        recoveryNote:
+          type: ["string", "null"]
+        netBookValue:
+          type: ["number", "null"]
+          description: HR-05 - the item's NBV (USD), for the Finance roles only
 
     ExitClearance:
       type: object
@@ -7420,4 +7595,211 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ItInventoryRow"
+
+    # ── Phase 5a: revaluations, CAPEX, verification outcomes, recovery ────────
+    Revaluation:
+      type: object
+      required: [id, kind, period, amount, nbvBefore, nbvAfter, reason, attachmentId, recordedBy, createdAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [revaluation, impairment]
+        period:
+          type: string
+        amount:
+          type: number
+        nbvBefore:
+          type: number
+        nbvAfter:
+          type: number
+        revisedLifeMonths:
+          type: ["integer", "null"]
+        reason:
+          type: string
+        attachmentId:
+          type: integer
+        recordedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RevaluationInput:
+      type: object
+      required: [kind, reason, attachmentId]
+      properties:
+        kind:
+          type: string
+          enum: [revaluation, impairment]
+        newValue:
+          type: number
+          description: Revaluation - the new carrying amount (USD)
+        impairmentAmount:
+          type: number
+          description: Impairment - the loss (USD, positive)
+        revisedLifeMonths:
+          type: integer
+        reason:
+          type: string
+        attachmentId:
+          type: integer
+
+    CapexLine:
+      type: object
+      required: [sbuId, categoryId, categoryName, budget, actual, variance, overBudget]
+      properties:
+        sbuId:
+          type: integer
+        sbuCode:
+          type: ["string", "null"]
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        budget:
+          type: number
+        actual:
+          type: number
+        variance:
+          type: number
+        usedPercent:
+          type: ["number", "null"]
+        overBudget:
+          type: boolean
+
+    CapexSbu:
+      type: object
+      required: [sbuId, budget, actual, variance, overBudget]
+      properties:
+        sbuId:
+          type: integer
+        sbuCode:
+          type: ["string", "null"]
+        budget:
+          type: number
+        actual:
+          type: number
+        variance:
+          type: number
+        usedPercent:
+          type: ["number", "null"]
+        overBudget:
+          type: boolean
+
+    CapexReport:
+      type: object
+      required: [financialYear, label, startsOn, endsOn, lines, bySbu]
+      properties:
+        financialYear:
+          type: integer
+        label:
+          type: string
+        startsOn:
+          type: string
+          format: date
+        endsOn:
+          type: string
+          format: date
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapexLine"
+        bySbu:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapexSbu"
+
+    CapexBudgetLineInput:
+      type: object
+      required: [categoryId, amount]
+      properties:
+        categoryId:
+          type: integer
+        amount:
+          type: number
+
+    CapexBudgetInput:
+      type: object
+      required: [financialYear, lines]
+      properties:
+        sbuId:
+          type: integer
+        financialYear:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapexBudgetLineInput"
+
+    MissingAsset:
+      type: object
+      required: [assetId, description, netBookValue]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        lastLocation:
+          type: ["string", "null"]
+        custodian:
+          type: ["string", "null"]
+        lastSeen:
+          type: ["string", "null"]
+          format: date-time
+        netBookValue:
+          type: number
+        resolution:
+          type: ["string", "null"]
+
+    VerificationOutcome:
+      type: object
+      required: [sessionId, sbuId, scope, status, found, foundValue, missing, missingValue, unrecorded, unrecordedValue, missingAssets]
+      properties:
+        sessionId:
+          type: integer
+        sbuId:
+          type: integer
+        sbuCode:
+          type: ["string", "null"]
+        locationName:
+          type: ["string", "null"]
+        scope:
+          type: string
+        status:
+          type: string
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        found:
+          type: integer
+        foundValue:
+          type: number
+        missing:
+          type: integer
+        missingValue:
+          type: number
+        unrecorded:
+          type: integer
+        unrecordedValue:
+          type: number
+        missingAssets:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingAsset"
+
+    RecoveryInput:
+      type: object
+      required: [outcome, approvedBy]
+      properties:
+        outcome:
+          type: string
+          enum: [recovered, written_off, cost_recovery]
+        approvedBy:
+          type: string
+        note:
+          type: string
 

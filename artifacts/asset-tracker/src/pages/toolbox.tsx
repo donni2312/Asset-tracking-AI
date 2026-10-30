@@ -3,7 +3,7 @@ import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   exportDepartmentHoldings, useAcceptAcknowledgement, useAcceptAcknowledgementLink, useCompleteExitClearance, useGetDepartmentHoldings, useGetExitClearance,
-  useGetToolbox, useListAcknowledgements, useRecordExitClearanceItem, useStartExitClearance, type ExitClearanceInputReason, type ExitClearanceItemInputOutcome,
+  useGetToolbox, useListAcknowledgements, useRecordExitClearanceItem, useRecordExitRecovery, useStartExitClearance, type RecoveryInputOutcome, type ExitClearanceInputReason, type ExitClearanceItemInputOutcome,
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,8 @@ function ExitClearance({ id }: { id: number }) {
   const user = useCurrentUser();
   const { data } = useGetExitClearance(id);
   const record = useRecordExitClearanceItem();
+  const recovery = useRecordExitRecovery();
+  const [approver, setApprover] = useState("");
   const complete = useCompleteExitClearance();
   const n = useNotify();
   const [exception, setException] = useState({ approvedBy: "", reason: "" });
@@ -100,7 +102,23 @@ function ExitClearance({ id }: { id: number }) {
               ? <span className="flex gap-1">{(["returned", "damaged", "missing"] as const).map((o) => (
                   <Button key={o} size="sm" variant="outline" onClick={() => record.mutate({ id, itemId: i.id, data: { outcome: o as ExitClearanceItemInputOutcome } }, { onSuccess: () => n.ok(`Recorded ${o}`), onError: n.fail("Not recorded") })}>{o}</Button>
                 ))}</span>
-              : <span className="text-xs">{i.outcome}{i.recordedBy ? ` · ${i.recordedBy}` : ""}</span>}
+              : <span className="flex flex-wrap items-center gap-2 text-xs">
+                  {i.outcome}{i.recordedBy ? ` · ${i.recordedBy}` : ""}
+                  {i.netBookValue != null && <span className="font-mono">NBV {i.netBookValue.toFixed(2)}</span>}
+                  {i.recoveryOutcome && <span className="rounded bg-muted px-1.5">{i.recoveryOutcome.replace("_", " ")} · approved by {i.recoveryApprovedBy}</span>}
+                  {/* HR-05: the recovery outcome of a missing or damaged item, with its approver. */}
+                  {!i.recoveryOutcome && (i.outcome === "missing" || i.outcome === "damaged") && user?.role === "sbu_hr" && (
+                    <span className="flex gap-1">
+                      <input className="h-7 w-32 rounded border bg-background px-1" value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="Approved by" aria-label="Approved by" />
+                      {(["recovered", "written_off", "cost_recovery"] as const).map((o) => (
+                        <Button key={o} size="sm" variant="outline" disabled={approver.trim().length < 2}
+                          onClick={() => recovery.mutate({ id, itemId: i.id, data: { outcome: o as RecoveryInputOutcome, approvedBy: approver } }, { onSuccess: () => n.ok("Outcome recorded; SBU Finance notified"), onError: n.fail("Not recorded") })}>
+                          {o.replace("_", " ")}
+                        </Button>
+                      ))}
+                    </span>
+                  )}
+                </span>}
           </li>
         ))}
       </ul>

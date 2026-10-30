@@ -42,6 +42,7 @@ export function Layout({ children }: LayoutProps) {
     { name: "Asset Register",      href: "/register",      icon: Boxes,     roles: "financeReaders" },
     { name: "Reports",             href: "/reports/category", icon: FileText, roles: "financeReaders" },
     { name: "Approvals",           href: "/approvals",     icon: Inbox,     roles: [...ROLE_GROUPS.gatePassApprovers, "group_finance", "auditor"] },
+    { name: "CAPEX budget",        href: "/capex",         icon: FileText,  roles: "financeReaders" },
     { name: "Verification",        href: "/verification",  icon: ScanLine,  roles: "verificationReaders" },
     { name: "Stores & Receiving",  href: "/stores",        icon: CheckCircle2, roles: ["stores", "sbu_finance", "group_finance", "sbu_it", "group_it", "sbu_admin", "hod", "sbu_hr"] },
     { name: "My items",            href: "/my-items",      icon: CheckCircle2, roles: ["employee"] },

@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
 import { currentPeriod, money, periodLabel, saveBlob } from "@/lib/finance";
+import { financialYear } from "@/lib/finance";
 
 const COLUMNS: Array<[keyof Totals, string]> = [
   ["originalCost", "Original cost"], ["upgradesInPeriod", "Upgrades in period"], ["totalCost", "Total cost"],
@@ -61,7 +62,7 @@ export default function CategoryReport() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Assets by category — {periodLabel(filters.period)}</h1>
-            <p className="text-sm text-muted-foreground">Upgrades in period = capitalised from January · amounts in USD · <Link href="/reports" className="text-primary hover:underline">CSV downloads</Link></p>
+            <p className="text-sm text-muted-foreground">Year to date = from 1 November ({financialYear(filters.period)}) · amounts in USD · <Link href="/reports" className="text-primary hover:underline">CSV downloads</Link></p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => exportAs("xlsx")}>Excel</Button>

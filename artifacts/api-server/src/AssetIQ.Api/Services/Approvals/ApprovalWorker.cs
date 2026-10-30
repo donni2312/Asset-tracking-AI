@@ -22,6 +22,9 @@ public sealed class ApprovalWorker(IServiceScopeFactory scopes, ILogger<Approval
                 // GI-03: warranty expiry alerts.
                 var warranty = await scope.ServiceProvider.GetRequiredService<ItReportService>().WarrantyAlertsAsync(stoppingToken);
                 if (warranty > 0) logger.LogInformation("Warranty alerts raised: {Count}", warranty);
+                // Phase 5a (SF-09): CAPEX budget thresholds.
+                var capex = await scope.ServiceProvider.GetRequiredService<FinancePlanningService>().CapexAlertsAsync(stoppingToken);
+                if (capex > 0) logger.LogInformation("CAPEX alerts sent: {Count}", capex);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

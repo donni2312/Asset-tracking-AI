@@ -67,6 +67,8 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
     public DbSet<VehicleDocument> VehicleDocuments => Set<VehicleDocument>();
     public DbSet<ServiceSchedule> ServiceSchedules => Set<ServiceSchedule>();
     public DbSet<ServiceLog> ServiceLogs => Set<ServiceLog>();
+    public DbSet<AssetRevaluation> AssetRevaluations => Set<AssetRevaluation>();
+    public DbSet<CapexBudget> CapexBudgets => Set<CapexBudget>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -353,6 +355,8 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
         modelBuilder.Entity<VehicleDocument>(e => e.ToTable("vehicle_documents"));
         modelBuilder.Entity<ServiceSchedule>(e => e.ToTable("service_schedules"));
         modelBuilder.Entity<ServiceLog>(e => e.ToTable("service_logs"));
+        modelBuilder.Entity<AssetRevaluation>(e => e.ToTable("asset_revaluations"));
+        modelBuilder.Entity<CapexBudget>(e => e.ToTable("capex_budgets"));
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

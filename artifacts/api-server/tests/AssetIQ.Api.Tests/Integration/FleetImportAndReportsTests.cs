@@ -199,6 +199,15 @@ public sealed class FleetImportAndReportsTests(ApiFixture api) : IAsyncLifetime
         var bakRow = string.Join("\n", Header, Line("SN-IMP-9", r.W.BakWarehouse.Name).Replace(",TSAS,", ",BAK,"));
         Assert.Contains((await UploadAsync("/imports/assets/validate", bakRow, Roles.SbuFinance)).Body.Prop("rows").Items()[0].Prop("errors").Items(),
             e => e.GetString()!.StartsWith("sbu: you may not import"));
+
+        // The SBU Admin Manager imports too (product owner, 30 Oct 2026): non-IT rows of their own SBU.
+        var furniture = string.Join("\n", "category,sub_category,location,no_serial_reason,make,model,material,room",
+            $"FF,Desk,{r.W.Office.Name},Unbranded office furniture,Generic,Executive,Wood,Board room");
+        var byAdmin = await UploadAsync("/imports/assets", furniture, Roles.SbuAdmin);
+        Assert.True(byAdmin.Status == 201, byAdmin.Body.GetRawText());
+        Assert.Contains((await UploadAsync("/imports/assets/validate", good, Roles.SbuAdmin)).Body.Prop("rows").Items()[0].Prop("errors").Items(),
+            e => e.GetString()!.Contains("is IT equipment"));
+        Assert.Equal(403, (await UploadAsync("/imports/assets/validate", furniture, Roles.Stores)).Status);
     }
 
     // ── GF-06, SF-02, SF-01 ─────────────────────────────────────────────────

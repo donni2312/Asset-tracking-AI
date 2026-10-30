@@ -51,6 +51,12 @@ public sealed class DepreciationService(AssetIqDbContext db, AppClock clock, App
                 .ToListAsync(ct))
             .GroupBy(u => u.AssetId)
             .ToDictionary(g => g.Key, g => g.Select(u => new CapitalAddition(Period.Parse(u.CapitalisedPeriod!), u.Cost, u.RevisedLifeMonths)).ToList());
+        // SF-07 (Phase 5a): a revaluation or impairment changes the carrying amount from its month, like a signed upgrade.
+        foreach (var r in await db.AssetRevaluations.AsNoTracking().Where(r => capitalisedIds.Contains(r.AssetId)).ToListAsync(ct))
+        {
+            if (!additions.TryGetValue(r.AssetId, out var list)) additions[r.AssetId] = list = [];
+            list.Add(new CapitalAddition(Period.Parse(r.Period), r.Amount, r.RevisedLifeMonths));
+        }
 
         var posted = (await db.DepreciationEntries.AsNoTracking().Where(e => capitalisedIds.Contains(e.AssetId)).ToListAsync(ct))
             .GroupBy(e => e.AssetId)

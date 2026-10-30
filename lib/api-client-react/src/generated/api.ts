@@ -47,6 +47,8 @@ import type {
   AuditorAccessUpdate,
   AuditorInput,
   BCSyncStatus,
+  CapexBudgetInput,
+  CapexReport,
   CategoryChange,
   CategoryInput,
   CategoryReport,
@@ -105,6 +107,7 @@ import type {
   GateScan,
   GateScanParams,
   GetAssetRegisterParams,
+  GetCapexParams,
   GetCategoryReportParams,
   GetCompletenessReportParams,
   GetDashboardActivityParams,
@@ -139,6 +142,7 @@ import type {
   ListPurchaseOrdersParams,
   ListRfidReadersParams,
   ListUsersParams,
+  ListVerificationOutcomesParams,
   Location,
   LocationBreakdown,
   LocationInput,
@@ -160,12 +164,15 @@ import type {
   RFIDScanResult,
   RFIDSimulateInput,
   ReasonInput,
+  RecoveryInput,
   RegisterReport,
   Repair,
   RepairInput,
   RepairUpdate,
   ReturnInput,
   ReturnResult,
+  Revaluation,
+  RevaluationInput,
   RoleInfo,
   SBUInput,
   Sbu,
@@ -190,6 +197,7 @@ import type {
   UserAccountInput,
   UserAccountUpdate,
   VehicleDocumentInput,
+  VerificationOutcome,
   VerificationResolveInput,
   VerificationScanInput,
   VerificationSession,
@@ -12796,4 +12804,466 @@ export function useGetItStatusBoard<TData = Awaited<ReturnType<typeof getItStatu
 
 
 
+
+export const getListRevaluationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/revaluations`
+}
+
+/**
+ * @summary SF-07: the asset's revaluations and impairments
+ */
+export const listRevaluations = async (id: number, options?: RequestInit): Promise<Revaluation[]> => {
+
+  return customFetch<Revaluation[]>(getListRevaluationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRevaluationsQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/revaluations`
+    ] as const;
+    }
+
+
+export const getListRevaluationsQueryOptions = <TData = Awaited<ReturnType<typeof listRevaluations>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRevaluations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRevaluationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRevaluations>>> = ({ signal }) => listRevaluations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRevaluations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRevaluationsQueryResult = NonNullable<Awaited<ReturnType<typeof listRevaluations>>>
+export type ListRevaluationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary SF-07: the asset's revaluations and impairments
+ */
+
+export function useListRevaluations<TData = Awaited<ReturnType<typeof listRevaluations>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRevaluations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRevaluationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordRevaluationUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/revaluations`
+}
+
+/**
+ * @summary SF-07: revalue or impair (reason and supporting document required)
+ */
+export const recordRevaluation = async (id: number,
+    revaluationInput: RevaluationInput, options?: RequestInit): Promise<Revaluation[]> => {
+
+  return customFetch<Revaluation[]>(getRecordRevaluationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(revaluationInput)
+  }
+);}
+
+
+
+
+
+export const getRecordRevaluationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRevaluation>>, TError,{id: number;data: BodyType<RevaluationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordRevaluation>>, TError,{id: number;data: BodyType<RevaluationInput>}, TContext> => {
+
+const mutationKey = ['recordRevaluation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordRevaluation>>, {id: number;data: BodyType<RevaluationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  recordRevaluation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordRevaluationMutationResult = NonNullable<Awaited<ReturnType<typeof recordRevaluation>>>
+    export type RecordRevaluationMutationBody = BodyType<RevaluationInput>
+    export type RecordRevaluationMutationError = ErrorType<void>
+
+    /**
+ * @summary SF-07: revalue or impair (reason and supporting document required)
+ */
+export const useRecordRevaluation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRevaluation>>, TError,{id: number;data: BodyType<RevaluationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordRevaluation>>,
+        TError,
+        {id: number;data: BodyType<RevaluationInput>},
+        TContext
+      > => {
+      return useMutation(getRecordRevaluationMutationOptions(options));
+    }
+
+export const getGetCapexUrl = (params?: GetCapexParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/capex?${stringifiedParams}` : `/api/capex`
+}
+
+/**
+ * @summary GF-05 / SF-09: CAPEX budget against capitalised spend for a financial year
+ */
+export const getCapex = async (params?: GetCapexParams, options?: RequestInit): Promise<CapexReport> => {
+
+  return customFetch<CapexReport>(getGetCapexUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCapexQueryKey = (params?: GetCapexParams,) => {
+    return [
+    `/api/capex`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCapexQueryOptions = <TData = Awaited<ReturnType<typeof getCapex>>, TError = ErrorType<void>>(params?: GetCapexParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCapex>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCapexQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCapex>>> = ({ signal }) => getCapex(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCapex>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCapexQueryResult = NonNullable<Awaited<ReturnType<typeof getCapex>>>
+export type GetCapexQueryError = ErrorType<void>
+
+
+/**
+ * @summary GF-05 / SF-09: CAPEX budget against capitalised spend for a financial year
+ */
+
+export function useGetCapex<TData = Awaited<ReturnType<typeof getCapex>>, TError = ErrorType<void>>(
+ params?: GetCapexParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCapex>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCapexQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetCapexBudgetUrl = () => {
+
+
+
+
+  return `/api/capex/budgets`
+}
+
+/**
+ * @summary SF-09: an SBU's CAPEX budget per category for a financial year
+ */
+export const setCapexBudget = async (capexBudgetInput: CapexBudgetInput, options?: RequestInit): Promise<CapexReport> => {
+
+  return customFetch<CapexReport>(getSetCapexBudgetUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(capexBudgetInput)
+  }
+);}
+
+
+
+
+
+export const getSetCapexBudgetMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCapexBudget>>, TError,{data: BodyType<CapexBudgetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setCapexBudget>>, TError,{data: BodyType<CapexBudgetInput>}, TContext> => {
+
+const mutationKey = ['setCapexBudget'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setCapexBudget>>, {data: BodyType<CapexBudgetInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setCapexBudget(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetCapexBudgetMutationResult = NonNullable<Awaited<ReturnType<typeof setCapexBudget>>>
+    export type SetCapexBudgetMutationBody = BodyType<CapexBudgetInput>
+    export type SetCapexBudgetMutationError = ErrorType<void>
+
+    /**
+ * @summary SF-09: an SBU's CAPEX budget per category for a financial year
+ */
+export const useSetCapexBudget = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setCapexBudget>>, TError,{data: BodyType<CapexBudgetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setCapexBudget>>,
+        TError,
+        {data: BodyType<CapexBudgetInput>},
+        TContext
+      > => {
+      return useMutation(getSetCapexBudgetMutationOptions(options));
+    }
+
+export const getListVerificationOutcomesUrl = (params?: ListVerificationOutcomesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/verification-outcomes?${stringifiedParams}` : `/api/verification-outcomes`
+}
+
+/**
+ * @summary GF-08: verification results per SBU with values and missing assets
+ */
+export const listVerificationOutcomes = async (params?: ListVerificationOutcomesParams, options?: RequestInit): Promise<VerificationOutcome[]> => {
+
+  return customFetch<VerificationOutcome[]>(getListVerificationOutcomesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListVerificationOutcomesQueryKey = (params?: ListVerificationOutcomesParams,) => {
+    return [
+    `/api/verification-outcomes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListVerificationOutcomesQueryOptions = <TData = Awaited<ReturnType<typeof listVerificationOutcomes>>, TError = ErrorType<void>>(params?: ListVerificationOutcomesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVerificationOutcomes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVerificationOutcomesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVerificationOutcomes>>> = ({ signal }) => listVerificationOutcomes(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVerificationOutcomes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListVerificationOutcomesQueryResult = NonNullable<Awaited<ReturnType<typeof listVerificationOutcomes>>>
+export type ListVerificationOutcomesQueryError = ErrorType<void>
+
+
+/**
+ * @summary GF-08: verification results per SBU with values and missing assets
+ */
+
+export function useListVerificationOutcomes<TData = Awaited<ReturnType<typeof listVerificationOutcomes>>, TError = ErrorType<void>>(
+ params?: ListVerificationOutcomesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVerificationOutcomes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListVerificationOutcomesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordExitRecoveryUrl = (id: number,
+    itemId: number,) => {
+
+
+
+
+  return `/api/exit-clearances/${id}/items/${itemId}/recovery`
+}
+
+/**
+ * @summary HR-05: the recovery outcome of a missing or damaged item
+ */
+export const recordExitRecovery = async (id: number,
+    itemId: number,
+    recoveryInput: RecoveryInput, options?: RequestInit): Promise<ExitClearance> => {
+
+  return customFetch<ExitClearance>(getRecordExitRecoveryUrl(id,itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recoveryInput)
+  }
+);}
+
+
+
+
+
+export const getRecordExitRecoveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordExitRecovery>>, TError,{id: number;itemId: number;data: BodyType<RecoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordExitRecovery>>, TError,{id: number;itemId: number;data: BodyType<RecoveryInput>}, TContext> => {
+
+const mutationKey = ['recordExitRecovery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordExitRecovery>>, {id: number;itemId: number;data: BodyType<RecoveryInput>}> = (props) => {
+          const {id,itemId,data} = props ?? {};
+
+          return  recordExitRecovery(id,itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordExitRecoveryMutationResult = NonNullable<Awaited<ReturnType<typeof recordExitRecovery>>>
+    export type RecordExitRecoveryMutationBody = BodyType<RecoveryInput>
+    export type RecordExitRecoveryMutationError = ErrorType<void>
+
+    /**
+ * @summary HR-05: the recovery outcome of a missing or damaged item
+ */
+export const useRecordExitRecovery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordExitRecovery>>, TError,{id: number;itemId: number;data: BodyType<RecoveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordExitRecovery>>,
+        TError,
+        {id: number;itemId: number;data: BodyType<RecoveryInput>},
+        TContext
+      > => {
+      return useMutation(getRecordExitRecoveryMutationOptions(options));
+    }
 

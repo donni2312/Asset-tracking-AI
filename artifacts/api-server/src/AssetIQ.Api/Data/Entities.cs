@@ -709,6 +709,12 @@ public sealed class ExitClearanceItem
     public string? RecordedBy { get; set; }
     public DateTime? RecordedAt { get; set; }
     public string? Notes { get; set; }
+    /// <summary>HR-05: recovered | written_off | cost_recovery</summary>
+    public string? RecoveryOutcome { get; set; }
+    public string? RecoveryApprovedBy { get; set; }
+    public string? RecoveryNote { get; set; }
+    public string? RecoveryRecordedBy { get; set; }
+    public DateTime? RecoveryRecordedAt { get; set; }
 }
 
 // ── Phase 4c: gate pass items and gate actions, verification ──────────────────
@@ -841,5 +847,39 @@ public sealed class ServiceLog
     public string? CostBy { get; set; }
     public string LoggedBy { get; set; } = "";
     public DateTime CreatedAt { get; set; }
+}
+
+// ── Phase 5a: revaluations, CAPEX budgets ─────────────────────────────────────
+
+public sealed class AssetRevaluation
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>revaluation | impairment</summary>
+    public string Kind { get; set; } = "";
+    /// <summary>YYYY-MM: takes effect from this month.</summary>
+    public string Period { get; set; } = "";
+    /// <summary>USD change to the carrying amount (negative = down).</summary>
+    public decimal Amount { get; set; }
+    public decimal NbvBefore { get; set; }
+    public decimal NbvAfter { get; set; }
+    public int? RevisedLifeMonths { get; set; }
+    public string Reason { get; set; } = "";
+    public int AttachmentId { get; set; }
+    public string RecordedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class CapexBudget
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    /// <summary>The year the financial year ends in (FY2027 = Nov 2026 – Oct 2027).</summary>
+    public int FinancialYear { get; set; }
+    public int CategoryId { get; set; }
+    public decimal Amount { get; set; }
+    public int? AlertedPercent { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
 }
 

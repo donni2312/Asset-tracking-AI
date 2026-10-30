@@ -30,14 +30,16 @@ public sealed record AssetValuation
     public required decimal OriginalCost { get; init; }
     /// <summary>All upgrades capitalised up to and including the period.</summary>
     public required decimal CapitalisedUpgrades { get; init; }
-    /// <summary>Upgrades capitalised from January to the period.</summary>
+    /// <summary>Upgrades capitalised from the start of the financial year (1 November) to the period.</summary>
     public required decimal UpgradesYtd { get; init; }
-    public decimal TotalCost => OriginalCost + CapitalisedUpgrades;
+    /// <summary>SF-07: revaluations and impairments up to and including the period (negative = down).</summary>
+    public required decimal Revaluations { get; init; }
+    public decimal TotalCost => OriginalCost + CapitalisedUpgrades + Revaluations;
     public required decimal DepreciationMonth { get; init; }
     public required decimal DepreciationYtd { get; init; }
     public required decimal AccumulatedDepreciation { get; init; }
     public decimal NetBookValue => TotalCost - AccumulatedDepreciation;
-    /// <summary>Capitalised with an in-use date in the period's year (AU-10 "additions this year").</summary>
+    /// <summary>Capitalised with an in-use date in the period's financial year (AU-10 "additions this year").</summary>
     public required bool AdditionThisYear { get; init; }
 }
 
@@ -84,7 +86,10 @@ public sealed class ValuationService(AssetIqDbContext db, DepreciationService de
             .Select(u => new { u.AssetId, u.CapitalisedPeriod, u.Cost })
             .ToListAsync(ct);
         var schedules = await depreciation.SchedulesAsync(ids, period, ct);
-        var yearStart = period.StartOfYear;
+        var revaluations = (await db.AssetRevaluations.AsNoTracking()
+                .Where(v => ids.Contains(v.AssetId) && string.Compare(v.Period, periodText) <= 0).Select(v => new { v.AssetId, v.Amount }).ToListAsync(ct))
+            .GroupBy(v => v.AssetId).ToDictionary(g => g.Key, g => g.Sum(v => v.Amount));
+        var yearStart = period.StartOfFinancialYear;
 
         return rows.Select(r =>
         {
@@ -99,11 +104,12 @@ public sealed class ValuationService(AssetIqDbContext db, DepreciationService de
                 Custodian = r.AssignedTo, Status = r.Status, Capitalised = capitalised, InUseDate = r.InUseDate,
                 OriginalCost = capitalised ? r.CostUsd!.Value : 0m,
                 CapitalisedUpgrades = capitalised ? own.Sum(u => u.Cost) : 0m,
+                Revaluations = capitalised ? revaluations.GetValueOrDefault(r.Id) : 0m,
                 UpgradesYtd = capitalised ? own.Where(u => Period.Parse(u.CapitalisedPeriod!) >= yearStart).Sum(u => u.Cost) : 0m,
                 DepreciationMonth = lines.Where(l => l.Period == period).Sum(l => l.Posted),
                 DepreciationYtd = lines.Where(l => l.Period >= yearStart && l.Period <= period).Sum(l => l.Posted),
                 AccumulatedDepreciation = lines.LastOrDefault()?.ClosingAccumulated ?? 0m,
-                AdditionThisYear = capitalised && r.InUseDate is not null && Period.Parse(r.InUseDate).Year == period.Year,
+                AdditionThisYear = capitalised && r.InUseDate is not null && FinancialYear.Contains(period, Period.Parse(r.InUseDate)),
             };
         })
         .OrderBy(v => v.CategoryName).ThenBy(v => v.AssetNumber ?? "~").ThenBy(v => v.AssetId)
@@ -113,11 +119,11 @@ public sealed class ValuationService(AssetIqDbContext db, DepreciationService de
 
 /// <summary>Totals of a set of valuations (a category subtotal or a grand total).</summary>
 public sealed record ValuationTotals(
-    int Count, decimal OriginalCost, decimal UpgradesInPeriod, decimal CapitalisedUpgrades, decimal TotalCost,
+    int Count, decimal OriginalCost, decimal UpgradesInPeriod, decimal CapitalisedUpgrades, decimal Revaluations, decimal TotalCost,
     decimal DepreciationMonth, decimal DepreciationYtd, decimal AccumulatedDepreciation, decimal NetBookValue, int Additions)
 {
     public static ValuationTotals Of(IReadOnlyCollection<AssetValuation> rows) => new(
-        rows.Count, rows.Sum(r => r.OriginalCost), rows.Sum(r => r.UpgradesYtd), rows.Sum(r => r.CapitalisedUpgrades), rows.Sum(r => r.TotalCost),
+        rows.Count, rows.Sum(r => r.OriginalCost), rows.Sum(r => r.UpgradesYtd), rows.Sum(r => r.CapitalisedUpgrades), rows.Sum(r => r.Revaluations), rows.Sum(r => r.TotalCost),
         rows.Sum(r => r.DepreciationMonth), rows.Sum(r => r.DepreciationYtd), rows.Sum(r => r.AccumulatedDepreciation), rows.Sum(r => r.NetBookValue),
         rows.Count(r => r.AdditionThisYear));
 }

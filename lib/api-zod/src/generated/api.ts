@@ -1928,6 +1928,7 @@ export const GetAssetCardResponse = zod.object({
   "exchangeRate": zod.number().nullish(),
   "originalCost": zod.number().describe('USD'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "accumulatedDepreciation": zod.number(),
@@ -2502,6 +2503,7 @@ export const GetAssetRegisterResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number(),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -2513,6 +2515,7 @@ export const GetAssetRegisterResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -2578,6 +2581,7 @@ export const GetCategoryReportResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -2591,6 +2595,7 @@ export const GetCategoryReportResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -2650,6 +2655,7 @@ export const GetFinanceDashboardResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -2663,6 +2669,7 @@ export const GetFinanceDashboardResponse = zod.object({
   "originalCost": zod.number(),
   "upgradesInPeriod": zod.number().describe('Upgrades capitalised from January to the period'),
   "capitalisedUpgrades": zod.number(),
+  "revaluations": zod.number().describe('SF-07 revaluations and impairments (negative = down)'),
   "totalCost": zod.number(),
   "depreciationMonth": zod.number(),
   "depreciationYtd": zod.number(),
@@ -4113,7 +4120,11 @@ export const StartExitClearanceResponse = zod.object({
   "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
   "recordedBy": zod.string().nullish(),
   "recordedAt": zod.coerce.date().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "recoveryOutcome": zod.union([zod.literal('recovered'),zod.literal('written_off'),zod.literal('cost_recovery'),zod.literal(null)]).nullish(),
+  "recoveryApprovedBy": zod.string().nullish(),
+  "recoveryNote": zod.string().nullish(),
+  "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
 
@@ -4144,7 +4155,11 @@ export const GetExitClearanceResponse = zod.object({
   "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
   "recordedBy": zod.string().nullish(),
   "recordedAt": zod.coerce.date().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "recoveryOutcome": zod.union([zod.literal('recovered'),zod.literal('written_off'),zod.literal('cost_recovery'),zod.literal(null)]).nullish(),
+  "recoveryApprovedBy": zod.string().nullish(),
+  "recoveryNote": zod.string().nullish(),
+  "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
 
@@ -4181,7 +4196,11 @@ export const RecordExitClearanceItemResponse = zod.object({
   "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
   "recordedBy": zod.string().nullish(),
   "recordedAt": zod.coerce.date().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "recoveryOutcome": zod.union([zod.literal('recovered'),zod.literal('written_off'),zod.literal('cost_recovery'),zod.literal(null)]).nullish(),
+  "recoveryApprovedBy": zod.string().nullish(),
+  "recoveryNote": zod.string().nullish(),
+  "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
 
@@ -4217,7 +4236,11 @@ export const CompleteExitClearanceResponse = zod.object({
   "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
   "recordedBy": zod.string().nullish(),
   "recordedAt": zod.coerce.date().nullish(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "recoveryOutcome": zod.union([zod.literal('recovered'),zod.literal('written_off'),zod.literal('cost_recovery'),zod.literal(null)]).nullish(),
+  "recoveryApprovedBy": zod.string().nullish(),
+  "recoveryNote": zod.string().nullish(),
+  "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
 
@@ -5438,6 +5461,214 @@ export const GetItStatusBoardResponse = zod.object({
   "ageYears": zod.number().nullish(),
   "warrantyEnds": zod.string().nullish(),
   "refreshReasons": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary SF-07: the asset's revaluations and impairments
+ */
+export const ListRevaluationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListRevaluationsResponseItem = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['revaluation', 'impairment']),
+  "period": zod.string(),
+  "amount": zod.number(),
+  "nbvBefore": zod.number(),
+  "nbvAfter": zod.number(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "reason": zod.string(),
+  "attachmentId": zod.number(),
+  "recordedBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListRevaluationsResponse = zod.array(ListRevaluationsResponseItem)
+
+
+/**
+ * @summary SF-07: revalue or impair (reason and supporting document required)
+ */
+export const RecordRevaluationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordRevaluationBody = zod.object({
+  "kind": zod.enum(['revaluation', 'impairment']),
+  "newValue": zod.number().optional().describe('Revaluation - the new carrying amount (USD)'),
+  "impairmentAmount": zod.number().optional().describe('Impairment - the loss (USD, positive)'),
+  "revisedLifeMonths": zod.number().optional(),
+  "reason": zod.string(),
+  "attachmentId": zod.number()
+})
+
+export const RecordRevaluationResponseItem = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['revaluation', 'impairment']),
+  "period": zod.string(),
+  "amount": zod.number(),
+  "nbvBefore": zod.number(),
+  "nbvAfter": zod.number(),
+  "revisedLifeMonths": zod.number().nullish(),
+  "reason": zod.string(),
+  "attachmentId": zod.number(),
+  "recordedBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const RecordRevaluationResponse = zod.array(RecordRevaluationResponseItem)
+
+
+/**
+ * @summary GF-05 / SF-09: CAPEX budget against capitalised spend for a financial year
+ */
+export const GetCapexQueryParams = zod.object({
+  "financialYear": zod.coerce.number().optional().describe('The year the financial year ends in (2027 = 1 Nov 2026 - 31 Oct 2027); default the current one'),
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const GetCapexResponse = zod.object({
+  "financialYear": zod.number(),
+  "label": zod.string(),
+  "startsOn": zod.coerce.date(),
+  "endsOn": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "sbuId": zod.number(),
+  "sbuCode": zod.string().nullish(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "budget": zod.number(),
+  "actual": zod.number(),
+  "variance": zod.number(),
+  "usedPercent": zod.number().nullish(),
+  "overBudget": zod.boolean()
+})),
+  "bySbu": zod.array(zod.object({
+  "sbuId": zod.number(),
+  "sbuCode": zod.string().nullish(),
+  "budget": zod.number(),
+  "actual": zod.number(),
+  "variance": zod.number(),
+  "usedPercent": zod.number().nullish(),
+  "overBudget": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary SF-09: an SBU's CAPEX budget per category for a financial year
+ */
+export const SetCapexBudgetBody = zod.object({
+  "sbuId": zod.number().optional(),
+  "financialYear": zod.number(),
+  "lines": zod.array(zod.object({
+  "categoryId": zod.number(),
+  "amount": zod.number()
+}))
+})
+
+export const SetCapexBudgetResponse = zod.object({
+  "financialYear": zod.number(),
+  "label": zod.string(),
+  "startsOn": zod.coerce.date(),
+  "endsOn": zod.coerce.date(),
+  "lines": zod.array(zod.object({
+  "sbuId": zod.number(),
+  "sbuCode": zod.string().nullish(),
+  "categoryId": zod.number(),
+  "categoryName": zod.string(),
+  "budget": zod.number(),
+  "actual": zod.number(),
+  "variance": zod.number(),
+  "usedPercent": zod.number().nullish(),
+  "overBudget": zod.boolean()
+})),
+  "bySbu": zod.array(zod.object({
+  "sbuId": zod.number(),
+  "sbuCode": zod.string().nullish(),
+  "budget": zod.number(),
+  "actual": zod.number(),
+  "variance": zod.number(),
+  "usedPercent": zod.number().nullish(),
+  "overBudget": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary GF-08: verification results per SBU with values and missing assets
+ */
+export const ListVerificationOutcomesQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const ListVerificationOutcomesResponseItem = zod.object({
+  "sessionId": zod.number(),
+  "sbuId": zod.number(),
+  "sbuCode": zod.string().nullish(),
+  "locationName": zod.string().nullish(),
+  "scope": zod.string(),
+  "status": zod.string(),
+  "closedAt": zod.coerce.date().nullish(),
+  "found": zod.number(),
+  "foundValue": zod.number(),
+  "missing": zod.number(),
+  "missingValue": zod.number(),
+  "unrecorded": zod.number(),
+  "unrecordedValue": zod.number(),
+  "missingAssets": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "lastLocation": zod.string().nullish(),
+  "custodian": zod.string().nullish(),
+  "lastSeen": zod.coerce.date().nullish(),
+  "netBookValue": zod.number(),
+  "resolution": zod.string().nullish()
+}))
+})
+export const ListVerificationOutcomesResponse = zod.array(ListVerificationOutcomesResponseItem)
+
+
+/**
+ * @summary HR-05: the recovery outcome of a missing or damaged item
+ */
+export const RecordExitRecoveryParams = zod.object({
+  "id": zod.coerce.number(),
+  "itemId": zod.coerce.number()
+})
+
+export const RecordExitRecoveryBody = zod.object({
+  "outcome": zod.enum(['recovered', 'written_off', 'cost_recovery']),
+  "approvedBy": zod.string(),
+  "note": zod.string().optional()
+})
+
+export const RecordExitRecoveryResponse = zod.object({
+  "id": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string(),
+  "reason": zod.string(),
+  "status": zod.enum(['open', 'completed']),
+  "exceptionApprovedBy": zod.string().nullish(),
+  "exceptionReason": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "isIt": zod.boolean(),
+  "outcome": zod.enum(['outstanding', 'returned', 'damaged', 'missing']),
+  "recordedBy": zod.string().nullish(),
+  "recordedAt": zod.coerce.date().nullish(),
+  "notes": zod.string().nullish(),
+  "recoveryOutcome": zod.union([zod.literal('recovered'),zod.literal('written_off'),zod.literal('cost_recovery'),zod.literal(null)]).nullish(),
+  "recoveryApprovedBy": zod.string().nullish(),
+  "recoveryNote": zod.string().nullish(),
+  "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
 

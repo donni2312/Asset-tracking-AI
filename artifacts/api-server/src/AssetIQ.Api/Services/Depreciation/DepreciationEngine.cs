@@ -3,6 +3,29 @@ using AssetIQ.Api.Domain;
 
 namespace AssetIQ.Api.Services.Depreciation;
 
+/// <summary>
+/// The business's financial year runs from 1 November to 31 October (product owner, 30 Oct 2026). Every
+/// year-to-date figure, "this year" count and yearly report starts on 1 November.
+/// </summary>
+public static class FinancialYear
+{
+    public const int StartMonth = 11;
+
+    public static Period StartOf(Period p) => p.Month >= StartMonth ? new(p.Year, StartMonth) : new(p.Year - 1, StartMonth);
+
+    public static Period EndOf(Period p) => StartOf(p).AddMonths(11);
+
+    /// <summary>"FY2027" for November 2026 – October 2027.</summary>
+    // ASSUMPTION: a financial year is named after the calendar year in which it ends.
+    public static string Label(Period p) => $"FY{EndOf(p).Year}";
+
+    /// <summary>YYYY-MM-DD of 1 November that opens the year.</summary>
+    public static string StartDate(Period p) => $"{StartOf(p).Year:D4}-{StartMonth:D2}-01";
+
+    /// <summary>The financial year that contains <paramref name="p"/> contains <paramref name="other"/> too.</summary>
+    public static bool Contains(Period p, Period other) => other >= StartOf(p) && other <= EndOf(p);
+}
+
 /// <summary>A calendar month, "YYYY-MM" on the wire and in the database.</summary>
 public readonly record struct Period(int Year, int Month) : IComparable<Period>
 {
@@ -39,7 +62,8 @@ public readonly record struct Period(int Year, int Month) : IComparable<Period>
     /// <summary>Months from this period to <paramref name="other"/> (other − this).</summary>
     public int MonthsUntil(Period other) => (other.Year * 12 + other.Month) - (Year * 12 + Month);
 
-    public Period StartOfYear => new(Year, 1);
+    /// <summary>The first month of the financial year this month belongs to (1 November, see <see cref="FinancialYear"/>).</summary>
+    public Period StartOfFinancialYear => FinancialYear.StartOf(this);
 
     public int CompareTo(Period other) => (Year, Month).CompareTo((other.Year, other.Month));
 

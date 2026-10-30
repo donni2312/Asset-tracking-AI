@@ -249,6 +249,21 @@ public sealed class StoresController(AssetIqDbContext db, StoresService stores, 
         return await toolbox.ClearanceAsync(Caller, RequestValues.Id(id), Aborted);
     }
 
+    /// <summary>HR-05: body { outcome: recovered | written_off | cost_recovery, approvedBy, note? }.</summary>
+    [HttpPost("exit-clearances/{id}/items/{itemId}/recovery")]
+    [RequireRole(Roles.SbuHr)]
+    [FailureMessage("Failed to record the recovery outcome")]
+    public async Task<ExitClearanceDto> Recovery(string id, string itemId, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] JsonElement? body)
+    {
+        var input = JsonBody.From(body);
+        var outcome = input.RequiredEnum("outcome", ["recovered", "written_off", "cost_recovery"]);
+        var approvedBy = input.RequiredString("approvedBy", minLength: 2);
+        var note = input.OptionalString("note");
+        input.ThrowIfInvalid();
+        await toolbox.RecordRecoveryAsync(Caller, RequestValues.Id(id), RequestValues.Id(itemId), outcome, approvedBy, note, Aborted);
+        return await toolbox.ClearanceAsync(Caller, RequestValues.Id(id), Aborted);
+    }
+
     [HttpPost("exit-clearances/{id}/complete")]
     [RequireRole(Roles.SbuHr)]
     [FailureMessage("Failed to complete the exit clearance")]

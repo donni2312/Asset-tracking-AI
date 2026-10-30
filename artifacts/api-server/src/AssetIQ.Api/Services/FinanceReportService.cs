@@ -64,6 +64,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
         OriginalCost = lines.Sum(l => l.Totals.OriginalCost),
         UpgradesInPeriod = lines.Sum(l => l.Totals.UpgradesInPeriod),
         CapitalisedUpgrades = lines.Sum(l => l.Totals.CapitalisedUpgrades),
+        Revaluations = lines.Sum(l => l.Totals.Revaluations),
         TotalCost = lines.Sum(l => l.Totals.TotalCost),
         DepreciationMonth = lines.Sum(l => l.Totals.DepreciationMonth),
         DepreciationYtd = lines.Sum(l => l.Totals.DepreciationYtd),
@@ -74,7 +75,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
 
     public static TotalsDto Totals(ValuationTotals t) => new()
     {
-        Count = t.Count, OriginalCost = t.OriginalCost, UpgradesInPeriod = t.UpgradesInPeriod, CapitalisedUpgrades = t.CapitalisedUpgrades,
+        Count = t.Count, OriginalCost = t.OriginalCost, UpgradesInPeriod = t.UpgradesInPeriod, CapitalisedUpgrades = t.CapitalisedUpgrades, Revaluations = t.Revaluations,
         TotalCost = t.TotalCost, DepreciationMonth = t.DepreciationMonth, DepreciationYtd = t.DepreciationYtd,
         AccumulatedDepreciation = t.AccumulatedDepreciation, NetBookValue = t.NetBookValue, Additions = t.Additions,
     };
@@ -84,7 +85,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
         AssetId = v.AssetId, AssetNumber = v.AssetNumber, Description = v.Description, SerialNumber = v.SerialNumber,
         CategoryId = v.CategoryId, CategoryName = v.CategoryName, SbuCode = v.SbuCode, LocationName = v.LocationName,
         Custodian = v.Custodian, Status = v.Status, Capitalised = v.Capitalised, InUseDate = v.InUseDate,
-        OriginalCost = v.OriginalCost, UpgradesInPeriod = v.UpgradesYtd, CapitalisedUpgrades = v.CapitalisedUpgrades,
+        OriginalCost = v.OriginalCost, UpgradesInPeriod = v.UpgradesYtd, CapitalisedUpgrades = v.CapitalisedUpgrades, Revaluations = v.Revaluations,
         TotalCost = v.TotalCost, DepreciationMonth = v.DepreciationMonth, DepreciationYtd = v.DepreciationYtd,
         AccumulatedDepreciation = v.AccumulatedDepreciation, NetBookValue = v.NetBookValue,
     };
@@ -93,12 +94,12 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
 
     private static readonly ExportColumn[] MoneyColumns =
     [
-        new("Original cost", Money: true), new("Upgrades in period", Money: true), new("Total cost", Money: true),
+        new("Original cost", Money: true), new("Upgrades in period", Money: true), new("Revaluations", Money: true), new("Total cost", Money: true),
         new("Depr. this month", Money: true), new("Depr. YTD", Money: true), new("Accumulated depr.", Money: true), new("NBV", Money: true),
     ];
 
     private static object?[] MoneyCells(TotalsDto t) =>
-        [t.OriginalCost, t.UpgradesInPeriod, t.TotalCost, t.DepreciationMonth, t.DepreciationYtd, t.AccumulatedDepreciation, t.NetBookValue];
+        [t.OriginalCost, t.UpgradesInPeriod, t.Revaluations, t.TotalCost, t.DepreciationMonth, t.DepreciationYtd, t.AccumulatedDepreciation, t.NetBookValue];
 
     /// <summary>AU-09 export: per category, its assets, then the category subtotal; the grand total last.</summary>
     public async Task<ExportTable> CategoryReportTableAsync(AuthUser user, ReportQuery query, CancellationToken ct)
@@ -165,7 +166,8 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
     {
         if (kind == "register") return await RegisterTableAsync(user, query, ct);
         var subtitle = await SubtitleAsync(user, query, ct);
-        var yearStart = $"{query.Period.Year:D4}-01-01";
+        var yearStart = FinancialYear.StartDate(query.Period);
+        var fy = $"{FinancialYear.Label(query.Period)}, 1 November {FinancialYear.StartOf(query.Period).Year}";
         var periodEnd = $"{query.Period.Year:D4}-{query.Period.Month:D2}-{DateTime.DaysInMonth(query.Period.Year, query.Period.Month):D2}";
         switch (kind)
         {
@@ -175,7 +177,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
                     .Where(r => r.AdditionThisYear && string.CompareOrdinal(r.InUseDate, periodEnd) <= 0).OrderBy(r => r.InUseDate, StringComparer.Ordinal).ToList();
                 var table = rows.Select(v => new ExportRow([v.InUseDate, v.AssetNumber ?? "pending", v.Description, v.CategoryName, v.SbuCode, v.OriginalCost, v.NetBookValue])).ToList();
                 table.Add(new ExportRow(["Total", $"{rows.Count} assets", null, null, null, rows.Sum(r => r.OriginalCost), rows.Sum(r => r.NetBookValue)], Bold: true));
-                return new ExportTable($"Additions — January to {query.Period}", subtitle,
+                return new ExportTable($"Additions — {fy} to {query.Period}", subtitle,
                     [new("In use from"), new("Asset no."), new("Description"), new("Category"), new("SBU"), new("Cost", Money: true), new("NBV", Money: true)], table);
             }
             case "disposals":
@@ -193,7 +195,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
                     .ToListAsync(ct);
                 var table = rows.Select(r => new ExportRow([r.DisposalDate, r.AssetNumber, r.Name, r.Sbu, r.Method, r.Proceeds, r.NbvAtDisposal, r.GainLoss])).ToList();
                 table.Add(new ExportRow(["Total", $"{rows.Count} disposals", null, null, null, rows.Sum(r => r.Proceeds ?? 0), rows.Sum(r => r.NbvAtDisposal ?? 0), rows.Sum(r => r.GainLoss ?? 0)], Bold: true));
-                return new ExportTable($"Disposals — January to {query.Period}", subtitle,
+                return new ExportTable($"Disposals — {fy} to {query.Period}", subtitle,
                     [new("Date"), new("Asset no."), new("Description"), new("SBU"), new("Method"), new("Proceeds", Money: true), new("NBV at disposal", Money: true), new("Gain / (loss)", Money: true)], table);
             }
             case "depreciation":
@@ -249,7 +251,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
         return
         [
             $"Period: {query.Period} · SBU: {sbu ?? "All in scope"} · Location: {location ?? "All"} · Category: {category ?? "All"}",
-            $"Amounts in USD · prepared for {user.Name} ({Roles.DisplayName(user.Role)}) · upgrades in period = capitalised January–{query.Period}",
+            $"Amounts in USD · prepared for {user.Name} ({Roles.DisplayName(user.Role)}) · year to date = from 1 November ({FinancialYear.Label(query.Period)}) to {query.Period}",
         ];
     }
 

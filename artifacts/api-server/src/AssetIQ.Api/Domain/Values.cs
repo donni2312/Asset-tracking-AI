@@ -313,6 +313,8 @@ public static class Roles
     public const string FleetReaders = SbuAdmin + "," + SbuFinance + "," + GroupFinance + "," + GroupIt + "," + Auditor;
     /// <summary>Phase 4d: IT inventory, refresh and status board (GI-01, GI-03, SI-06); the scope filter keeps SBU IT to its SBU.</summary>
     public const string ItReaders = GroupIt + "," + SbuIt + "," + Auditor;
+    /// <summary>SF-10 bulk import: Finance, and the SBU Admin Manager for non-IT rows (product owner, 30 Oct 2026).</summary>
+    public const string Importers = GroupFinance + "," + SbuFinance + "," + SbuAdmin;
     /// <summary>Everyone who may scan a tag (SI-03, SG-01): every role except the System Administrator.</summary>
     public const string Scanners = AssetReaders + "," + GateOfficer;
 

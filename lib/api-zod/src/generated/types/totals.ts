@@ -12,6 +12,8 @@ export interface Totals {
   /** Upgrades capitalised from January to the period */
   upgradesInPeriod: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   depreciationYtd: number;

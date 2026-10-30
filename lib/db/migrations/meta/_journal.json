@@ -85,6 +85,13 @@
       "when": 1793281775916,
       "tag": "0011_fleet_and_cost_centre",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793344832362,
+      "tag": "0012_finance_phase5",
+      "breakpoints": true
     }
   ]
 }

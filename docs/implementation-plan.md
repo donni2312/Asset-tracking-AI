@@ -723,16 +723,64 @@ Assumptions: **D1** the import belongs to Finance (SF-10) and may load non-IT as
 non-IT records to the Admin Manager (Q-D2); **D2** an imported item keeps the RFID tag it already carries (new
 registrations still tag after the asset number); **D3** the Admin Manager logs the service, SBU Finance enters its cost
 (money stays with Finance, as for repairs); **D4** "faulty" on the status board = condition poor or damaged and not in
-repair; **D5** a service is "due soon" within 14 days or 10 % of the interval; **D6** additions and disposals run from
-January to the period, movements cover the period's month; **D7** the fleet status (active / in service / off road) is
+repair; **D5** a service is "due soon" within 14 days or 10 % of the interval; **D6** (changed 30 Oct 2026, see §13)
+additions and disposals run from 1 November (the start of the financial year) to the period, movements cover the
+period's month; **D7** the fleet status (active / in service / off road) is
 kept beside the asset status, which it does not change.
 
-Questions: **Q-D1** SI-01 asks for a QR on the tag; generating the image needs a QR library (for example QRCoder for the
-API or a small npm package for the dashboard). May I add one? Until then the tag carries the asset number, which every
-scan screen accepts. **Q-D2** Should SBU Finance's import be allowed to create non-IT records (D1), or should non-IT
-rows be imported by the SBU Admin Manager?
+Questions answered (30 Oct 2026): **Q-D1** the QR image waits until later in the project; **Q-D2** Finance imports IT
+and non-IT assets, and the SBU Admin Manager may import too (non-IT rows of their SBU, see §13).
 
 Demo: **bak.admin** → Fleet & Non-IT → the Hilux is red (ZINARA expired) → open it → record a renewal; log a service.
 **bak.finance** → the same vehicle → enter the service cost. **tsas.finance** → Import assets → Excel template for
 Computers → fill two rows → Check file → Import. **group.finance** → Reports by category → Standard reports.
 **group.it** → IT Inventory (Inventory, Refresh, Status board).
+
+---
+
+## 13. Phase 5 — Should and Could stories
+
+Decided with the product owner (30 Oct 2026):
+
+- **The financial year runs from 1 November to 31 October** and everything follows it: year-to-date depreciation and
+  upgrades, "additions this year", the additions and disposals reports, CAPEX budgets. `FinancialYear` (next to
+  `Period` in `Services/Depreciation/DepreciationEngine.cs`) is the one definition; the dashboard's `financialYear()`
+  mirrors it. A year is named after the year it ends in (**FY2027** = 1 Nov 2026 – 31 Oct 2027). Monthly
+  depreciation, month locks and the asset number's year (the Business Central series) are unchanged.
+- **SF-10**: the SBU Admin Manager imports too (non-IT rows of their own SBU); Finance imports both.
+- **SI-01 QR**: later in the project.
+
+Phase 5 is delivered in slices, each tested and reported: **5a** Finance (GF-05, SF-09, SF-07, GF-08, HR-05);
+**5b** gate and security (GI-07 checklist, SG-04 … SG-06, LM-04); **5c** people, stores and fleet (HR-02, HR-06, ST-07,
+AM-05, AM-06, AM-08); **5d** Could stories in priority order (HR-07, AM-07, ST-06, LM-06, SF-08, GI-09, GF-10, GF-09,
+SG-07). Already covered by Phase 4: GI-06, GI-10, SI-09, SI-10, SF-05, LM-05.
+
+### 13.1 Slice 5a: Finance
+
+| Story | Built | Tests |
+|---|---|---|
+| FY (1 November) | YTD figures, additions, standard reports and CAPEX by financial year | `FinanceReportTests.AU_09_figures_for_october_2026`, `FY_the_year_to_date_restarts_on_1_november` |
+| SF-07 revaluation / impairment | `POST /assets/{id}/revaluations` (SBU Finance): impairment by an amount or revaluation to a new value, from the current open month (refused when it is locked); reason and a supporting document (an attachment of the asset) required; the NBV changes at once and depreciation is re-spread over the remaining or revised life (a signed capital addition in the engine); audit entry with NBV before and after (GF-07); register, reports and card show a Revaluations column | `FinancePlanningTests.SF_07_…` (2) |
+| SF-09 / GF-05 CAPEX | `PUT /capex/budgets` per SBU, category and financial year (SBU Finance its SBU, Group Finance any); `GET /capex`: budget, actual (assets and upgrades capitalised in the year), variance in value and %, over-budget flags, SBU roll-up; alerts at `capex_alert_percents` (80 / 100) once per threshold to SBU and Group Finance | `SF_09_and_GF_05_…` |
+| GF-08 verification results | `GET /verification-outcomes`: per closed count, found / missing / unrecorded with their NBV; missing assets with last known location, custodian and last seen | `GF_08_…` |
+| HR-05 recovery | Missing or damaged exit-clearance items: SBU HR records recovered / written off / cost recovery with the approver; SBU Finance notified; the NBV is shown to Finance only (money stays with Finance); a recovered item goes back to store | `StoresAndToolboxTests.HR_05_…` |
+
+Migration `0012_finance_phase5` adds `asset_revaluations`, `capex_budgets` and the recovery columns of
+`exit_clearance_items`. Screens: **CAPEX budget**, Revaluations on the asset card, **Results by SBU** tab on
+Verification, recovery buttons in the exit clearance.
+
+Assumptions: **F1** a financial year is named after the year it ends in; **F2** CAPEX spend is counted when an asset or
+upgrade is capitalised, at its USD cost, in the financial year of the capitalisation; **F3** a revaluation or impairment
+takes effect from the current open month; **F4** HR-05's "show NBV" is shown to Finance only, following the rule that
+money stays with Finance; HR sees the outcome; **F5** the asset number keeps the calendar year of purchase (it comes
+from the Business Central number series and is never reused).
+
+Questions: **Q-F1** should the asset number's year follow the financial year too (F5)? Numbers already issued would not
+change. **Q-F2** the Group settings still hold the brief's placeholders (disposal USD 1,000, gate pass USD 500, refresh
+4 / 5 / 5 years, warranty 60 days, CAPEX 80 / 100 %, reminders 24 / 48 h): please confirm or send the final values.
+
+Demo: **tsas.finance** → CAPEX budget → add a Computers budget for this year → the line shows used % and variance.
+**group.finance** → CAPEX budget (all SBUs) and Verification → Results by SBU. **tsas.finance** → an asset card →
+attach a valuation report → Revaluations → record an impairment. **tsas.hr** → People → an employee → exit clearance →
+mark an item missing → choose the recovery outcome.
+

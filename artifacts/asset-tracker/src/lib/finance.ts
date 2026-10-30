@@ -15,6 +15,12 @@ export const money = (value: number | null | undefined) => (value == null ? "—
 export const moneyWhole = (value: number | null | undefined) => (value == null ? "—" : usdWhole.format(value));
 
 /** The current month as YYYY-MM in the browser's time zone. */
+/** The financial year runs from 1 November: "FY2027" for November 2026 – October 2027 (as the API names it). */
+export function financialYear(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  return `FY${m >= 11 ? y + 1 : y}`;
+}
+
 export function currentPeriod(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

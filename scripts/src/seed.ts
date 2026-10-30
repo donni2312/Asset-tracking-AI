@@ -23,6 +23,7 @@ import {
   auditLogTable,
   bcMockNumberSeriesTable,
   bcNumberRequestsTable,
+  capexBudgetsTable,
   categoryTemplateFieldsTable,
   departmentsTable,
   employeesTable,
@@ -134,7 +135,7 @@ async function main() {
         sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
             depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
             approval_steps, approval_requests, delegations, notifications, outbound_emails, asset_repairs, asset_disposals,
-            service_logs, service_schedules, vehicle_documents, fleet_details,
+            capex_budgets, asset_revaluations, service_logs, service_schedules, vehicle_documents, fleet_details,
             gate_pass_items, gate_actions, verification_results, verification_scans, verification_sessions,
             exit_clearance_items, exit_clearances, asset_acknowledgements, equipment_requests, goods_receipt_lines, goods_receipts,
             purchase_order_lines, purchase_orders,
@@ -683,6 +684,15 @@ async function main() {
       { assetId: hiluxId, serviceDate: day(-60), reading: 138900, garage: "Toyota Zimbabwe – Msasa", workDone: "140 000 km service, brake pads",
         cost: "385.00", currency: "USD", costBy: "Rumbidzai Dube", loggedBy: "Simbarashe Chikore" },
       { assetId: forkliftId, serviceDate: day(-90), reading: 5650, garage: "Bak Workshop", workDone: "Battery check, hydraulic oil", loggedBy: "Simbarashe Chikore" },
+    ]);
+
+    // Phase 5a: CAPEX budgets for the current financial year (1 November – 31 October, named after the year it ends).
+    const fyEnd = NOW.getMonth() >= 10 ? NOW.getFullYear() + 1 : NOW.getFullYear();
+    await tx.insert(capexBudgetsTable).values([
+      { sbuId: sbuId("TSAS"), financialYear: fyEnd, categoryId: categoryOf("COMP").id, amount: "6000.00", updatedBy: "Chipo Mlambo" },
+      { sbuId: sbuId("TSAS"), financialYear: fyEnd, categoryId: categoryOf("PER").id, amount: "1500.00", updatedBy: "Chipo Mlambo" },
+      { sbuId: sbuId("BAK"), financialYear: fyEnd, categoryId: categoryOf("COMP").id, amount: "2500.00", updatedBy: "Rumbidzai Dube" },
+      { sbuId: sbuId("BAK"), financialYear: fyEnd, categoryId: categoryOf("MV").id, amount: "45000.00", updatedBy: "Rumbidzai Dube" },
     ]);
 
     console.log("Seeded AssetIQ demo data:");

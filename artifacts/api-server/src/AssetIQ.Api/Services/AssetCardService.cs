@@ -77,6 +77,7 @@ public sealed class AssetCardService(
                 ExchangeRate = asset.ExchangeRate,
                 OriginalCost = value?.OriginalCost ?? 0m,
                 CapitalisedUpgrades = value?.CapitalisedUpgrades ?? 0m,
+                Revaluations = value?.Revaluations ?? 0m,
                 TotalCost = value?.TotalCost ?? 0m,
                 DepreciationMonth = value?.DepreciationMonth ?? 0m,
                 AccumulatedDepreciation = value?.AccumulatedDepreciation ?? 0m,

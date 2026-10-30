@@ -19,6 +19,8 @@ export interface AssetValue {
   /** USD */
   originalCost: number;
   capitalisedUpgrades: number;
+  /** SF-07 revaluations and impairments (negative = down) */
+  revaluations: number;
   totalCost: number;
   depreciationMonth: number;
   accumulatedDepreciation: number;

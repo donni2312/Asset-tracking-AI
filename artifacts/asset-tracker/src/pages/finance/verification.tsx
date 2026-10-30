@@ -10,6 +10,7 @@ import { currentPeriod } from "@/lib/finance";
 import { inGroup } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VerificationCounts } from "@/components/verification-counts";
+import { VerificationOutcomes } from "@/components/verification-outcomes";
 
 /**
  * Verification: counts of a location with their reconciliation (SI-07, SF-06, Phase 4c), and the record gaps before
@@ -28,9 +29,11 @@ export default function Verification() {
         <Tabs defaultValue="counts">
           <TabsList>
             <TabsTrigger value="counts">Counts</TabsTrigger>
+            {finance && <TabsTrigger value="outcomes">Results by SBU</TabsTrigger>}
             {finance && <TabsTrigger value="gaps">Record gaps</TabsTrigger>}
           </TabsList>
           <TabsContent value="counts"><VerificationCounts /></TabsContent>
+          {finance && <TabsContent value="outcomes"><VerificationOutcomes /></TabsContent>}
           {finance && <TabsContent value="gaps"><RecordGaps /></TabsContent>}
         </Tabs>
       </div>

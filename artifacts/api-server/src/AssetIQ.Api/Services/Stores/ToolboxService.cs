@@ -12,7 +12,8 @@ namespace AssetIQ.Api.Services.Stores;
 /// exit clearance built from it (HR-04; returned items go back to the SBU's Stores, IT ones to SBU IT per ST-05), and
 /// what a department holds, by person (LM-01, LM-02). No cost or value is shown (money stays with Finance).
 /// </summary>
-public sealed class ToolboxService(AssetIqDbContext db, AppClock clock, AuditTrail audit, NotificationService notifications, AssetStatusService statuses)
+public sealed class ToolboxService(AssetIqDbContext db, AppClock clock, AuditTrail audit, NotificationService notifications, AssetStatusService statuses,
+    AssetIQ.Api.Services.Depreciation.DepreciationService depreciation)
 {
     public async Task<ToolboxDto> ToolboxAsync(AuthUser user, int employeeId, CancellationToken ct)
     {
@@ -88,10 +89,19 @@ public sealed class ToolboxService(AssetIqDbContext db, AppClock clock, AuditTra
         var employee = await EmployeeAsync(user, clearance.EmployeeId, ct);
         var ids = clearance.Items.Select(i => i.AssetId).ToList();
         var assets = await db.Assets.IgnoreQueryFilters().AsNoTracking().Include(a => a.AssetCategory).Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id, ct);
+        // HR-05: the value of what is outstanding reaches Finance only (money stays with Finance).
+        var nbv = new Dictionary<int, decimal>();
+        if (AccessPolicy.CanSeeFinancials(user))
+        {
+            foreach (var (id, lines) in await depreciation.SchedulesAsync(ids, depreciation.CurrentPeriod, ct))
+                if (lines.Count > 0) nbv[id] = lines[^1].ClosingNbv;
+            foreach (var id in ids.Where(i => !nbv.ContainsKey(i))) nbv[id] = assets[id].CostUsd ?? 0m;
+        }
         return new ExitClearanceDto(clearance.Id, employee.Id, employee.Name, clearance.Reason, clearance.Status, clearance.ExceptionApprovedBy, clearance.ExceptionReason,
             clearance.CreatedAt, clearance.CompletedAt,
             clearance.Items.OrderBy(i => i.Id).Select(i => new ExitClearanceItemDto(i.Id, i.AssetId, assets[i.AssetId].AssetNumber, assets[i.AssetId].Name,
-                assets[i.AssetId].AssetCategory.IsIt, i.Outcome, i.RecordedBy, i.RecordedAt, i.Notes)).ToList());
+                assets[i.AssetId].AssetCategory.IsIt, i.Outcome, i.RecordedBy, i.RecordedAt, i.Notes, i.RecoveryOutcome, i.RecoveryApprovedBy, i.RecoveryNote,
+                nbv.TryGetValue(i.AssetId, out var value) ? value : null)).ToList());
     }
 
     /// <summary>
@@ -135,6 +145,39 @@ public sealed class ToolboxService(AssetIqDbContext db, AppClock clock, AuditTra
         item.RecordedAt = clock.UtcNow;
         item.Notes = notes;
         audit.Record(user, "exit_clearance", clearance.Id, asset.Id, "item_recorded", "outcome", "outstanding", outcome, notes);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// HR-05: for a missing or damaged item, SBU HR records the outcome under the company's recovery policy (recovered,
+    /// written off, cost recovery) with the approver; SBU Finance is notified. A recovered item goes back to store.
+    /// </summary>
+    public async Task RecordRecoveryAsync(AuthUser user, int clearanceId, int itemId, string outcome, string approvedBy, string? note, CancellationToken ct)
+    {
+        var clearance = await db.ExitClearances.Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == clearanceId, ct)
+            ?? throw new ApiException(StatusCodes.Status404NotFound, "Exit clearance not found");
+        var employee = await db.Employees.AsNoTracking().FirstAsync(e => e.Id == clearance.EmployeeId, ct);
+        if (!(AccessPolicy.Sys(user) || user.Role == Roles.SbuHr && AccessPolicy.OwnSbu(user, employee.SbuId)))
+            throw AccessPolicy.Deny(user, "record the recovery outcome (SBU HR does, HR-05)");
+        var item = clearance.Items.FirstOrDefault(i => i.Id == itemId) ?? throw new ApiException(StatusCodes.Status404NotFound, "Item not found");
+        if (item.Outcome is not ("missing" or "damaged")) throw new ApiException(StatusCodes.Status409Conflict, "Only a missing or damaged item has a recovery outcome");
+        if (item.RecoveryOutcome is not null) throw new ApiException(StatusCodes.Status409Conflict, $"Already recorded as {item.RecoveryOutcome}");
+        var asset = await db.Assets.IgnoreQueryFilters().Include(a => a.AssetCategory).FirstAsync(a => a.Id == item.AssetId, ct);
+        if (outcome == "recovered" && item.Outcome == "missing")
+        {
+            var sbuCode = await db.Sbus.Where(s => s.Id == employee.SbuId).Select(s => s.Code).FirstOrDefaultAsync(ct);
+            statuses.TrySystemChange(user, asset, new StatusChange(AssetStatuses.InStore, $"Recovered after exit clearance #{clearance.Id}"));
+            asset.AssignedTo = AssetStatusService.StoreHolder(asset, sbuCode);
+        }
+        item.RecoveryOutcome = outcome;
+        item.RecoveryApprovedBy = approvedBy;
+        item.RecoveryNote = note;
+        item.RecoveryRecordedBy = user.Name;
+        item.RecoveryRecordedAt = clock.UtcNow;
+        audit.Record(user, "exit_clearance", clearance.Id, asset.Id, "recovery_recorded", "recoveryOutcome", null, outcome, $"Approved by {approvedBy}{(note is null ? "" : $": {note}")}");
+        var finance = await db.Users.Where(u => u.Active && u.Role == Roles.SbuFinance && u.SbuId == employee.SbuId).ToListAsync(ct);
+        notifications.Notify(finance, "loss", $"Recovery outcome for {asset.Name}: {outcome.Replace('_', ' ')}",
+            $"{employee.Name}, exit clearance #{clearance.Id}. Approved by {approvedBy}.", $"/assets/{asset.Id}/card");
         await db.SaveChangesAsync(ct);
     }
 

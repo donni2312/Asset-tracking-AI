@@ -677,3 +677,15 @@ Report: `docs/implementation-plan.md` §12.
   `Infrastructure/SpreadsheetRows.cs` and `ImportController`; GF-06 standard reports in `FinanceReportService.StandardReportTableAsync`
   (`/finance/reports.{xlsx|pdf}?kind=`); IT inventory, refresh and status board in `Services/ItReportService.cs` / `ItController`.
   The worker also sends fleet reminders and warranty alerts.
+
+## Phase 5 — Should and Could stories, from 30 October 2026
+
+Report: `docs/implementation-plan.md` §13. The financial year runs 1 November – 31 October (`FinancialYear` in
+`Services/Depreciation/DepreciationEngine.cs`; `financialYear()` in the dashboard's `lib/finance.ts`); every YTD figure
+uses it.
+
+- **5a Finance**: `Services/FinancePlanningService.cs` / `FinancePlanningController` — revaluations and impairments
+  (`asset_revaluations`, fed to the depreciation engine as signed capital additions), CAPEX budgets per SBU, category
+  and financial year with 80 / 100 % alerts (worker), verification outcomes per SBU; HR-05 recovery outcomes in
+  `ToolboxService.RecordRecoveryAsync`.
+

@@ -9,7 +9,7 @@ import { SbuBadge } from "@/components/sbu-badge";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
-import { currentPeriod, money, moneyWhole, periodLabel, saveBlob } from "@/lib/finance";
+import { currentPeriod, financialYear, money, moneyWhole, periodLabel, saveBlob } from "@/lib/finance";
 
 /**
  * Management dashboard (AU-10, GF-01): cost, upgrades, depreciation and NBV by category. The figures come
@@ -67,7 +67,7 @@ export default function AssetPosition() {
               <TableHeader><TableRow>
                 <TableHead>Category</TableHead><TableHead className="text-right">Assets</TableHead><TableHead className="text-right">Cost</TableHead>
                 <TableHead className="text-right">Upgrades (YTD)</TableHead><TableHead className="text-right">Depr. this month</TableHead><TableHead className="text-right">Depr. YTD</TableHead>
-                <TableHead className="text-right">NBV</TableHead><TableHead className="text-right">Additions {filters.period.slice(0, 4)}</TableHead>
+                <TableHead className="text-right">NBV</TableHead><TableHead className="text-right">Additions {financialYear(filters.period)}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {data?.categories.map((c) => (

@@ -69,7 +69,7 @@ export const ROLE_GROUPS = {
   // Phase 4d (Values.cs FleetReaders, ItReaders, FinanceWriters).
   fleetReaders: ["sbu_admin", "sbu_finance", "group_finance", "group_it", "auditor"],
   itReaders: ["group_it", "sbu_it", "auditor"],
-  importers: ["sbu_finance", "group_finance"],
+  importers: ["sbu_finance", "group_finance", "sbu_admin"],
   verificationReaders: ["group_it", "sbu_it", "stores", "sbu_admin", "sbu_finance", "group_finance", "auditor"],
 } satisfies Record<string, UserRole[]>;
 

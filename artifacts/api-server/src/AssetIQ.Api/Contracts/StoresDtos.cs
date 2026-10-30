@@ -31,8 +31,9 @@ public sealed record ToolboxHistoryDto(int AssetId, string? AssetNumber, string 
 public sealed record ToolboxDto(int EmployeeId, string EmployeeNo, string Name, string? JobRole, bool Active, IReadOnlyList<ToolboxItemDto> Items,
     IReadOnlyList<ToolboxHistoryDto> History, int? OpenExitClearanceId);
 
+/// <param name="NetBookValue">HR-05: the item's NBV (USD), for the Finance roles only.</param>
 public sealed record ExitClearanceItemDto(int Id, int AssetId, string? AssetNumber, string Description, bool IsIt, string Outcome, string? RecordedBy,
-    DateTime? RecordedAt, string? Notes);
+    DateTime? RecordedAt, string? Notes, string? RecoveryOutcome = null, string? RecoveryApprovedBy = null, string? RecoveryNote = null, decimal? NetBookValue = null);
 
 public sealed record ExitClearanceDto(int Id, int EmployeeId, string EmployeeName, string Reason, string Status, string? ExceptionApprovedBy, string? ExceptionReason,
     DateTime CreatedAt, DateTime? CompletedAt, IReadOnlyList<ExitClearanceItemDto> Items);
