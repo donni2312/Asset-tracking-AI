@@ -27,7 +27,8 @@ public sealed record CategoryChange(int CategoryId, string? SubCategory, IReadOn
 public sealed record FinancialUpdate(
     Optional<decimal?> OriginalCost, Optional<string?> Currency, Optional<decimal?> ExchangeRate,
     Optional<string?> Supplier, Optional<string?> InvoiceNo, Optional<string?> PoNo,
-    Optional<string?> PurchaseDate, Optional<string?> InUseDate, Optional<decimal?> ResidualValue, string Reason);
+    Optional<string?> PurchaseDate, Optional<string?> InUseDate, Optional<decimal?> ResidualValue, string Reason,
+    Optional<string?> CostCentre = default);
 
 /// <summary>
 /// Registration and maintenance of the asset record (AU-01 … AU-04). The category template drives the
@@ -35,7 +36,7 @@ public sealed record FinancialUpdate(
 /// the identifier (serial / VIN / IMEI) and MAC address are unique across the Group, and every change is
 /// written to the audit trail in the same transaction.
 /// </summary>
-public sealed class AssetRegistrationService(
+public sealed partial class AssetRegistrationService(
     AssetIqDbContext db, AppClock clock, AuditTrail audit, BcNumberService bcNumbers, AssetStatusService statuses, ILogger<AssetRegistrationService> logger)
 {
     public async Task<Template> LoadTemplateAsync(int categoryId, CancellationToken ct, bool activeOnly = true)
@@ -118,10 +119,10 @@ public sealed class AssetRegistrationService(
         return asset.Id;
     }
 
-    private sealed record Identity(string? Serial, string? Mac);
+    internal sealed record Identity(string? Serial, string? Mac);
 
     /// <summary>The identifier field goes to serial_number and the MAC address to mac_address (both Group-unique).</summary>
-    private static Identity ReadIdentity(Template template, TemplateValidation validation, bool noSerial, string? noSerialReason, List<string> errors)
+    internal static Identity ReadIdentity(Template template, TemplateValidation validation, bool noSerial, string? noSerialReason, List<string> errors)
     {
         string? serial = null;
         if (template.IdentifierField is { } idField && validation.Values.TryGetValue(idField.Key, out var id))
@@ -148,7 +149,7 @@ public sealed class AssetRegistrationService(
     }
 
     /// <summary>Template values except the ones stored in their own columns.</summary>
-    private static List<AssetAttributeValue> AttributeRows(Template template, IReadOnlyDictionary<string, FieldValue> values) =>
+    internal static List<AssetAttributeValue> AttributeRows(Template template, IReadOnlyDictionary<string, FieldValue> values) =>
         values
             .Where(v => v.Key != template.IdentifierFieldKey && v.Key != Template.MacAddressKey)
             .Select(v => new AssetAttributeValue { FieldId = template.Field(v.Key)!.Id, ValueText = v.Value.Text, ValueNumber = v.Value.Number })
@@ -409,6 +410,7 @@ public sealed class AssetRegistrationService(
         if (input.PoNo.IsSet) Set("poNo", asset.PoNo, Blank(input.PoNo.Value), v => asset.PoNo = v);
         if (input.PurchaseDate.IsSet) Set("purchaseDate", asset.PurchaseDate, input.PurchaseDate.Value, v => asset.PurchaseDate = v);
         if (input.InUseDate.IsSet) Set("inUseDate", asset.InUseDate, input.InUseDate.Value, v => asset.InUseDate = v);
+        if (input.CostCentre.IsSet) Set("costCentre", asset.CostCentre, Blank(input.CostCentre.Value), v => asset.CostCentre = v);
 
         // A capitalised asset's USD cost follows a corrected cost or rate (a change to past, locked months is
         // posted as an adjustment in the next open month).

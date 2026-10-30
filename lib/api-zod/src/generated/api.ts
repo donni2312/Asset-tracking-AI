@@ -202,6 +202,7 @@ export const GetSbuAssetsResponseItem = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -260,6 +261,7 @@ export const ListAssetsResponseItem = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -328,6 +330,7 @@ export const CreateAssetResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -381,6 +384,7 @@ export const GetAssetResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -451,6 +455,7 @@ export const UpdateAssetResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -753,6 +758,7 @@ export const GetLocationAssetsResponseItem = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -1418,6 +1424,7 @@ export const AiQueryResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -1895,6 +1902,7 @@ export const GetAssetCardResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2076,6 +2084,7 @@ export const ChangeAssetCategoryResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2104,6 +2113,7 @@ export const UpdateAssetFinancialBody = zod.object({
   "poNo": zod.string().nullish(),
   "purchaseDate": zod.coerce.date().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "reason": zod.string()
 })
 
@@ -2142,6 +2152,7 @@ export const UpdateAssetFinancialResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2199,6 +2210,7 @@ export const CapitaliseAssetResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2257,6 +2269,7 @@ export const DecideNoSerialResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2314,6 +2327,7 @@ export const TagAssetResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -2460,7 +2474,9 @@ export const GetAssetRegisterQueryParams = zod.object({
   "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
   "sbuId": zod.coerce.number().optional(),
   "locationId": zod.coerce.number().optional(),
-  "categoryId": zod.coerce.number().optional()
+  "categoryId": zod.coerce.number().optional(),
+  "departmentId": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
 })
 
 export const GetAssetRegisterResponse = zod.object({
@@ -2514,7 +2530,9 @@ export const DownloadAssetRegisterExcelQueryParams = zod.object({
   "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
   "sbuId": zod.coerce.number().optional(),
   "locationId": zod.coerce.number().optional(),
-  "categoryId": zod.coerce.number().optional()
+  "categoryId": zod.coerce.number().optional(),
+  "departmentId": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
 })
 
 export const DownloadAssetRegisterExcelResponse = zod.unknown()
@@ -2527,7 +2545,9 @@ export const DownloadAssetRegisterPdfQueryParams = zod.object({
   "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
   "sbuId": zod.coerce.number().optional(),
   "locationId": zod.coerce.number().optional(),
-  "categoryId": zod.coerce.number().optional()
+  "categoryId": zod.coerce.number().optional(),
+  "departmentId": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
 })
 
 export const DownloadAssetRegisterPdfResponse = zod.unknown()
@@ -3276,6 +3296,7 @@ export const ChangeAssetStatusResponse = zod.object({
   "invoiceNo": zod.string().nullish(),
   "poNo": zod.string().nullish(),
   "inUseDate": zod.coerce.date().nullish(),
+  "costCentre": zod.string().nullish().describe('SF-01 (Phase 4d)'),
   "warrantyEnds": zod.coerce.date().nullish(),
   "disposalDate": zod.coerce.date().nullish(),
   "lostDate": zod.coerce.date().nullish(),
@@ -4770,6 +4791,653 @@ export const ResolveVerificationResultResponse = zod.object({
   "assetName": zod.string().nullish(),
   "scannedBy": zod.string(),
   "scannedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary GF-06: a standard report as Excel (logged)
+ */
+export const DownloadStandardReportExcelQueryParams = zod.object({
+  "kind": zod.enum(['register', 'additions', 'disposals', 'depreciation', 'movements']),
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadStandardReportExcelResponse = zod.unknown()
+
+
+/**
+ * @summary GF-06: a standard report as PDF (logged)
+ */
+export const DownloadStandardReportPdfQueryParams = zod.object({
+  "kind": zod.enum(['register', 'additions', 'disposals', 'depreciation', 'movements']),
+  "period": zod.coerce.string().optional().describe('Month (YYYY-MM); default the current month'),
+  "sbuId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional(),
+  "categoryId": zod.coerce.number().optional()
+})
+
+export const DownloadStandardReportPdfResponse = zod.unknown()
+
+
+/**
+ * @summary AM-02: the fleet register (own SBU; Group roles read-only across SBUs)
+ */
+export const ListFleetQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "kind": zod.enum(['vehicles', 'generators', 'all']).optional()
+})
+
+export const ListFleetResponseItem = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+export const ListFleetResponse = zod.array(ListFleetResponseItem)
+
+
+/**
+ * @summary A vehicle or generator with its documents, schedule and services
+ */
+export const GetFleetItemParams = zod.object({
+  "assetId": zod.coerce.number()
+})
+
+export const GetFleetItemResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary Fleet status, driver and mileage / hours (SBU Admin Manager)
+ */
+export const UpdateFleetItemParams = zod.object({
+  "assetId": zod.coerce.number()
+})
+
+export const UpdateFleetItemBody = zod.object({
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']).optional(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driverName": zod.string().nullish(),
+  "reading": zod.number().optional()
+})
+
+export const UpdateFleetItemResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary AM-03: record a document or its renewal
+ */
+export const AddVehicleDocumentParams = zod.object({
+  "assetId": zod.coerce.number()
+})
+
+export const AddVehicleDocumentBody = zod.object({
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().optional(),
+  "expiresOn": zod.coerce.date()
+})
+
+export const AddVehicleDocumentResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary AM-04: the service interval by mileage / hours or days
+ */
+export const SetServiceScheduleParams = zod.object({
+  "assetId": zod.coerce.number()
+})
+
+export const SetServiceScheduleBody = zod.object({
+  "intervalReading": zod.number().optional(),
+  "intervalDays": zod.number().optional(),
+  "startDate": zod.coerce.date().optional(),
+  "startReading": zod.number().optional()
+})
+
+export const SetServiceScheduleResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary AM-04: log a service (the cost is added by SBU Finance)
+ */
+export const LogServiceParams = zod.object({
+  "assetId": zod.coerce.number()
+})
+
+export const LogServiceBody = zod.object({
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().optional(),
+  "garage": zod.string(),
+  "workDone": zod.string()
+})
+
+export const LogServiceResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary The cost of a service (SBU Finance)
+ */
+export const SetServiceCostParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetServiceCostBody = zod.object({
+  "cost": zod.number(),
+  "currency": zod.string().optional()
+})
+
+export const SetServiceCostResponse = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "name": zod.string(),
+  "sbuId": zod.number().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "categoryCode": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "registrationNumber": zod.string().nullish(),
+  "makeModel": zod.string().nullish(),
+  "driverEmployeeId": zod.number().nullish(),
+  "driver": zod.string().nullish(),
+  "locationId": zod.number().nullish(),
+  "depot": zod.string().nullish(),
+  "fleetStatus": zod.enum(['active', 'in_service', 'off_road']),
+  "assetStatus": zod.string(),
+  "reading": zod.number().nullish(),
+  "readingUnit": zod.enum(['km', 'h']),
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['licence', 'insurance', 'fitness', 'zinara']),
+  "reference": zod.string().nullish(),
+  "expiresOn": zod.coerce.date(),
+  "state": zod.enum(['ok', 'due_30', 'due_7', 'expired']),
+  "daysLeft": zod.number()
+})),
+  "documentsExpired": zod.boolean(),
+  "nextService": zod.union([zod.object({
+  "intervalReading": zod.number().nullish(),
+  "intervalDays": zod.number().nullish(),
+  "dueDate": zod.coerce.date().nullish(),
+  "dueReading": zod.number().nullish(),
+  "state": zod.enum(['ok', 'due_soon', 'overdue'])
+}),zod.null()]).optional(),
+  "canEdit": zod.boolean(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "assetId": zod.number(),
+  "serviceDate": zod.coerce.date(),
+  "reading": zod.number().nullish(),
+  "garage": zod.string(),
+  "workDone": zod.string(),
+  "cost": zod.number().nullish().describe('Finance roles only'),
+  "currency": zod.string().nullish(),
+  "costBy": zod.string().nullish(),
+  "loggedBy": zod.string()
+}))
+})
+
+
+/**
+ * @summary SF-10: the import template for a category (CSV)
+ */
+export const DownloadImportTemplateCsvQueryParams = zod.object({
+  "categoryId": zod.coerce.number()
+})
+
+export const DownloadImportTemplateCsvResponse = zod.unknown()
+
+
+/**
+ * @summary SF-10: the import template for a category (Excel, with column notes)
+ */
+export const DownloadImportTemplateExcelQueryParams = zod.object({
+  "categoryId": zod.coerce.number()
+})
+
+export const DownloadImportTemplateExcelResponse = zod.unknown()
+
+
+/**
+ * @summary SF-10: the validation report for a CSV or Excel file; nothing is saved
+ */
+export const ValidateAssetImportBody = zod.object({
+  "file": zod.string()
+}).describe('multipart\/form-data with a .csv or .xlsx file (up to 10 MB); described as a string so the generated libraries need no browser types.')
+
+export const ValidateAssetImportResponse = zod.object({
+  "rowCount": zod.number(),
+  "errorRowCount": zod.number(),
+  "canImport": zod.boolean(),
+  "imported": zod.number(),
+  "assetIds": zod.array(zod.number()),
+  "rows": zod.array(zod.object({
+  "row": zod.number(),
+  "description": zod.string().nullish(),
+  "errors": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary SF-10: import the file when it has no errors (all rows or none; 409 with the report otherwise)
+ */
+export const ImportAssetsBody = zod.object({
+  "file": zod.string()
+}).describe('multipart\/form-data with a .csv or .xlsx file (up to 10 MB); described as a string so the generated libraries need no browser types.')
+
+export const ImportAssetsResponse = zod.object({
+  "rowCount": zod.number(),
+  "errorRowCount": zod.number(),
+  "canImport": zod.boolean(),
+  "imported": zod.number(),
+  "assetIds": zod.array(zod.number()),
+  "rows": zod.array(zod.object({
+  "row": zod.number(),
+  "description": zod.string().nullish(),
+  "errors": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary GI-01: every IT asset in scope with SBU, site, user, status and last seen
+ */
+export const GetItInventoryQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "type": zod.coerce.string().optional(),
+  "make": zod.coerce.string().optional(),
+  "model": zod.coerce.string().optional(),
+  "minAgeYears": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const GetItInventoryResponseItem = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "make": zod.string().nullish(),
+  "model": zod.string().nullish(),
+  "serialNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "site": zod.string().nullish(),
+  "assignedTo": zod.string().nullish(),
+  "status": zod.string(),
+  "condition": zod.string().nullish(),
+  "lastSeen": zod.coerce.date().nullish(),
+  "ageYears": zod.number().nullish(),
+  "warrantyEnds": zod.string().nullish(),
+  "refreshReasons": zod.array(zod.string())
+})
+export const GetItInventoryResponse = zod.array(GetItInventoryResponseItem)
+
+
+/**
+ * @summary GI-01: the IT inventory as Excel (logged)
+ */
+export const DownloadItInventoryExcelQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional(),
+  "type": zod.coerce.string().optional(),
+  "make": zod.coerce.string().optional(),
+  "model": zod.coerce.string().optional(),
+  "minAgeYears": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const DownloadItInventoryExcelResponse = zod.unknown()
+
+
+/**
+ * @summary GI-03: devices past their refresh age or out of warranty
+ */
+export const GetItRefreshQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const GetItRefreshResponseItem = zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "make": zod.string().nullish(),
+  "model": zod.string().nullish(),
+  "serialNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "site": zod.string().nullish(),
+  "assignedTo": zod.string().nullish(),
+  "status": zod.string(),
+  "condition": zod.string().nullish(),
+  "lastSeen": zod.coerce.date().nullish(),
+  "ageYears": zod.number().nullish(),
+  "warrantyEnds": zod.string().nullish(),
+  "refreshReasons": zod.array(zod.string())
+})
+export const GetItRefreshResponse = zod.array(GetItRefreshResponseItem)
+
+
+/**
+ * @summary GI-03: the refresh report as Excel (logged)
+ */
+export const DownloadItRefreshExcelQueryParams = zod.object({
+  "sbuId": zod.coerce.number().optional()
+})
+
+export const DownloadItRefreshExcelResponse = zod.unknown()
+
+
+/**
+ * @summary SI-06: IT devices by status and the spare stock ready to issue
+ */
+export const GetItStatusBoardQueryParams = zod.object({
+  "departmentId": zod.coerce.number().optional(),
+  "locationId": zod.coerce.number().optional()
+})
+
+export const GetItStatusBoardResponse = zod.object({
+  "counts": zod.array(zod.object({
+  "status": zod.string(),
+  "count": zod.number()
+})),
+  "faulty": zod.number(),
+  "spare": zod.array(zod.object({
+  "assetId": zod.number(),
+  "assetNumber": zod.string().nullish(),
+  "description": zod.string(),
+  "subCategory": zod.string().nullish(),
+  "make": zod.string().nullish(),
+  "model": zod.string().nullish(),
+  "serialNumber": zod.string().nullish(),
+  "rfidTag": zod.string().nullish(),
+  "sbuCode": zod.string().nullish(),
+  "site": zod.string().nullish(),
+  "assignedTo": zod.string().nullish(),
+  "status": zod.string(),
+  "condition": zod.string().nullish(),
+  "lastSeen": zod.coerce.date().nullish(),
+  "ageYears": zod.number().nullish(),
+  "warrantyEnds": zod.string().nullish(),
+  "refreshReasons": zod.array(zod.string())
 }))
 })
 

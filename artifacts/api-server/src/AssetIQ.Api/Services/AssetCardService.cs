@@ -214,7 +214,7 @@ public sealed class AssetCardService(
                 ]));
                 col.Item().Element(c => Pairs(c, "Purchase details", [
                     ("Supplier", a.Supplier ?? "—"), ("Invoice no.", a.InvoiceNo ?? "—"), ("PO no.", a.PoNo ?? "—"),
-                    ("Purchase date", a.PurchaseDate ?? "—"), ("In-use date", a.InUseDate ?? "—"), ("Warranty ends", a.WarrantyEnds ?? "—"),
+                    ("Purchase date", a.PurchaseDate ?? "—"), ("In-use date", a.InUseDate ?? "—"), ("Cost centre", a.CostCentre ?? "—"), ("Warranty ends", a.WarrantyEnds ?? "—"),
                 ]));
                 col.Item().Text("Upgrades").Bold().FontSize(11);
                 col.Item().Table(t =>

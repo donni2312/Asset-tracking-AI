@@ -74,6 +74,17 @@ public static class VerificationResolutions
     public static readonly IReadOnlyList<string> All = [Adjust, WriteOff, Investigate, Register];
 }
 
+/// <summary>Phase 4d: fleet (AM-02, AM-03).</summary>
+public static class FleetStatuses
+{
+    public static readonly IReadOnlyList<string> All = ["active", "in_service", "off_road"];
+}
+
+public static class VehicleDocumentKinds
+{
+    public static readonly IReadOnlyList<string> All = ["licence", "insurance", "fitness", "zinara"];
+}
+
 public static class AssetConditions
 {
     public static readonly IReadOnlyList<string> All = ["new", "good", "fair", "poor", "damaged"];
@@ -298,6 +309,10 @@ public static class Roles
     /// <summary>Phase 4c: who counts a location (SI-07): SBU IT / Group IT (IT), Stores / Admin Manager (non-IT), Finance (any).</summary>
     public const string VerificationRunners = GroupIt + "," + SbuIt + "," + Stores + "," + SbuAdmin + "," + SbuFinance + "," + GroupFinance;
     public const string VerificationReaders = VerificationRunners + "," + Auditor;
+    /// <summary>Phase 4d (AM-02): the SBU's Admin Manager and Finance; Group roles see a read-only roll-up.</summary>
+    public const string FleetReaders = SbuAdmin + "," + SbuFinance + "," + GroupFinance + "," + GroupIt + "," + Auditor;
+    /// <summary>Phase 4d: IT inventory, refresh and status board (GI-01, GI-03, SI-06); the scope filter keeps SBU IT to its SBU.</summary>
+    public const string ItReaders = GroupIt + "," + SbuIt + "," + Auditor;
     /// <summary>Everyone who may scan a tag (SI-03, SG-01): every role except the System Administrator.</summary>
     public const string Scanners = AssetReaders + "," + GateOfficer;
 

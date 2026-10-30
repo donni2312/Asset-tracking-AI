@@ -100,11 +100,12 @@ export default function AssetPosition() {
             <h2 className="mb-3 text-lg font-semibold">NBV by SBU</h2>
             <div className="space-y-3 text-sm">
               {(data?.bySbu ?? []).map((s) => (
-                <div key={s.sbuCode ?? "none"} className="flex items-center gap-3">
+                <Link key={s.sbuCode ?? "none"} href={`/register${searchOf({ ...filters, sbuId: s.sbuId ? String(s.sbuId) : "" })}`}
+                  className="flex items-center gap-3 rounded hover:bg-muted/50" title="Open the register for this SBU">
                   <span className="w-14">{s.sbuCode && <SbuBadge code={s.sbuCode} color={s.color} />}</span>
                   <div className="h-2.5 flex-1 rounded bg-muted"><div className="h-2.5 rounded" style={{ width: `${(s.netBookValue / maxNbv) * 100}%`, backgroundColor: s.color ?? "#3C83F6" }} /></div>
-                  <span className="w-24 text-right font-mono">{moneyWhole(s.netBookValue)}</span>
-                </div>
+                  <span className="w-24 text-right font-mono text-primary">{moneyWhole(s.netBookValue)}</span>
+                </Link>
               ))}
             </div>
           </section>

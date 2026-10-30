@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { downloadCategoryReportExcel, downloadCategoryReportPdf, useGetCategoryReport, type Totals } from "@workspace/api-client-react";
+import { downloadCategoryReportExcel, downloadStandardReportExcel, downloadStandardReportPdf, type DownloadStandardReportExcelKind, downloadCategoryReportPdf, useGetCategoryReport, type Totals } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,6 +42,17 @@ export default function CategoryReport() {
     }
   }
 
+  /** GF-06: the standard reports for the same filters. */
+  async function standard(kind: DownloadStandardReportExcelKind, format: "xlsx" | "pdf") {
+    try {
+      const params = { ...toParams(filters), kind };
+      const blob = format === "xlsx" ? await downloadStandardReportExcel(params) : await downloadStandardReportPdf(params);
+      saveBlob(blob, `${kind}-${filters.period}.${format}`);
+    } catch (err) {
+      toast({ title: "Export failed", description: apiErrorMessage(err), variant: "destructive" });
+    }
+  }
+
   if (!user) return <Layout><p className="text-sm text-muted-foreground">Sign in to see the category report.</p></Layout>;
 
   return (
@@ -58,6 +69,17 @@ export default function CategoryReport() {
           </div>
         </div>
         <ReportFilters value={filters} onChange={change} />
+        <section className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-3 text-sm">
+          <span className="font-medium">Standard reports (GF-06):</span>
+          {(["register", "additions", "disposals", "depreciation", "movements"] as const).map((k) => (
+            <span key={k} className="flex items-center gap-1 rounded border px-2 py-1">
+              <span className="capitalize">{k === "register" ? "Fixed asset register" : k}</span>
+              <button type="button" className="text-primary hover:underline" onClick={() => standard(k, "xlsx")}>Excel</button>
+              <span className="text-muted-foreground">·</span>
+              <button type="button" className="text-primary hover:underline" onClick={() => standard(k, "pdf")}>PDF</button>
+            </span>
+          ))}
+        </section>
         <section className="rounded-md border bg-card">
           <div className="overflow-x-auto">
             <Table>

@@ -36,18 +36,40 @@ public sealed class FinanceController(
     [HttpGet("finance/register")]
     [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to load the asset register")]
-    public Task<RegisterReportDto> Register([FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId) =>
-        reports.RegisterAsync(Caller, Query(period, sbuId, locationId, categoryId), Aborted);
+    public Task<RegisterReportDto> Register([FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId,
+        [FromQuery] string? departmentId, [FromQuery] string? status) =>
+        reports.RegisterAsync(Caller, Query(period, sbuId, locationId, categoryId) with
+        {
+            DepartmentId = RequestValues.OptionalInt(departmentId), Status = RequestValues.OptionalChoice(status, AssetStatuses.All),
+        }, Aborted);
 
     [HttpGet("finance/register.{format:regex(^(xlsx|pdf)$)}")]
     [RequireRole(Roles.FinanceReaders)]
     [FailureMessage("Failed to export the asset register")]
-    public async Task<IActionResult> RegisterExport(string format, [FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId)
+    public async Task<IActionResult> RegisterExport(string format, [FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId,
+        [FromQuery] string? departmentId, [FromQuery] string? status)
     {
-        var query = Query(period, sbuId, locationId, categoryId);
+        var query = Query(period, sbuId, locationId, categoryId) with
+        {
+            DepartmentId = RequestValues.OptionalInt(departmentId), Status = RequestValues.OptionalChoice(status, AssetStatuses.All),
+        };
         var table = await reports.RegisterTableAsync(Caller, query, Aborted);
         await accessLog.ExportAsync(Caller, $"asset register {format}", Request, Aborted);
         return Export(table, format, $"asset-register-{query.Period}");
+    }
+
+    /// <summary>GF-06: register, additions, disposals, depreciation or movements, as Excel or PDF.</summary>
+    [HttpGet("finance/reports.{format:regex(^(xlsx|pdf)$)}")]
+    [RequireRole(Roles.FinanceReaders)]
+    [FailureMessage("Failed to export the report")]
+    public async Task<IActionResult> StandardReport(string format, [FromQuery] string? kind, [FromQuery] string? period, [FromQuery] string? sbuId, [FromQuery] string? locationId, [FromQuery] string? categoryId)
+    {
+        if (kind is null || !FinanceReportService.StandardReports.Contains(kind))
+            throw new ApiException(StatusCodes.Status400BadRequest, $"Report: one of {string.Join(", ", FinanceReportService.StandardReports)}");
+        var query = Query(period, sbuId, locationId, categoryId);
+        var table = await reports.StandardReportTableAsync(Caller, kind, query, Aborted);
+        await accessLog.ExportAsync(Caller, $"{kind} report {format}", Request, Aborted);
+        return Export(table, format, $"{kind}-{query.Period}");
     }
 
     [HttpGet("finance/category-report")]

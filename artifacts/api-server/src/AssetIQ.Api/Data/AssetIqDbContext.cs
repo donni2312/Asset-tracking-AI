@@ -63,6 +63,10 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
     public DbSet<VerificationSession> VerificationSessions => Set<VerificationSession>();
     public DbSet<VerificationScan> VerificationScans => Set<VerificationScan>();
     public DbSet<VerificationResult> VerificationResults => Set<VerificationResult>();
+    public DbSet<FleetDetail> FleetDetails => Set<FleetDetail>();
+    public DbSet<VehicleDocument> VehicleDocuments => Set<VehicleDocument>();
+    public DbSet<ServiceSchedule> ServiceSchedules => Set<ServiceSchedule>();
+    public DbSet<ServiceLog> ServiceLogs => Set<ServiceLog>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -344,6 +348,12 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
         modelBuilder.Entity<VerificationScan>(e => e.ToTable("verification_scans"));
         modelBuilder.Entity<VerificationResult>(e => e.ToTable("verification_results"));
 
+        // Phase 4d
+        modelBuilder.Entity<FleetDetail>(e => e.ToTable("fleet_details"));
+        modelBuilder.Entity<VehicleDocument>(e => e.ToTable("vehicle_documents"));
+        modelBuilder.Entity<ServiceSchedule>(e => e.ToTable("service_schedules"));
+        modelBuilder.Entity<ServiceLog>(e => e.ToTable("service_logs"));
+
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entity.GetProperties())
@@ -351,6 +361,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
                 property.SetColumnName(SnakeCase(property.Name));
             }
         }
+        // Digits get their own word in the column names.
+        modelBuilder.Entity<VehicleDocument>().Property(x => x.Reminded30At).HasColumnName("reminded_30_at");
+        modelBuilder.Entity<VehicleDocument>().Property(x => x.Reminded7At).HasColumnName("reminded_7_at");
     }
 
     /// <summary>The "View assets" rule of <see cref="AccessScope"/>, evaluated with this request's scope (AccessPolicy.Visible mirrors it).</summary>

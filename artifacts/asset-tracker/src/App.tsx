@@ -28,6 +28,9 @@ import Verification from './pages/finance/verification';
 import Administration from './pages/finance/administration';
 import Planned from './pages/planned';
 import Scan from './pages/scan';
+import Fleet, { FleetItemPage } from './pages/fleet';
+import ItViews from './pages/it';
+import Import from './pages/finance/import';
 import Gate from './pages/gate';
 import Stores from './pages/stores';
 import { AcknowledgeLink, DepartmentHoldingsPage, MyItems, ToolboxPage } from './pages/toolbox';
@@ -77,7 +80,10 @@ function Router() {
       <Route path="/departments" component={Departments} />
       <Route path="/scan" component={Scan} />
       <Route path="/gate" component={Gate} />
-      <Route path="/fleet">{() => <Planned screen="fleet" />}</Route>
+      <Route path="/fleet/:id" component={FleetItemPage} />
+      <Route path="/fleet" component={Fleet} />
+      <Route path="/it" component={ItViews} />
+      <Route path="/import" component={Import} />
       <Route path="/sbus" component={SbuList} />
       <Route path="/assets" component={AssetList} />
       <Route path="/assets/new" component={NewAsset} />

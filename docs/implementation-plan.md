@@ -695,3 +695,44 @@ once and stay flagged until they are back (no new flag each day).
 Demo: **tsas.gate** → Gate → choose *TSAS Main Gate* → scan `GP-7` (amber: the desktop is overdue, the UPS is back) →
 Record return. A pending pass (`GP-5`) shows red. **tsas.finance** → Verification → Counts → count #1 → resolve the
 missing phone and the unknown tag. **tsas.it** → Verification → start a count of *TSAS House – IT Department*, scan tags, close.
+
+### 12.4 Slice 4d: fleet, bulk import, remaining Must stories
+
+| Story | Built | Tests (`FleetImportAndReportsTests` unless noted) |
+|---|---|---|
+| AM-01 templates | Already done (Phase 1/2): vehicles (reg, VIN, engine, make/model, year, mileage), furniture (type, room), generators (kVA, hours run) | `AM_01_…` (Phase 2) |
+| AM-02 fleet register | `GET /fleet`: reg number, driver, depot, fleet status (active / in service / off road), mileage or hours; the SBU Admin Manager sees and edits their SBU; Group Finance, Group IT and auditors a read-only roll-up; SBU Finance their SBU, read-only | `AM_02_…` |
+| AM-03 documents | Licence, insurance, fitness, ZINARA with expiry; a renewal replaces the one in force; reminders at 30 and 7 days and on expiry, once each, to the SBU Admin Manager; an expired document flags the vehicle red | `AM_03_…` |
+| AM-04 service | Interval by km / hours and / or days; next due from the last service; log date, reading, garage, work done; overdue alerted once to the Admin Manager; the cost is entered by SBU Finance and hidden from other roles | `AM_04_…` |
+| SF-10 bulk import | Template per category (CSV / Excel with column notes); upload → validation report (template rules, required fields, duplicates by serial, MAC or tag in the Group and within the file, SBU / location / dates / amounts); import only when no row has an error, all rows or none; previous asset number kept; Business Central numbers requested | `SF_10_…` |
+| GF-06 standard reports | Register, additions, disposals (January to the period), depreciation (month, YTD, accumulated, NBV with subtotals) and movements (the month) as Excel and PDF, by SBU and period, with totals; on the category report page | `GF_06_…` |
+| GF-02 drill-down | Group totals → category report → register → asset card was there; the NBV-by-SBU totals now open that SBU's register | (UI) |
+| SF-01 capitalise | Cost centre added (the other fields were done in Phase 1) | `GF_06_…` (cost centre) |
+| SF-02 register | Department and status filters, also in the exports | `GF_06_…` |
+| GI-01 IT inventory | `GET /it/inventory` (+ Excel): SBU, site, user, status, last seen; filter by type, make, model, age, SBU, status | `GI_01_GI_03_SI_06_…` |
+| GI-03 refresh | Devices past the refresh age per type (`device_refresh_age_years`) or out of warranty (+ Excel); warranty alerts 60 days ahead (`warranty_alert_days`) to Group IT and SBU IT, once | `GI_01_GI_03_SI_06_…` |
+| SI-06 status board | Counts per status and faulty items, by department and location; spare stock (in store, numbered and tagged) | `GI_01_GI_03_SI_06_…` |
+| GI-02, GI-04, GI-05, GI-08, SI-02 … SI-05, SF-03, SF-06 | Done in earlier phases / slices (templates and uniqueness; history timeline; transfers 4a; user management; assignment and acknowledgement 4b; scan; gate pass 4c; repairs 4a; depreciation; reconciliation 4c) | earlier tests |
+| SI-01 register and tag | Registration, RFID tag and duplicate serials were done; **the QR image is not generated** (see Q-D1) | — |
+
+Migration `0011_fleet_and_cost_centre` adds `fleet_details`, `vehicle_documents`, `service_schedules`, `service_logs` and
+`assets.cost_centre`. Screens: **Fleet & Non-IT** (register and vehicle page), **IT Inventory** (inventory, refresh,
+status board), **Import assets**, standard reports on the category report, department / status filters on the register.
+
+Assumptions: **D1** the import belongs to Finance (SF-10) and may load non-IT assets although AM-01 reserves creating
+non-IT records to the Admin Manager (Q-D2); **D2** an imported item keeps the RFID tag it already carries (new
+registrations still tag after the asset number); **D3** the Admin Manager logs the service, SBU Finance enters its cost
+(money stays with Finance, as for repairs); **D4** "faulty" on the status board = condition poor or damaged and not in
+repair; **D5** a service is "due soon" within 14 days or 10 % of the interval; **D6** additions and disposals run from
+January to the period, movements cover the period's month; **D7** the fleet status (active / in service / off road) is
+kept beside the asset status, which it does not change.
+
+Questions: **Q-D1** SI-01 asks for a QR on the tag; generating the image needs a QR library (for example QRCoder for the
+API or a small npm package for the dashboard). May I add one? Until then the tag carries the asset number, which every
+scan screen accepts. **Q-D2** Should SBU Finance's import be allowed to create non-IT records (D1), or should non-IT
+rows be imported by the SBU Admin Manager?
+
+Demo: **bak.admin** → Fleet & Non-IT → the Hilux is red (ZINARA expired) → open it → record a renewal; log a service.
+**bak.finance** → the same vehicle → enter the service cost. **tsas.finance** → Import assets → Excel template for
+Computers → fill two rows → Check file → Import. **group.finance** → Reports by category → Standard reports.
+**group.it** → IT Inventory (Inventory, Refresh, Status board).

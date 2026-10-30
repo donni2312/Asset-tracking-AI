@@ -15,3 +15,4 @@ export * from "./attachments";
 export * from "./workflows";
 export * from "./stores";
 export * from "./gate_and_verification";
+export * from "./fleet";

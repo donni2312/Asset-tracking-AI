@@ -28,5 +28,10 @@ export interface FinancialUpdate {
   purchaseDate?: Date | null;
   /** @nullable */
   inUseDate?: Date | null;
+  /**
+     * SF-01 (Phase 4d)
+     * @nullable
+     */
+  costCentre?: string | null;
   reason: string;
 }

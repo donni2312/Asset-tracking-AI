@@ -60,6 +60,12 @@ tags:
     description: Phase 4b - purchase orders, receiving, stock, equipment requests, issue, returns, HR toolbox, departments
   - name: gate
     description: Phase 4c - gate officer checks, exits and returns, alerts, overdue returns; verification counts
+  - name: fleet
+    description: Phase 4d - fleet register, vehicle documents, service schedules (AM-02 to AM-04)
+  - name: imports
+    description: Phase 4d - bulk import with a validation report (SF-10)
+  - name: it
+    description: Phase 4d - IT inventory, hardware refresh, status board (GI-01, GI-03, SI-06)
 
 # Phase 2: every endpoint needs a signed-in user except the health check and sign-in. What each role may do is
 # the Permissions matrix of docs/user-stories.md, enforced by the API (403 otherwise); lists and exports hold
@@ -1711,6 +1717,14 @@ paths:
         - $ref: "#/components/parameters/SbuFilter"
         - $ref: "#/components/parameters/LocationFilter"
         - $ref: "#/components/parameters/CategoryFilter"
+        - name: departmentId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: Register
@@ -1731,6 +1745,14 @@ paths:
         - $ref: "#/components/parameters/SbuFilter"
         - $ref: "#/components/parameters/LocationFilter"
         - $ref: "#/components/parameters/CategoryFilter"
+        - name: departmentId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: File
@@ -1752,6 +1774,14 @@ paths:
         - $ref: "#/components/parameters/SbuFilter"
         - $ref: "#/components/parameters/LocationFilter"
         - $ref: "#/components/parameters/CategoryFilter"
+        - name: departmentId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: File
@@ -3246,6 +3276,535 @@ paths:
               schema:
                 $ref: "#/components/schemas/VerificationSession"
 
+  /finance/reports.xlsx:
+    get:
+      operationId: downloadStandardReportExcel
+      tags: [finance]
+      summary: "GF-06: a standard report as Excel (logged)"
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [register, additions, disposals, depreciation, movements]
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /finance/reports.pdf:
+    get:
+      operationId: downloadStandardReportPdf
+      tags: [finance]
+      summary: "GF-06: a standard report as PDF (logged)"
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [register, additions, disposals, depreciation, movements]
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/SbuFilter"
+        - $ref: "#/components/parameters/LocationFilter"
+        - $ref: "#/components/parameters/CategoryFilter"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /fleet:
+    get:
+      operationId: listFleet
+      tags: [fleet]
+      summary: "AM-02: the fleet register (own SBU; Group roles read-only across SBUs)"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [vehicles, generators, all]
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FleetItem"
+
+  /fleet/{assetId}:
+    get:
+      operationId: getFleetItem
+      tags: [fleet]
+      summary: "A vehicle or generator with its documents, schedule and services"
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+    patch:
+      operationId: updateFleetItem
+      tags: [fleet]
+      summary: "Fleet status, driver and mileage / hours (SBU Admin Manager)"
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FleetUpdateInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+
+  /fleet/{assetId}/documents:
+    post:
+      operationId: addVehicleDocument
+      tags: [fleet]
+      summary: "AM-03: record a document or its renewal"
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleDocumentInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+
+  /fleet/{assetId}/service-schedule:
+    put:
+      operationId: setServiceSchedule
+      tags: [fleet]
+      summary: "AM-04: the service interval by mileage / hours or days"
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceScheduleInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+
+  /fleet/{assetId}/services:
+    post:
+      operationId: logService
+      tags: [fleet]
+      summary: "AM-04: log a service (the cost is added by SBU Finance)"
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceLogInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+
+  /service-logs/{id}/cost:
+    patch:
+      operationId: setServiceCost
+      tags: [fleet]
+      summary: "The cost of a service (SBU Finance)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceCostInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "404":
+          description: Not found
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetItem"
+
+  /imports/assets/template.csv:
+    get:
+      operationId: downloadImportTemplateCsv
+      tags: [imports]
+      summary: "SF-10: the import template for a category (CSV)"
+      parameters:
+        - name: categoryId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+
+  /imports/assets/template.xlsx:
+    get:
+      operationId: downloadImportTemplateExcel
+      tags: [imports]
+      summary: "SF-10: the import template for a category (Excel, with column notes)"
+      parameters:
+        - name: categoryId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /imports/assets/validate:
+    post:
+      operationId: validateAssetImport
+      tags: [imports]
+      summary: "SF-10: the validation report for a CSV or Excel file; nothing is saved"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImportUpload"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+
+  /imports/assets:
+    post:
+      operationId: importAssets
+      tags: [imports]
+      summary: "SF-10: import the file when it has no errors (all rows or none; 409 with the report otherwise)"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImportUpload"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "409":
+          description: The file has errors; the body is the validation report
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+
+  /it/inventory:
+    get:
+      operationId: getItInventory
+      tags: [it]
+      summary: "GI-01: every IT asset in scope with SBU, site, user, status and last seen"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: make
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: minAgeYears
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItInventoryRow"
+
+  /it/inventory.xlsx:
+    get:
+      operationId: downloadItInventoryExcel
+      tags: [it]
+      summary: "GI-01: the IT inventory as Excel (logged)"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: make
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: minAgeYears
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /it/refresh:
+    get:
+      operationId: getItRefresh
+      tags: [it]
+      summary: "GI-03: devices past their refresh age or out of warranty"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItInventoryRow"
+
+  /it/refresh.xlsx:
+    get:
+      operationId: downloadItRefreshExcel
+      tags: [it]
+      summary: "GI-03: the refresh report as Excel (logged)"
+      parameters:
+        - name: sbuId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /it/status-board:
+    get:
+      operationId: getItStatusBoard
+      tags: [it]
+      summary: "SI-06: IT devices by status and the spare stock ready to issue"
+      parameters:
+        - name: departmentId
+          in: query
+          schema:
+            type: integer
+        - name: locationId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItStatusBoard"
+
 components:
   parameters:
     IdPath:
@@ -3508,6 +4067,9 @@ components:
         inUseDate:
           type: ["string", "null"]
           format: date
+        costCentre:
+          type: ["string", "null"]
+          description: SF-01 (Phase 4d)
         warrantyEnds:
           type: ["string", "null"]
           format: date
@@ -4704,6 +5266,9 @@ components:
         inUseDate:
           type: ["string", "null"]
           format: date
+        costCentre:
+          type: ["string", "null"]
+          description: SF-01 (Phase 4d)
         reason:
           type: string
 
@@ -6563,3 +7128,296 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VerificationScan"
+
+    # ── Phase 4d: fleet, import, IT views ─────────────────────────────────────
+    VehicleDocument:
+      type: object
+      required: [id, kind, expiresOn, state, daysLeft]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [licence, insurance, fitness, zinara]
+        reference:
+          type: ["string", "null"]
+        expiresOn:
+          type: string
+          format: date
+        state:
+          type: string
+          enum: [ok, due_30, due_7, expired]
+        daysLeft:
+          type: integer
+
+    ServiceDue:
+      type: object
+      required: [state]
+      properties:
+        intervalReading:
+          type: ["integer", "null"]
+        intervalDays:
+          type: ["integer", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        dueReading:
+          type: ["integer", "null"]
+        state:
+          type: string
+          enum: [ok, due_soon, overdue]
+
+    ServiceLog:
+      type: object
+      required: [id, assetId, serviceDate, garage, workDone, loggedBy]
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        serviceDate:
+          type: string
+          format: date
+        reading:
+          type: ["integer", "null"]
+        garage:
+          type: string
+        workDone:
+          type: string
+        cost:
+          type: ["number", "null"]
+          description: Finance roles only
+        currency:
+          type: ["string", "null"]
+        costBy:
+          type: ["string", "null"]
+        loggedBy:
+          type: string
+
+    FleetItem:
+      type: object
+      required: [assetId, name, categoryCode, fleetStatus, assetStatus, readingUnit, documents, documentsExpired, canEdit, services]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        name:
+          type: string
+        sbuId:
+          type: ["integer", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        categoryCode:
+          type: string
+        subCategory:
+          type: ["string", "null"]
+        registrationNumber:
+          type: ["string", "null"]
+        makeModel:
+          type: ["string", "null"]
+        driverEmployeeId:
+          type: ["integer", "null"]
+        driver:
+          type: ["string", "null"]
+        locationId:
+          type: ["integer", "null"]
+        depot:
+          type: ["string", "null"]
+        fleetStatus:
+          type: string
+          enum: [active, in_service, off_road]
+        assetStatus:
+          type: string
+        reading:
+          type: ["integer", "null"]
+        readingUnit:
+          type: string
+          enum: [km, h]
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VehicleDocument"
+        documentsExpired:
+          type: boolean
+        nextService:
+          oneOf:
+            - $ref: "#/components/schemas/ServiceDue"
+            - type: "null"
+        canEdit:
+          type: boolean
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceLog"
+
+    FleetUpdateInput:
+      type: object
+      properties:
+        fleetStatus:
+          type: string
+          enum: [active, in_service, off_road]
+        driverEmployeeId:
+          type: ["integer", "null"]
+        driverName:
+          type: ["string", "null"]
+        reading:
+          type: integer
+
+    VehicleDocumentInput:
+      type: object
+      required: [kind, expiresOn]
+      properties:
+        kind:
+          type: string
+          enum: [licence, insurance, fitness, zinara]
+        reference:
+          type: string
+        expiresOn:
+          type: string
+          format: date
+
+    ServiceScheduleInput:
+      type: object
+      properties:
+        intervalReading:
+          type: integer
+        intervalDays:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        startReading:
+          type: integer
+
+    ServiceLogInput:
+      type: object
+      required: [serviceDate, garage, workDone]
+      properties:
+        serviceDate:
+          type: string
+          format: date
+        reading:
+          type: integer
+        garage:
+          type: string
+        workDone:
+          type: string
+
+    ServiceCostInput:
+      type: object
+      required: [cost]
+      properties:
+        cost:
+          type: number
+        currency:
+          type: string
+
+    ImportUpload:
+      type: object
+      required: [file]
+      description: multipart/form-data with a .csv or .xlsx file (up to 10 MB); described as a string so the generated libraries need no browser types.
+      properties:
+        file:
+          type: string
+
+    ImportRow:
+      type: object
+      required: [row, errors]
+      properties:
+        row:
+          type: integer
+        description:
+          type: ["string", "null"]
+        errors:
+          type: array
+          items:
+            type: string
+
+    ImportReport:
+      type: object
+      required: [rowCount, errorRowCount, canImport, imported, assetIds, rows]
+      properties:
+        rowCount:
+          type: integer
+        errorRowCount:
+          type: integer
+        canImport:
+          type: boolean
+        imported:
+          type: integer
+        assetIds:
+          type: array
+          items:
+            type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ItInventoryRow:
+      type: object
+      required: [assetId, description, status, refreshReasons]
+      properties:
+        assetId:
+          type: integer
+        assetNumber:
+          type: ["string", "null"]
+        description:
+          type: string
+        subCategory:
+          type: ["string", "null"]
+        make:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        serialNumber:
+          type: ["string", "null"]
+        rfidTag:
+          type: ["string", "null"]
+        sbuCode:
+          type: ["string", "null"]
+        site:
+          type: ["string", "null"]
+        assignedTo:
+          type: ["string", "null"]
+        status:
+          type: string
+        condition:
+          type: ["string", "null"]
+        lastSeen:
+          type: ["string", "null"]
+          format: date-time
+        ageYears:
+          type: ["number", "null"]
+        warrantyEnds:
+          type: ["string", "null"]
+        refreshReasons:
+          type: array
+          items:
+            type: string
+
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+
+    ItStatusBoard:
+      type: object
+      required: [counts, faulty, spare]
+      properties:
+        counts:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusCount"
+        faulty:
+          type: integer
+        spare:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItInventoryRow"
+

@@ -47,6 +47,7 @@ public sealed class AssetQueries(AssetIqDbContext db)
         InvoiceNo = a.InvoiceNo,
         PoNo = a.PoNo,
         InUseDate = a.InUseDate,
+        CostCentre = a.CostCentre,
         WarrantyEnds = a.WarrantyEnds,
         DisposalDate = a.DisposalDate,
         LostDate = a.LostDate,

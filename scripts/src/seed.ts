@@ -26,6 +26,7 @@ import {
   categoryTemplateFieldsTable,
   departmentsTable,
   employeesTable,
+  fleetDetailsTable,
   gatePassItemsTable,
   gatePassesTable,
   goodsReceiptLinesTable,
@@ -36,7 +37,10 @@ import {
   movementsTable,
   rfidReadersTable,
   sbusTable,
+  serviceLogsTable,
+  serviceSchedulesTable,
   usersTable,
+  vehicleDocumentsTable,
   verificationResultsTable,
   verificationScansTable,
   verificationSessionsTable,
@@ -130,6 +134,7 @@ async function main() {
         sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
             depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
             approval_steps, approval_requests, delegations, notifications, outbound_emails, asset_repairs, asset_disposals,
+            service_logs, service_schedules, vehicle_documents, fleet_details,
             gate_pass_items, gate_actions, verification_results, verification_scans, verification_sessions,
             exit_clearance_items, exit_clearances, asset_acknowledgements, equipment_requests, goods_receipt_lines, goods_receipts,
             purchase_order_lines, purchase_orders,
@@ -655,6 +660,31 @@ async function main() {
       { sessionId: count.id, code: "TAG-UNKNOWN-0417", result: "unrecorded" },
     ]);
 
+    // Phase 4d: the BAK fleet (AM-02 … AM-04). The Hilux's ZINARA licence has expired (red on the register) and its
+    // insurance renews in 20 days; the forklift is serviced every 500 hours and is due soon.
+    const hiluxId = asset("hilux").id;
+    const forkliftId = asset("forklift").id;
+    const day = (offset: number) => dateKey(new Date(NOW.getTime() + offset * DAY));
+    await tx.insert(fleetDetailsTable).values([
+      { assetId: hiluxId, fleetStatus: "active", driverName: "Tonderai Gumbo (contract driver)", updatedBy: "Simbarashe Chikore" },
+      { assetId: forkliftId, fleetStatus: "active", updatedBy: "Simbarashe Chikore" },
+    ]);
+    await tx.insert(vehicleDocumentsTable).values([
+      { assetId: hiluxId, kind: "licence", reference: "VL-AGR4471-2026", expiresOn: day(160), createdBy: "Simbarashe Chikore" },
+      { assetId: hiluxId, kind: "insurance", reference: "Old Mutual POL-55120", expiresOn: day(20), createdBy: "Simbarashe Chikore" },
+      { assetId: hiluxId, kind: "fitness", reference: "COF-11872", expiresOn: day(95), createdBy: "Simbarashe Chikore" },
+      { assetId: hiluxId, kind: "zinara", reference: "ZIN-889012", expiresOn: day(-5), createdBy: "Simbarashe Chikore" },
+    ]);
+    await tx.insert(serviceSchedulesTable).values([
+      { assetId: hiluxId, intervalReading: 10000, intervalDays: 180, startDate: day(-120), startReading: 135000, updatedBy: "Simbarashe Chikore" },
+      { assetId: forkliftId, intervalReading: 500, intervalDays: 365, startDate: day(-200), startReading: 5650, updatedBy: "Simbarashe Chikore" },
+    ]);
+    await tx.insert(serviceLogsTable).values([
+      { assetId: hiluxId, serviceDate: day(-60), reading: 138900, garage: "Toyota Zimbabwe – Msasa", workDone: "140 000 km service, brake pads",
+        cost: "385.00", currency: "USD", costBy: "Rumbidzai Dube", loggedBy: "Simbarashe Chikore" },
+      { assetId: forkliftId, serviceDate: day(-90), reading: 5650, garage: "Bak Workshop", workDone: "Battery check, hydraulic oil", loggedBy: "Simbarashe Chikore" },
+    ]);
+
     console.log("Seeded AssetIQ demo data:");
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);
     console.log(`  ${movements.length} movements, 6 gate passes (2 pending, 3 approved, 1 rejected), 5 insights`);
@@ -666,6 +696,7 @@ async function main() {
     console.log(`  • Gate pass #${gp6.id} (auto-raised at TSL Head Office Gate) is waiting for approval.`);
     console.log(`  • Gate pass #${gp5.id} (manual request for ${epson.name}) is waiting for approval.`);
     console.log(`  • Gate pass GP-${gp7.id}: ${desktop.name} is overdue (tsas.gate → Gate); count #${count.id} waits for TSAS Finance (Verification).`);
+    console.log("  • bak.admin → Fleet & Non-IT: the Hilux shows red (ZINARA expired); the forklift service is due soon.");
     console.log('  • Ask the AI assistant: "Where is the Dell laptop assigned to John Doe?"');
     console.log(`  • RFID tag for John Doe's laptop: ${asset("dell-5440").rfidTag} — scan it at "TSAS Main Gate Reader" to raise a pass.`);
   });

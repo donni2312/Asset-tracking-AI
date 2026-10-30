@@ -217,6 +217,11 @@ export interface Asset {
   poNo?: string | null;
   /** @nullable */
   inUseDate?: string | null;
+  /**
+     * SF-01 (Phase 4d)
+     * @nullable
+     */
+  costCentre?: string | null;
   /** @nullable */
   warrantyEnds?: string | null;
   /** @nullable */
@@ -1300,6 +1305,11 @@ export interface FinancialUpdate {
   purchaseDate?: string | null;
   /** @nullable */
   inUseDate?: string | null;
+  /**
+     * SF-01 (Phase 4d)
+     * @nullable
+     */
+  costCentre?: string | null;
   reason: string;
 }
 
@@ -2734,6 +2744,250 @@ export interface VerificationSession {
   scans: VerificationScan[];
 }
 
+export type VehicleDocumentKind = typeof VehicleDocumentKind[keyof typeof VehicleDocumentKind];
+
+
+export const VehicleDocumentKind = {
+  licence: 'licence',
+  insurance: 'insurance',
+  fitness: 'fitness',
+  zinara: 'zinara',
+} as const;
+
+export type VehicleDocumentState = typeof VehicleDocumentState[keyof typeof VehicleDocumentState];
+
+
+export const VehicleDocumentState = {
+  ok: 'ok',
+  due_30: 'due_30',
+  due_7: 'due_7',
+  expired: 'expired',
+} as const;
+
+export interface VehicleDocument {
+  id: number;
+  kind: VehicleDocumentKind;
+  /** @nullable */
+  reference?: string | null;
+  expiresOn: string;
+  state: VehicleDocumentState;
+  daysLeft: number;
+}
+
+export type ServiceDueState = typeof ServiceDueState[keyof typeof ServiceDueState];
+
+
+export const ServiceDueState = {
+  ok: 'ok',
+  due_soon: 'due_soon',
+  overdue: 'overdue',
+} as const;
+
+export interface ServiceDue {
+  /** @nullable */
+  intervalReading?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  dueReading?: number | null;
+  state: ServiceDueState;
+}
+
+export interface ServiceLog {
+  id: number;
+  assetId: number;
+  serviceDate: string;
+  /** @nullable */
+  reading?: number | null;
+  garage: string;
+  workDone: string;
+  /**
+     * Finance roles only
+     * @nullable
+     */
+  cost?: number | null;
+  /** @nullable */
+  currency?: string | null;
+  /** @nullable */
+  costBy?: string | null;
+  loggedBy: string;
+}
+
+export type FleetItemFleetStatus = typeof FleetItemFleetStatus[keyof typeof FleetItemFleetStatus];
+
+
+export const FleetItemFleetStatus = {
+  active: 'active',
+  in_service: 'in_service',
+  off_road: 'off_road',
+} as const;
+
+export type FleetItemReadingUnit = typeof FleetItemReadingUnit[keyof typeof FleetItemReadingUnit];
+
+
+export const FleetItemReadingUnit = {
+  km: 'km',
+  h: 'h',
+} as const;
+
+export interface FleetItem {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  name: string;
+  /** @nullable */
+  sbuId?: number | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  categoryCode: string;
+  /** @nullable */
+  subCategory?: string | null;
+  /** @nullable */
+  registrationNumber?: string | null;
+  /** @nullable */
+  makeModel?: string | null;
+  /** @nullable */
+  driverEmployeeId?: number | null;
+  /** @nullable */
+  driver?: string | null;
+  /** @nullable */
+  locationId?: number | null;
+  /** @nullable */
+  depot?: string | null;
+  fleetStatus: FleetItemFleetStatus;
+  assetStatus: string;
+  /** @nullable */
+  reading?: number | null;
+  readingUnit: FleetItemReadingUnit;
+  documents: VehicleDocument[];
+  documentsExpired: boolean;
+  nextService?: ServiceDue | null;
+  canEdit: boolean;
+  services: ServiceLog[];
+}
+
+export type FleetUpdateInputFleetStatus = typeof FleetUpdateInputFleetStatus[keyof typeof FleetUpdateInputFleetStatus];
+
+
+export const FleetUpdateInputFleetStatus = {
+  active: 'active',
+  in_service: 'in_service',
+  off_road: 'off_road',
+} as const;
+
+export interface FleetUpdateInput {
+  fleetStatus?: FleetUpdateInputFleetStatus;
+  /** @nullable */
+  driverEmployeeId?: number | null;
+  /** @nullable */
+  driverName?: string | null;
+  reading?: number;
+}
+
+export type VehicleDocumentInputKind = typeof VehicleDocumentInputKind[keyof typeof VehicleDocumentInputKind];
+
+
+export const VehicleDocumentInputKind = {
+  licence: 'licence',
+  insurance: 'insurance',
+  fitness: 'fitness',
+  zinara: 'zinara',
+} as const;
+
+export interface VehicleDocumentInput {
+  kind: VehicleDocumentInputKind;
+  reference?: string;
+  expiresOn: string;
+}
+
+export interface ServiceScheduleInput {
+  intervalReading?: number;
+  intervalDays?: number;
+  startDate?: string;
+  startReading?: number;
+}
+
+export interface ServiceLogInput {
+  serviceDate: string;
+  reading?: number;
+  garage: string;
+  workDone: string;
+}
+
+export interface ServiceCostInput {
+  cost: number;
+  currency?: string;
+}
+
+/**
+ * multipart/form-data with a .csv or .xlsx file (up to 10 MB); described as a string so the generated libraries need no browser types.
+ */
+export interface ImportUpload {
+  file: string;
+}
+
+export interface ImportRow {
+  row: number;
+  /** @nullable */
+  description?: string | null;
+  errors: string[];
+}
+
+export interface ImportReport {
+  rowCount: number;
+  errorRowCount: number;
+  canImport: boolean;
+  imported: number;
+  assetIds: number[];
+  rows: ImportRow[];
+}
+
+export interface ItInventoryRow {
+  assetId: number;
+  /** @nullable */
+  assetNumber?: string | null;
+  description: string;
+  /** @nullable */
+  subCategory?: string | null;
+  /** @nullable */
+  make?: string | null;
+  /** @nullable */
+  model?: string | null;
+  /** @nullable */
+  serialNumber?: string | null;
+  /** @nullable */
+  rfidTag?: string | null;
+  /** @nullable */
+  sbuCode?: string | null;
+  /** @nullable */
+  site?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
+  status: string;
+  /** @nullable */
+  condition?: string | null;
+  /** @nullable */
+  lastSeen?: string | null;
+  /** @nullable */
+  ageYears?: number | null;
+  /** @nullable */
+  warrantyEnds?: string | null;
+  refreshReasons: string[];
+}
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export interface ItStatusBoard {
+  counts: StatusCount[];
+  faulty: number;
+  spare: ItInventoryRow[];
+}
+
 /**
  * Month (YYYY-MM); default the current month
  */
@@ -3008,6 +3262,8 @@ period?: PeriodParameter;
 sbuId?: SbuFilterParameter;
 locationId?: LocationFilterParameter;
 categoryId?: CategoryFilterParameter;
+departmentId?: number;
+status?: string;
 };
 
 export type DownloadAssetRegisterExcelParams = {
@@ -3018,6 +3274,8 @@ period?: PeriodParameter;
 sbuId?: SbuFilterParameter;
 locationId?: LocationFilterParameter;
 categoryId?: CategoryFilterParameter;
+departmentId?: number;
+status?: string;
 };
 
 export type DownloadAssetRegisterPdfParams = {
@@ -3028,6 +3286,8 @@ period?: PeriodParameter;
 sbuId?: SbuFilterParameter;
 locationId?: LocationFilterParameter;
 categoryId?: CategoryFilterParameter;
+departmentId?: number;
+status?: string;
 };
 
 export type GetCategoryReportParams = {
@@ -3115,5 +3375,102 @@ employeeId?: number;
 
 export type GateScanParams = {
 code: string;
+};
+
+export type DownloadStandardReportExcelParams = {
+kind: DownloadStandardReportExcelKind;
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadStandardReportExcelKind = typeof DownloadStandardReportExcelKind[keyof typeof DownloadStandardReportExcelKind];
+
+
+export const DownloadStandardReportExcelKind = {
+  register: 'register',
+  additions: 'additions',
+  disposals: 'disposals',
+  depreciation: 'depreciation',
+  movements: 'movements',
+} as const;
+
+export type DownloadStandardReportPdfParams = {
+kind: DownloadStandardReportPdfKind;
+/**
+ * Month (YYYY-MM); default the current month
+ */
+period?: PeriodParameter;
+sbuId?: SbuFilterParameter;
+locationId?: LocationFilterParameter;
+categoryId?: CategoryFilterParameter;
+};
+
+export type DownloadStandardReportPdfKind = typeof DownloadStandardReportPdfKind[keyof typeof DownloadStandardReportPdfKind];
+
+
+export const DownloadStandardReportPdfKind = {
+  register: 'register',
+  additions: 'additions',
+  disposals: 'disposals',
+  depreciation: 'depreciation',
+  movements: 'movements',
+} as const;
+
+export type ListFleetParams = {
+sbuId?: number;
+kind?: ListFleetKind;
+};
+
+export type ListFleetKind = typeof ListFleetKind[keyof typeof ListFleetKind];
+
+
+export const ListFleetKind = {
+  vehicles: 'vehicles',
+  generators: 'generators',
+  all: 'all',
+} as const;
+
+export type DownloadImportTemplateCsvParams = {
+categoryId: number;
+};
+
+export type DownloadImportTemplateExcelParams = {
+categoryId: number;
+};
+
+export type GetItInventoryParams = {
+sbuId?: number;
+type?: string;
+make?: string;
+model?: string;
+minAgeYears?: number;
+status?: string;
+};
+
+export type DownloadItInventoryExcelParams = {
+sbuId?: number;
+type?: string;
+make?: string;
+model?: string;
+minAgeYears?: number;
+status?: string;
+};
+
+export type GetItRefreshParams = {
+sbuId?: number;
+};
+
+export type DownloadItRefreshExcelParams = {
+sbuId?: number;
+};
+
+export type GetItStatusBoardParams = {
+departmentId?: number;
+locationId?: number;
 };
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { downloadAssetRegisterExcel, downloadAssetRegisterPdf, lookupAsset, useGetAssetRegister } from "@workspace/api-client-react";
+import { downloadAssetRegisterExcel, downloadAssetRegisterPdf, lookupAsset, useGetAssetRegister, useListDepartments } from "@workspace/api-client-react";
 import { ScanLine } from "lucide-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
 import { canRegisterSomething, currentPeriod, money, periodLabel, saveBlob, STATUS_LABEL, STATUS_TONE } from "@/lib/finance";
 import { cn } from "@/lib/utils";
+import { SELECT_CLASS } from "@/lib/constants";
 
 /**
  * The fixed asset register (SF-02): every asset the signed-in user may see, with cost, depreciation and
@@ -26,7 +27,12 @@ export default function AssetRegister() {
   const { toast } = useToast();
   const [filters, setFilters] = useState<ReportFilterValues>(() => filtersFromSearch(search, currentPeriod()));
   const [code, setCode] = useState("");
-  const { data, isLoading, error } = useGetAssetRegister(toParams(filters), { query: { enabled: !!user, queryKey: ["register", filters] } });
+  // SF-02 (Phase 4d): department and status filters on top of the shared ones.
+  const [departmentId, setDepartmentId] = useState("");
+  const [status, setStatus] = useState("");
+  const params = { ...toParams(filters), departmentId: departmentId ? Number(departmentId) : undefined, status: status || undefined };
+  const { data, isLoading, error } = useGetAssetRegister(params, { query: { enabled: !!user, queryKey: ["register", filters, departmentId, status] } });
+  const { data: departments } = useListDepartments(undefined, { query: { enabled: !!user, queryKey: ["departments"] } });
 
   function change(f: ReportFilterValues) {
     setFilters(f);
@@ -45,7 +51,6 @@ export default function AssetRegister() {
 
   async function exportAs(kind: "xlsx" | "pdf") {
     try {
-      const params = toParams(filters);
       const blob = kind === "xlsx" ? await downloadAssetRegisterExcel(params) : await downloadAssetRegisterPdf(params);
       saveBlob(blob, `asset-register-${filters.period}.${kind}`);
     } catch (err) {
@@ -71,7 +76,17 @@ export default function AssetRegister() {
         </div>
 
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <ReportFilters value={filters} onChange={change} />
+          <div className="flex flex-wrap items-end gap-2">
+            <ReportFilters value={filters} onChange={change} />
+            <select className={SELECT_CLASS} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} aria-label="Department">
+              <option value="">All departments</option>
+              {departments?.map((d) => <option key={d.id} value={d.id}>{d.sbuCode ? `${d.sbuCode} · ` : ""}{d.name}</option>)}
+            </select>
+            <select className={SELECT_CLASS} value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
+              <option value="">All statuses</option>
+              {Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
           <form onSubmit={open} className="flex gap-2">
             <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Asset no., tag or serial" className="w-56 font-mono" aria-label="Open asset card by asset number, tag or serial" />
             <Button type="submit" variant="outline" size="icon" aria-label="Open asset card"><ScanLine className="h-4 w-4" /></Button>

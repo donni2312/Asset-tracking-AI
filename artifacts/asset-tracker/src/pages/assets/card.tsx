@@ -130,6 +130,7 @@ export default function AssetCardPage() {
               <div><Key>PO no.</Key><Val mono>{a.poNo ?? "—"}</Val></div>
               <div><Key>Purchase date</Key><Val>{a.purchaseDate ?? "—"}</Val></div>
               <div><Key>In-use date</Key><Val>{a.inUseDate ?? "—"}</Val></div>
+              <div><Key>Cost centre</Key><Val mono>{a.costCentre ?? "—"}</Val></div>
               <div><Key>Warranty ends</Key><Val>{a.warrantyEnds ?? "—"}</Val></div>
               <div><Key>Custodian</Key><Val>{a.assignedTo ?? "—"}</Val></div>
               <div><Key>Condition</Key><Val>{a.condition ?? "—"}</Val></div>
@@ -431,7 +432,7 @@ function FinancialDialog({ open, onClose, card }: { open: boolean; onClose: () =
   const [form, setForm] = useState({
     originalCost: a.originalCost?.toString() ?? "", currency: a.currency ?? "USD", exchangeRate: a.exchangeRate?.toString() ?? "1",
     residualValue: (a.residualValue ?? 0).toString(), supplier: a.supplier ?? "", invoiceNo: a.invoiceNo ?? "", poNo: a.poNo ?? "",
-    purchaseDate: a.purchaseDate ?? "", inUseDate: a.inUseDate ?? "", reason: "",
+    purchaseDate: a.purchaseDate ?? "", inUseDate: a.inUseDate ?? "", costCentre: a.costCentre ?? "", reason: "",
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
   const num = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -444,7 +445,7 @@ function FinancialDialog({ open, onClose, card }: { open: boolean; onClose: () =
         data: {
           originalCost: num(form.originalCost), currency: text(form.currency.toUpperCase()), exchangeRate: num(form.exchangeRate),
           residualValue: num(form.residualValue), supplier: text(form.supplier), invoiceNo: text(form.invoiceNo), poNo: text(form.poNo),
-          purchaseDate: text(form.purchaseDate), inUseDate: text(form.inUseDate), reason: form.reason,
+          purchaseDate: text(form.purchaseDate), inUseDate: text(form.inUseDate), costCentre: text(form.costCentre), reason: form.reason,
         },
       },
       { onSuccess: () => { onClose(); refresh(); }, onError: fail("Could not save") },
@@ -466,6 +467,7 @@ function FinancialDialog({ open, onClose, card }: { open: boolean; onClose: () =
           <div className="space-y-1"><Label className="text-xs">Residual value (USD)</Label><Input type="number" step="0.01" value={form.residualValue} onChange={set("residualValue")} /></div>
           <div className="space-y-1"><Label className="text-xs">Purchase date</Label><Input type="date" value={form.purchaseDate} onChange={set("purchaseDate")} /></div>
           <div className="space-y-1"><Label className="text-xs">In-use date</Label><Input type="date" value={form.inUseDate} onChange={set("inUseDate")} /></div>
+          <div className="space-y-1"><Label className="text-xs">Cost centre</Label><Input value={form.costCentre} onChange={set("costCentre")} /></div>
           <div className="col-span-2 space-y-1"><Label className="text-xs">Reason (required, saved to the audit trail)</Label><Input value={form.reason} onChange={set("reason")} required minLength={3} /></div>
           <DialogFooter className="col-span-2"><Button type="submit" disabled={update.isPending}>Save</Button></DialogFooter>
         </form>

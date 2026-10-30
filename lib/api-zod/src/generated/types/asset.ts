@@ -97,6 +97,11 @@ export interface Asset {
   poNo?: string | null;
   /** @nullable */
   inUseDate?: Date | null;
+  /**
+     * SF-01 (Phase 4d)
+     * @nullable
+     */
+  costCentre?: string | null;
   /** @nullable */
   warrantyEnds?: Date | null;
   /** @nullable */

@@ -18,4 +18,6 @@ period?: PeriodParameter;
 sbuId?: SbuFilterParameter;
 locationId?: LocationFilterParameter;
 categoryId?: CategoryFilterParameter;
+departmentId?: number;
+status?: string;
 };

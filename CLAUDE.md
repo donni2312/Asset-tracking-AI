@@ -671,3 +671,9 @@ Report: `docs/implementation-plan.md` §12.
   flagged by `ApprovalWorker`) and `Services/VerificationService.cs` (counts per location: scan, close → found /
   missing / unrecorded; SBU Finance resolves each with a comment; reconciled when none is open); `GateController`.
   A gate pass may carry several items (`itemAssetIds`, same SBU); approval routing uses the first item.
+- **4d fleet, import, reports**: `Services/FleetService.cs` (fleet register, vehicle documents with 30 / 7-day reminders,
+  service schedules by mileage / hours or days; costs by SBU Finance only) and `FleetController`; SF-10 import in
+  `Services/AssetImport.cs` (partial of `AssetRegistrationService`, same template / uniqueness rules; all rows or none) with
+  `Infrastructure/SpreadsheetRows.cs` and `ImportController`; GF-06 standard reports in `FinanceReportService.StandardReportTableAsync`
+  (`/finance/reports.{xlsx|pdf}?kind=`); IT inventory, refresh and status board in `Services/ItReportService.cs` / `ItController`.
+  The worker also sends fleet reminders and warranty alerts.

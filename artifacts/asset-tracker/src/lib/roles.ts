@@ -66,6 +66,10 @@ export const ROLE_GROUPS = {
   scanners: ALL.filter((r) => r !== "system_admin"),
   // Phase 4c (Values.cs GateOfficers, VerificationReaders).
   gateOfficers: ["gate_officer", "group_it", "sbu_it", "sbu_admin"],
+  // Phase 4d (Values.cs FleetReaders, ItReaders, FinanceWriters).
+  fleetReaders: ["sbu_admin", "sbu_finance", "group_finance", "group_it", "auditor"],
+  itReaders: ["group_it", "sbu_it", "auditor"],
+  importers: ["sbu_finance", "group_finance"],
   verificationReaders: ["group_it", "sbu_it", "stores", "sbu_admin", "sbu_finance", "group_finance", "auditor"],
 } satisfies Record<string, UserRole[]>;
 

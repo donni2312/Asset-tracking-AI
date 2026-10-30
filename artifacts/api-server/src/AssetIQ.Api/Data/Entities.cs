@@ -106,6 +106,8 @@ public sealed class Asset
     public string? PurchaseDate { get; set; }
     /// <summary>YYYY-MM-DD; depreciation starts in this month.</summary>
     public string? InUseDate { get; set; }
+    /// <summary>SF-01 (Phase 4d), set by SBU Finance.</summary>
+    public string? CostCentre { get; set; }
     public string? WarrantyEnds { get; set; }
     /// <summary>YYYY-MM-DD; no depreciation from this month on.</summary>
     public string? DisposalDate { get; set; }
@@ -780,5 +782,64 @@ public sealed class VerificationResult
     public string? Comment { get; set; }
     public string? ResolvedBy { get; set; }
     public DateTime? ResolvedAt { get; set; }
+}
+
+// ── Phase 4d: fleet (AM-02 … AM-04) ───────────────────────────────────────────
+
+public sealed class FleetDetail
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>active | in_service | off_road</summary>
+    public string FleetStatus { get; set; } = "active";
+    public int? DriverEmployeeId { get; set; }
+    public string? DriverName { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
+}
+
+public sealed class VehicleDocument
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>licence | insurance | fitness | zinara</summary>
+    public string Kind { get; set; } = "";
+    public string? Reference { get; set; }
+    /// <summary>YYYY-MM-DD</summary>
+    public string ExpiresOn { get; set; } = "";
+    public DateTime? Reminded30At { get; set; }
+    public DateTime? Reminded7At { get; set; }
+    public DateTime? ExpiredNotifiedAt { get; set; }
+    public string CreatedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+
+public sealed class ServiceSchedule
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>km (vehicles) or hours run (generators).</summary>
+    public int? IntervalReading { get; set; }
+    public int? IntervalDays { get; set; }
+    public string StartDate { get; set; } = "";
+    public int? StartReading { get; set; }
+    public string? OverdueNotifiedFor { get; set; }
+    public string UpdatedBy { get; set; } = "";
+    public DateTime UpdatedAt { get; set; }
+}
+
+public sealed class ServiceLog
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    public string ServiceDate { get; set; } = "";
+    public int? Reading { get; set; }
+    public string Garage { get; set; } = "";
+    public string WorkDone { get; set; } = "";
+    public decimal? Cost { get; set; }
+    public string? Currency { get; set; }
+    public string? CostBy { get; set; }
+    public string LoggedBy { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
 }
 

@@ -70,9 +70,15 @@ import type {
   DownloadCategoryReportExcelParams,
   DownloadCategoryReportPdfParams,
   DownloadGatePassesReportParams,
+  DownloadImportTemplateCsvParams,
+  DownloadImportTemplateExcelParams,
   DownloadInsightsReportParams,
+  DownloadItInventoryExcelParams,
+  DownloadItRefreshExcelParams,
   DownloadLifecycleReportParams,
   DownloadMovementsReportParams,
+  DownloadStandardReportExcelParams,
+  DownloadStandardReportPdfParams,
   Employee,
   EmployeeInput,
   EmployeeUpdate,
@@ -84,6 +90,8 @@ import type {
   ExitClearanceItemInput,
   FinanceDashboard,
   FinancialUpdate,
+  FleetItem,
+  FleetUpdateInput,
   GateAction,
   GateActionInput,
   GateActivityItem,
@@ -102,12 +110,19 @@ import type {
   GetDashboardActivityParams,
   GetFinanceDashboardParams,
   GetGateActivityParams,
+  GetItInventoryParams,
+  GetItRefreshParams,
+  GetItStatusBoardParams,
   GetLocationBreakdownParams,
   GetMovementTrendParams,
   GoodsReceiptInput,
   GroupSetting,
   HealthStatus,
+  ImportReport,
+  ImportUpload,
   IssueInput,
+  ItInventoryRow,
+  ItStatusBoard,
   ListAccessLogParams,
   ListAcknowledgementsParams,
   ListAssetsParams,
@@ -115,6 +130,7 @@ import type {
   ListDepartmentsParams,
   ListEmployeesParams,
   ListEquipmentRequestsParams,
+  ListFleetParams,
   ListGatePassesParams,
   ListLifecycleEventsParams,
   ListLocationsParams,
@@ -155,6 +171,9 @@ import type {
   Sbu,
   ScanCodeParams,
   ScanResult,
+  ServiceCostInput,
+  ServiceLogInput,
+  ServiceScheduleInput,
   SettingUpdate,
   StatusChangeInput,
   StatusTransition,
@@ -170,6 +189,7 @@ import type {
   UserAccount,
   UserAccountInput,
   UserAccountUpdate,
+  VehicleDocumentInput,
   VerificationResolveInput,
   VerificationScanInput,
   VerificationSession,
@@ -11353,4 +11373,1427 @@ export const useResolveVerificationResult = <TError = ErrorType<void>,
       > => {
       return useMutation(getResolveVerificationResultMutationOptions(options));
     }
+
+export const getDownloadStandardReportExcelUrl = (params: DownloadStandardReportExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/reports.xlsx?${stringifiedParams}` : `/api/finance/reports.xlsx`
+}
+
+/**
+ * @summary GF-06: a standard report as Excel (logged)
+ */
+export const downloadStandardReportExcel = async (params: DownloadStandardReportExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadStandardReportExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadStandardReportExcelQueryKey = (params?: DownloadStandardReportExcelParams,) => {
+    return [
+    `/api/finance/reports.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadStandardReportExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadStandardReportExcel>>, TError = ErrorType<void>>(params: DownloadStandardReportExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadStandardReportExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadStandardReportExcel>>> = ({ signal }) => downloadStandardReportExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadStandardReportExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadStandardReportExcel>>>
+export type DownloadStandardReportExcelQueryError = ErrorType<void>
+
+
+/**
+ * @summary GF-06: a standard report as Excel (logged)
+ */
+
+export function useDownloadStandardReportExcel<TData = Awaited<ReturnType<typeof downloadStandardReportExcel>>, TError = ErrorType<void>>(
+ params: DownloadStandardReportExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadStandardReportExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadStandardReportPdfUrl = (params: DownloadStandardReportPdfParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/finance/reports.pdf?${stringifiedParams}` : `/api/finance/reports.pdf`
+}
+
+/**
+ * @summary GF-06: a standard report as PDF (logged)
+ */
+export const downloadStandardReportPdf = async (params: DownloadStandardReportPdfParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadStandardReportPdfUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadStandardReportPdfQueryKey = (params?: DownloadStandardReportPdfParams,) => {
+    return [
+    `/api/finance/reports.pdf`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadStandardReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof downloadStandardReportPdf>>, TError = ErrorType<void>>(params: DownloadStandardReportPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadStandardReportPdfQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadStandardReportPdf>>> = ({ signal }) => downloadStandardReportPdf(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadStandardReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof downloadStandardReportPdf>>>
+export type DownloadStandardReportPdfQueryError = ErrorType<void>
+
+
+/**
+ * @summary GF-06: a standard report as PDF (logged)
+ */
+
+export function useDownloadStandardReportPdf<TData = Awaited<ReturnType<typeof downloadStandardReportPdf>>, TError = ErrorType<void>>(
+ params: DownloadStandardReportPdfParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadStandardReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadStandardReportPdfQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListFleetUrl = (params?: ListFleetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/fleet?${stringifiedParams}` : `/api/fleet`
+}
+
+/**
+ * @summary AM-02: the fleet register (own SBU; Group roles read-only across SBUs)
+ */
+export const listFleet = async (params?: ListFleetParams, options?: RequestInit): Promise<FleetItem[]> => {
+
+  return customFetch<FleetItem[]>(getListFleetUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFleetQueryKey = (params?: ListFleetParams,) => {
+    return [
+    `/api/fleet`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListFleetQueryOptions = <TData = Awaited<ReturnType<typeof listFleet>>, TError = ErrorType<void>>(params?: ListFleetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFleet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFleetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFleet>>> = ({ signal }) => listFleet(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFleet>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFleetQueryResult = NonNullable<Awaited<ReturnType<typeof listFleet>>>
+export type ListFleetQueryError = ErrorType<void>
+
+
+/**
+ * @summary AM-02: the fleet register (own SBU; Group roles read-only across SBUs)
+ */
+
+export function useListFleet<TData = Awaited<ReturnType<typeof listFleet>>, TError = ErrorType<void>>(
+ params?: ListFleetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFleet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFleetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFleetItemUrl = (assetId: number,) => {
+
+
+
+
+  return `/api/fleet/${assetId}`
+}
+
+/**
+ * @summary A vehicle or generator with its documents, schedule and services
+ */
+export const getFleetItem = async (assetId: number, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getGetFleetItemUrl(assetId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFleetItemQueryKey = (assetId: number,) => {
+    return [
+    `/api/fleet/${assetId}`
+    ] as const;
+    }
+
+
+export const getGetFleetItemQueryOptions = <TData = Awaited<ReturnType<typeof getFleetItem>>, TError = ErrorType<void>>(assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFleetItem>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFleetItemQueryKey(assetId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFleetItem>>> = ({ signal }) => getFleetItem(assetId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: assetId !== null && assetId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFleetItem>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFleetItemQueryResult = NonNullable<Awaited<ReturnType<typeof getFleetItem>>>
+export type GetFleetItemQueryError = ErrorType<void>
+
+
+/**
+ * @summary A vehicle or generator with its documents, schedule and services
+ */
+
+export function useGetFleetItem<TData = Awaited<ReturnType<typeof getFleetItem>>, TError = ErrorType<void>>(
+ assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFleetItem>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFleetItemQueryOptions(assetId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateFleetItemUrl = (assetId: number,) => {
+
+
+
+
+  return `/api/fleet/${assetId}`
+}
+
+/**
+ * @summary Fleet status, driver and mileage / hours (SBU Admin Manager)
+ */
+export const updateFleetItem = async (assetId: number,
+    fleetUpdateInput: FleetUpdateInput, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getUpdateFleetItemUrl(assetId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(fleetUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateFleetItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFleetItem>>, TError,{assetId: number;data: BodyType<FleetUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFleetItem>>, TError,{assetId: number;data: BodyType<FleetUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateFleetItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFleetItem>>, {assetId: number;data: BodyType<FleetUpdateInput>}> = (props) => {
+          const {assetId,data} = props ?? {};
+
+          return  updateFleetItem(assetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFleetItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateFleetItem>>>
+    export type UpdateFleetItemMutationBody = BodyType<FleetUpdateInput>
+    export type UpdateFleetItemMutationError = ErrorType<void>
+
+    /**
+ * @summary Fleet status, driver and mileage / hours (SBU Admin Manager)
+ */
+export const useUpdateFleetItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFleetItem>>, TError,{assetId: number;data: BodyType<FleetUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFleetItem>>,
+        TError,
+        {assetId: number;data: BodyType<FleetUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateFleetItemMutationOptions(options));
+    }
+
+export const getAddVehicleDocumentUrl = (assetId: number,) => {
+
+
+
+
+  return `/api/fleet/${assetId}/documents`
+}
+
+/**
+ * @summary AM-03: record a document or its renewal
+ */
+export const addVehicleDocument = async (assetId: number,
+    vehicleDocumentInput: VehicleDocumentInput, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getAddVehicleDocumentUrl(assetId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(vehicleDocumentInput)
+  }
+);}
+
+
+
+
+
+export const getAddVehicleDocumentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVehicleDocument>>, TError,{assetId: number;data: BodyType<VehicleDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addVehicleDocument>>, TError,{assetId: number;data: BodyType<VehicleDocumentInput>}, TContext> => {
+
+const mutationKey = ['addVehicleDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addVehicleDocument>>, {assetId: number;data: BodyType<VehicleDocumentInput>}> = (props) => {
+          const {assetId,data} = props ?? {};
+
+          return  addVehicleDocument(assetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddVehicleDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof addVehicleDocument>>>
+    export type AddVehicleDocumentMutationBody = BodyType<VehicleDocumentInput>
+    export type AddVehicleDocumentMutationError = ErrorType<void>
+
+    /**
+ * @summary AM-03: record a document or its renewal
+ */
+export const useAddVehicleDocument = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addVehicleDocument>>, TError,{assetId: number;data: BodyType<VehicleDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addVehicleDocument>>,
+        TError,
+        {assetId: number;data: BodyType<VehicleDocumentInput>},
+        TContext
+      > => {
+      return useMutation(getAddVehicleDocumentMutationOptions(options));
+    }
+
+export const getSetServiceScheduleUrl = (assetId: number,) => {
+
+
+
+
+  return `/api/fleet/${assetId}/service-schedule`
+}
+
+/**
+ * @summary AM-04: the service interval by mileage / hours or days
+ */
+export const setServiceSchedule = async (assetId: number,
+    serviceScheduleInput: ServiceScheduleInput, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getSetServiceScheduleUrl(assetId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceScheduleInput)
+  }
+);}
+
+
+
+
+
+export const getSetServiceScheduleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServiceSchedule>>, TError,{assetId: number;data: BodyType<ServiceScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setServiceSchedule>>, TError,{assetId: number;data: BodyType<ServiceScheduleInput>}, TContext> => {
+
+const mutationKey = ['setServiceSchedule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setServiceSchedule>>, {assetId: number;data: BodyType<ServiceScheduleInput>}> = (props) => {
+          const {assetId,data} = props ?? {};
+
+          return  setServiceSchedule(assetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetServiceScheduleMutationResult = NonNullable<Awaited<ReturnType<typeof setServiceSchedule>>>
+    export type SetServiceScheduleMutationBody = BodyType<ServiceScheduleInput>
+    export type SetServiceScheduleMutationError = ErrorType<void>
+
+    /**
+ * @summary AM-04: the service interval by mileage / hours or days
+ */
+export const useSetServiceSchedule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServiceSchedule>>, TError,{assetId: number;data: BodyType<ServiceScheduleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setServiceSchedule>>,
+        TError,
+        {assetId: number;data: BodyType<ServiceScheduleInput>},
+        TContext
+      > => {
+      return useMutation(getSetServiceScheduleMutationOptions(options));
+    }
+
+export const getLogServiceUrl = (assetId: number,) => {
+
+
+
+
+  return `/api/fleet/${assetId}/services`
+}
+
+/**
+ * @summary AM-04: log a service (the cost is added by SBU Finance)
+ */
+export const logService = async (assetId: number,
+    serviceLogInput: ServiceLogInput, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getLogServiceUrl(assetId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceLogInput)
+  }
+);}
+
+
+
+
+
+export const getLogServiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logService>>, TError,{assetId: number;data: BodyType<ServiceLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logService>>, TError,{assetId: number;data: BodyType<ServiceLogInput>}, TContext> => {
+
+const mutationKey = ['logService'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logService>>, {assetId: number;data: BodyType<ServiceLogInput>}> = (props) => {
+          const {assetId,data} = props ?? {};
+
+          return  logService(assetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogServiceMutationResult = NonNullable<Awaited<ReturnType<typeof logService>>>
+    export type LogServiceMutationBody = BodyType<ServiceLogInput>
+    export type LogServiceMutationError = ErrorType<void>
+
+    /**
+ * @summary AM-04: log a service (the cost is added by SBU Finance)
+ */
+export const useLogService = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logService>>, TError,{assetId: number;data: BodyType<ServiceLogInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logService>>,
+        TError,
+        {assetId: number;data: BodyType<ServiceLogInput>},
+        TContext
+      > => {
+      return useMutation(getLogServiceMutationOptions(options));
+    }
+
+export const getSetServiceCostUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-logs/${id}/cost`
+}
+
+/**
+ * @summary The cost of a service (SBU Finance)
+ */
+export const setServiceCost = async (id: number,
+    serviceCostInput: ServiceCostInput, options?: RequestInit): Promise<FleetItem> => {
+
+  return customFetch<FleetItem>(getSetServiceCostUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceCostInput)
+  }
+);}
+
+
+
+
+
+export const getSetServiceCostMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServiceCost>>, TError,{id: number;data: BodyType<ServiceCostInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setServiceCost>>, TError,{id: number;data: BodyType<ServiceCostInput>}, TContext> => {
+
+const mutationKey = ['setServiceCost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setServiceCost>>, {id: number;data: BodyType<ServiceCostInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setServiceCost(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetServiceCostMutationResult = NonNullable<Awaited<ReturnType<typeof setServiceCost>>>
+    export type SetServiceCostMutationBody = BodyType<ServiceCostInput>
+    export type SetServiceCostMutationError = ErrorType<void>
+
+    /**
+ * @summary The cost of a service (SBU Finance)
+ */
+export const useSetServiceCost = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServiceCost>>, TError,{id: number;data: BodyType<ServiceCostInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setServiceCost>>,
+        TError,
+        {id: number;data: BodyType<ServiceCostInput>},
+        TContext
+      > => {
+      return useMutation(getSetServiceCostMutationOptions(options));
+    }
+
+export const getDownloadImportTemplateCsvUrl = (params: DownloadImportTemplateCsvParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/imports/assets/template.csv?${stringifiedParams}` : `/api/imports/assets/template.csv`
+}
+
+/**
+ * @summary SF-10: the import template for a category (CSV)
+ */
+export const downloadImportTemplateCsv = async (params: DownloadImportTemplateCsvParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadImportTemplateCsvUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadImportTemplateCsvQueryKey = (params?: DownloadImportTemplateCsvParams,) => {
+    return [
+    `/api/imports/assets/template.csv`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadImportTemplateCsvQueryOptions = <TData = Awaited<ReturnType<typeof downloadImportTemplateCsv>>, TError = ErrorType<void>>(params: DownloadImportTemplateCsvParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateCsv>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadImportTemplateCsvQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadImportTemplateCsv>>> = ({ signal }) => downloadImportTemplateCsv(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateCsv>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadImportTemplateCsvQueryResult = NonNullable<Awaited<ReturnType<typeof downloadImportTemplateCsv>>>
+export type DownloadImportTemplateCsvQueryError = ErrorType<void>
+
+
+/**
+ * @summary SF-10: the import template for a category (CSV)
+ */
+
+export function useDownloadImportTemplateCsv<TData = Awaited<ReturnType<typeof downloadImportTemplateCsv>>, TError = ErrorType<void>>(
+ params: DownloadImportTemplateCsvParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateCsv>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadImportTemplateCsvQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadImportTemplateExcelUrl = (params: DownloadImportTemplateExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/imports/assets/template.xlsx?${stringifiedParams}` : `/api/imports/assets/template.xlsx`
+}
+
+/**
+ * @summary SF-10: the import template for a category (Excel, with column notes)
+ */
+export const downloadImportTemplateExcel = async (params: DownloadImportTemplateExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadImportTemplateExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadImportTemplateExcelQueryKey = (params?: DownloadImportTemplateExcelParams,) => {
+    return [
+    `/api/imports/assets/template.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadImportTemplateExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadImportTemplateExcel>>, TError = ErrorType<void>>(params: DownloadImportTemplateExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadImportTemplateExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadImportTemplateExcel>>> = ({ signal }) => downloadImportTemplateExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadImportTemplateExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadImportTemplateExcel>>>
+export type DownloadImportTemplateExcelQueryError = ErrorType<void>
+
+
+/**
+ * @summary SF-10: the import template for a category (Excel, with column notes)
+ */
+
+export function useDownloadImportTemplateExcel<TData = Awaited<ReturnType<typeof downloadImportTemplateExcel>>, TError = ErrorType<void>>(
+ params: DownloadImportTemplateExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadImportTemplateExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadImportTemplateExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getValidateAssetImportUrl = () => {
+
+
+
+
+  return `/api/imports/assets/validate`
+}
+
+/**
+ * @summary SF-10: the validation report for a CSV or Excel file; nothing is saved
+ */
+export const validateAssetImport = async (importUpload: ImportUpload, options?: RequestInit): Promise<ImportReport> => {
+    const formData = new FormData();
+formData.append(`file`, importUpload.file);
+
+  return customFetch<ImportReport>(getValidateAssetImportUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getValidateAssetImportMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAssetImport>>, TError,{data: BodyType<ImportUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateAssetImport>>, TError,{data: BodyType<ImportUpload>}, TContext> => {
+
+const mutationKey = ['validateAssetImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAssetImport>>, {data: BodyType<ImportUpload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  validateAssetImport(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateAssetImportMutationResult = NonNullable<Awaited<ReturnType<typeof validateAssetImport>>>
+    export type ValidateAssetImportMutationBody = BodyType<ImportUpload>
+    export type ValidateAssetImportMutationError = ErrorType<void>
+
+    /**
+ * @summary SF-10: the validation report for a CSV or Excel file; nothing is saved
+ */
+export const useValidateAssetImport = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAssetImport>>, TError,{data: BodyType<ImportUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof validateAssetImport>>,
+        TError,
+        {data: BodyType<ImportUpload>},
+        TContext
+      > => {
+      return useMutation(getValidateAssetImportMutationOptions(options));
+    }
+
+export const getImportAssetsUrl = () => {
+
+
+
+
+  return `/api/imports/assets`
+}
+
+/**
+ * @summary SF-10: import the file when it has no errors (all rows or none; 409 with the report otherwise)
+ */
+export const importAssets = async (importUpload: ImportUpload, options?: RequestInit): Promise<ImportReport> => {
+    const formData = new FormData();
+formData.append(`file`, importUpload.file);
+
+  return customFetch<ImportReport>(getImportAssetsUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getImportAssetsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importAssets>>, TError,{data: BodyType<ImportUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importAssets>>, TError,{data: BodyType<ImportUpload>}, TContext> => {
+
+const mutationKey = ['importAssets'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importAssets>>, {data: BodyType<ImportUpload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importAssets(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportAssetsMutationResult = NonNullable<Awaited<ReturnType<typeof importAssets>>>
+    export type ImportAssetsMutationBody = BodyType<ImportUpload>
+    export type ImportAssetsMutationError = ErrorType<void>
+
+    /**
+ * @summary SF-10: import the file when it has no errors (all rows or none; 409 with the report otherwise)
+ */
+export const useImportAssets = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importAssets>>, TError,{data: BodyType<ImportUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importAssets>>,
+        TError,
+        {data: BodyType<ImportUpload>},
+        TContext
+      > => {
+      return useMutation(getImportAssetsMutationOptions(options));
+    }
+
+export const getGetItInventoryUrl = (params?: GetItInventoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/it/inventory?${stringifiedParams}` : `/api/it/inventory`
+}
+
+/**
+ * @summary GI-01: every IT asset in scope with SBU, site, user, status and last seen
+ */
+export const getItInventory = async (params?: GetItInventoryParams, options?: RequestInit): Promise<ItInventoryRow[]> => {
+
+  return customFetch<ItInventoryRow[]>(getGetItInventoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetItInventoryQueryKey = (params?: GetItInventoryParams,) => {
+    return [
+    `/api/it/inventory`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetItInventoryQueryOptions = <TData = Awaited<ReturnType<typeof getItInventory>>, TError = ErrorType<void>>(params?: GetItInventoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItInventory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetItInventoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getItInventory>>> = ({ signal }) => getItInventory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getItInventory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetItInventoryQueryResult = NonNullable<Awaited<ReturnType<typeof getItInventory>>>
+export type GetItInventoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary GI-01: every IT asset in scope with SBU, site, user, status and last seen
+ */
+
+export function useGetItInventory<TData = Awaited<ReturnType<typeof getItInventory>>, TError = ErrorType<void>>(
+ params?: GetItInventoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItInventory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetItInventoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadItInventoryExcelUrl = (params?: DownloadItInventoryExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/it/inventory.xlsx?${stringifiedParams}` : `/api/it/inventory.xlsx`
+}
+
+/**
+ * @summary GI-01: the IT inventory as Excel (logged)
+ */
+export const downloadItInventoryExcel = async (params?: DownloadItInventoryExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadItInventoryExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadItInventoryExcelQueryKey = (params?: DownloadItInventoryExcelParams,) => {
+    return [
+    `/api/it/inventory.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadItInventoryExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadItInventoryExcel>>, TError = ErrorType<void>>(params?: DownloadItInventoryExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadItInventoryExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadItInventoryExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadItInventoryExcel>>> = ({ signal }) => downloadItInventoryExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadItInventoryExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadItInventoryExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadItInventoryExcel>>>
+export type DownloadItInventoryExcelQueryError = ErrorType<void>
+
+
+/**
+ * @summary GI-01: the IT inventory as Excel (logged)
+ */
+
+export function useDownloadItInventoryExcel<TData = Awaited<ReturnType<typeof downloadItInventoryExcel>>, TError = ErrorType<void>>(
+ params?: DownloadItInventoryExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadItInventoryExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadItInventoryExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetItRefreshUrl = (params?: GetItRefreshParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/it/refresh?${stringifiedParams}` : `/api/it/refresh`
+}
+
+/**
+ * @summary GI-03: devices past their refresh age or out of warranty
+ */
+export const getItRefresh = async (params?: GetItRefreshParams, options?: RequestInit): Promise<ItInventoryRow[]> => {
+
+  return customFetch<ItInventoryRow[]>(getGetItRefreshUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetItRefreshQueryKey = (params?: GetItRefreshParams,) => {
+    return [
+    `/api/it/refresh`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetItRefreshQueryOptions = <TData = Awaited<ReturnType<typeof getItRefresh>>, TError = ErrorType<void>>(params?: GetItRefreshParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItRefresh>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetItRefreshQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getItRefresh>>> = ({ signal }) => getItRefresh(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getItRefresh>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetItRefreshQueryResult = NonNullable<Awaited<ReturnType<typeof getItRefresh>>>
+export type GetItRefreshQueryError = ErrorType<void>
+
+
+/**
+ * @summary GI-03: devices past their refresh age or out of warranty
+ */
+
+export function useGetItRefresh<TData = Awaited<ReturnType<typeof getItRefresh>>, TError = ErrorType<void>>(
+ params?: GetItRefreshParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItRefresh>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetItRefreshQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadItRefreshExcelUrl = (params?: DownloadItRefreshExcelParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/it/refresh.xlsx?${stringifiedParams}` : `/api/it/refresh.xlsx`
+}
+
+/**
+ * @summary GI-03: the refresh report as Excel (logged)
+ */
+export const downloadItRefreshExcel = async (params?: DownloadItRefreshExcelParams, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadItRefreshExcelUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadItRefreshExcelQueryKey = (params?: DownloadItRefreshExcelParams,) => {
+    return [
+    `/api/it/refresh.xlsx`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getDownloadItRefreshExcelQueryOptions = <TData = Awaited<ReturnType<typeof downloadItRefreshExcel>>, TError = ErrorType<void>>(params?: DownloadItRefreshExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadItRefreshExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadItRefreshExcelQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadItRefreshExcel>>> = ({ signal }) => downloadItRefreshExcel(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadItRefreshExcel>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadItRefreshExcelQueryResult = NonNullable<Awaited<ReturnType<typeof downloadItRefreshExcel>>>
+export type DownloadItRefreshExcelQueryError = ErrorType<void>
+
+
+/**
+ * @summary GI-03: the refresh report as Excel (logged)
+ */
+
+export function useDownloadItRefreshExcel<TData = Awaited<ReturnType<typeof downloadItRefreshExcel>>, TError = ErrorType<void>>(
+ params?: DownloadItRefreshExcelParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadItRefreshExcel>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadItRefreshExcelQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetItStatusBoardUrl = (params?: GetItStatusBoardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/it/status-board?${stringifiedParams}` : `/api/it/status-board`
+}
+
+/**
+ * @summary SI-06: IT devices by status and the spare stock ready to issue
+ */
+export const getItStatusBoard = async (params?: GetItStatusBoardParams, options?: RequestInit): Promise<ItStatusBoard> => {
+
+  return customFetch<ItStatusBoard>(getGetItStatusBoardUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetItStatusBoardQueryKey = (params?: GetItStatusBoardParams,) => {
+    return [
+    `/api/it/status-board`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetItStatusBoardQueryOptions = <TData = Awaited<ReturnType<typeof getItStatusBoard>>, TError = ErrorType<void>>(params?: GetItStatusBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItStatusBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetItStatusBoardQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getItStatusBoard>>> = ({ signal }) => getItStatusBoard(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getItStatusBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetItStatusBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getItStatusBoard>>>
+export type GetItStatusBoardQueryError = ErrorType<void>
+
+
+/**
+ * @summary SI-06: IT devices by status and the spare stock ready to issue
+ */
+
+export function useGetItStatusBoard<TData = Awaited<ReturnType<typeof getItStatusBoard>>, TError = ErrorType<void>>(
+ params?: GetItStatusBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getItStatusBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetItStatusBoardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

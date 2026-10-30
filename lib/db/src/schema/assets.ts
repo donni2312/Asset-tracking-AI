@@ -51,6 +51,7 @@ export const assetsTable = pgTable("assets", {
   poNo: text("po_no"),
   purchaseDate: text("purchase_date"),                // stored as ISO date string (YYYY-MM-DD)
   inUseDate: text("in_use_date"),                     // YYYY-MM-DD: depreciation starts in this month
+  costCentre: text("cost_centre"),                    // SF-01 (Phase 4d), set by SBU Finance
   warrantyEnds: text("warranty_ends"),                // YYYY-MM-DD
   disposalDate: text("disposal_date"),                // YYYY-MM-DD: no depreciation from this month
   purchaseValue: numeric("purchase_value"),            // legacy USD value, kept equal to cost_usd / original_cost

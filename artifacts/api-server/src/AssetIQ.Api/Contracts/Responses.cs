@@ -95,6 +95,8 @@ public sealed record AssetDto
     public string? InvoiceNo { get; init; }
     public string? PoNo { get; init; }
     public string? InUseDate { get; init; }
+    /// <summary>SF-01 (Phase 4d).</summary>
+    public string? CostCentre { get; init; }
     public string? WarrantyEnds { get; init; }
     public string? DisposalDate { get; init; }
     /// <summary>GI-07 incident details while lost / stolen.</summary>

@@ -131,7 +131,7 @@ public sealed class AssetRecordController(
             input.NullableNumber("originalCost"), input.NullableString("currency"), input.NullableNumber("exchangeRate"),
             input.NullableString("supplier"), input.NullableString("invoiceNo"), input.NullableString("poNo"),
             input.NullableDay("purchaseDate"), input.NullableDay("inUseDate"), input.NullableNumber("residualValue"),
-            input.RequiredString("reason", minLength: 3));
+            input.RequiredString("reason", minLength: 3), input.NullableString("costCentre"));
         input.ThrowIfInvalid();
         await registration.UpdateFinancialAsync(Caller, assetId, update, Aborted);
         return (await assets.GetDetailedAsync(assetId, Aborted))!;

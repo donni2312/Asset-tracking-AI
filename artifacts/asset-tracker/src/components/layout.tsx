@@ -48,7 +48,9 @@ export function Layout({ children }: LayoutProps) {
     { name: "Gate Passes",         href: "/gate-passes",   icon: ShieldAlert, roles: "gatePassReaders" },
     { name: "People & Toolboxes",  href: "/people",        icon: Users,     roles: "peopleReaders" },
     { name: "Departments",         href: "/departments",   icon: Building2, roles: "peopleReaders" },
-    { name: "Fleet & Non-IT",      href: "/fleet",         icon: Truck,     roles: ["sbu_admin", "sbu_finance", "group_finance", "auditor"] },
+    { name: "Fleet & Non-IT",      href: "/fleet",         icon: Truck,     roles: "fleetReaders" },
+    { name: "IT Inventory",        href: "/it",            icon: HardDrive, roles: "itReaders" },
+    { name: "Import assets",       href: "/import",        icon: FileDown,  roles: "importers" },
   ];
   const tracking: Entry[] = [
     { name: "Operations",          href: "/operations",    icon: Gauge,     roles: "recordReaders" },

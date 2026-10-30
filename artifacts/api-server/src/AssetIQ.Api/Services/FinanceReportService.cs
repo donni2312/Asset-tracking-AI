@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AssetIQ.Api.Services;
 
 /// <summary>Filters shared by the register, the category report and the dashboard.</summary>
-public sealed record ReportQuery(Period Period, int? SbuId, int? LocationId, int? CategoryId)
+public sealed record ReportQuery(Period Period, int? SbuId, int? LocationId, int? CategoryId, int? DepartmentId = null, string? Status = null)
 {
     public ValuationFilter Filter => new(SbuId, LocationId, CategoryId);
     public ReportFiltersDto ToDto() => new(Period.ToString(), SbuId, LocationId, CategoryId);
@@ -25,7 +25,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
 {
     public async Task<RegisterReportDto> RegisterAsync(AuthUser user, ReportQuery query, CancellationToken ct)
     {
-        var rows = await valuations.ValueAsync(user, query.Filter, query.Period, ct);
+        var rows = await RegisterRowsAsync(user, query, ct);
         return new RegisterReportDto(query.ToDto(), rows.Select(ToRow).ToList(), Totals(ValuationTotals.Of(rows)));
     }
 
@@ -121,7 +121,7 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
     /// <summary>SF-02 export: the register for the filters, with its total.</summary>
     public async Task<ExportTable> RegisterTableAsync(AuthUser user, ReportQuery query, CancellationToken ct)
     {
-        var rows = await valuations.ValueAsync(user, query.Filter, query.Period, ct);
+        var rows = await RegisterRowsAsync(user, query, ct);
         var table = rows.Select(v => new ExportRow([v.AssetNumber ?? "pending", v.Description, v.SerialNumber, v.CategoryName, v.SbuCode, v.LocationName, v.Custodian, v.Status,
             .. MoneyCells(Totals(ValuationTotals.Of([v])))])).ToList();
         var total = Totals(ValuationTotals.Of(rows));
@@ -139,6 +139,107 @@ public sealed class FinanceReportService(AssetIqDbContext db, ValuationService v
         card.Schedule.OrderBy(l => l.Period, StringComparer.Ordinal)
             .Select(l => new ExportRow([l.Period, l.OpeningCost, l.OpeningAccumulated, l.Charge, l.Adjustment, l.ClosingAccumulated, l.ClosingNbv, l.Locked]))
             .ToList());
+
+    /// <summary>SF-02 (Phase 4d): the register rows, also filtered by department and status.</summary>
+    private async Task<List<AssetValuation>> RegisterRowsAsync(AuthUser user, ReportQuery query, CancellationToken ct)
+    {
+        var rows = await valuations.ValueAsync(user, query.Filter, query.Period, ct);
+        if (query.DepartmentId is null && query.Status is null) return rows.ToList();
+        var ids = rows.Select(r => r.AssetId).ToList();
+        var matching = db.Assets.IgnoreQueryFilters().Where(a => ids.Contains(a.Id));
+        if (query.DepartmentId is { } d) matching = matching.Where(a => a.DepartmentId == d);
+        if (query.Status is { } st) matching = matching.Where(a => a.Status == st);
+        var keep = (await matching.Select(a => a.Id).ToListAsync(ct)).ToHashSet();
+        return rows.Where(r => keep.Contains(r.AssetId)).ToList();
+    }
+
+    // ── GF-06 standard reports (Phase 4d) ────────────────────────────────────────
+
+    public static readonly IReadOnlyList<string> StandardReports = ["register", "additions", "disposals", "depreciation", "movements"];
+
+    /// <summary>
+    /// GF-06: the fixed asset register, additions and disposals (January to the period), the depreciation of the period
+    /// with year-to-date and accumulated figures, and the movements of the period's month; by SBU and period, with totals.
+    /// </summary>
+    public async Task<ExportTable> StandardReportTableAsync(AuthUser user, string kind, ReportQuery query, CancellationToken ct)
+    {
+        if (kind == "register") return await RegisterTableAsync(user, query, ct);
+        var subtitle = await SubtitleAsync(user, query, ct);
+        var yearStart = $"{query.Period.Year:D4}-01-01";
+        var periodEnd = $"{query.Period.Year:D4}-{query.Period.Month:D2}-{DateTime.DaysInMonth(query.Period.Year, query.Period.Month):D2}";
+        switch (kind)
+        {
+            case "additions":
+            {
+                var rows = (await valuations.ValueAsync(user, query.Filter, query.Period, ct))
+                    .Where(r => r.AdditionThisYear && string.CompareOrdinal(r.InUseDate, periodEnd) <= 0).OrderBy(r => r.InUseDate, StringComparer.Ordinal).ToList();
+                var table = rows.Select(v => new ExportRow([v.InUseDate, v.AssetNumber ?? "pending", v.Description, v.CategoryName, v.SbuCode, v.OriginalCost, v.NetBookValue])).ToList();
+                table.Add(new ExportRow(["Total", $"{rows.Count} assets", null, null, null, rows.Sum(r => r.OriginalCost), rows.Sum(r => r.NetBookValue)], Bold: true));
+                return new ExportTable($"Additions — January to {query.Period}", subtitle,
+                    [new("In use from"), new("Asset no."), new("Description"), new("Category"), new("SBU"), new("Cost", Money: true), new("NBV", Money: true)], table);
+            }
+            case "disposals":
+            {
+                var disposals = from d in db.AssetDisposals.AsNoTracking()
+                                join a in db.Assets.IgnoreQueryFilters() on d.AssetId equals a.Id
+                                where d.Status == "completed" && d.DisposalDate != null
+                                      && string.Compare(d.DisposalDate, yearStart) >= 0 && string.Compare(d.DisposalDate, periodEnd) <= 0
+                                select new { d, a };
+                if (Roles.IsSbuScoped(user.Role)) disposals = disposals.Where(x => x.a.SbuId == user.SbuId);
+                if (query.SbuId is { } sbuId) disposals = disposals.Where(x => x.a.SbuId == sbuId);
+                if (query.CategoryId is { } categoryId) disposals = disposals.Where(x => x.a.CategoryId == categoryId);
+                var rows = await disposals.OrderBy(x => x.d.DisposalDate)
+                    .Select(x => new { x.d.DisposalDate, x.a.AssetNumber, x.a.Name, Sbu = x.a.Sbu!.Code, x.d.Method, x.d.Proceeds, x.d.NbvAtDisposal, x.d.GainLoss })
+                    .ToListAsync(ct);
+                var table = rows.Select(r => new ExportRow([r.DisposalDate, r.AssetNumber, r.Name, r.Sbu, r.Method, r.Proceeds, r.NbvAtDisposal, r.GainLoss])).ToList();
+                table.Add(new ExportRow(["Total", $"{rows.Count} disposals", null, null, null, rows.Sum(r => r.Proceeds ?? 0), rows.Sum(r => r.NbvAtDisposal ?? 0), rows.Sum(r => r.GainLoss ?? 0)], Bold: true));
+                return new ExportTable($"Disposals — January to {query.Period}", subtitle,
+                    [new("Date"), new("Asset no."), new("Description"), new("SBU"), new("Method"), new("Proceeds", Money: true), new("NBV at disposal", Money: true), new("Gain / (loss)", Money: true)], table);
+            }
+            case "depreciation":
+            {
+                var rows = await valuations.ValueAsync(user, query.Filter, query.Period, ct);
+                var categories = ByCategory(rows);
+                var table = new List<ExportRow>();
+                foreach (var category in categories)
+                {
+                    foreach (var v in rows.Where(r => r.CategoryId == category.CategoryId))
+                        table.Add(new ExportRow([category.CategoryName, v.AssetNumber ?? "pending", v.Description, v.SbuCode, v.TotalCost, v.DepreciationMonth, v.DepreciationYtd, v.AccumulatedDepreciation, v.NetBookValue]));
+                    var t = category.Totals;
+                    table.Add(new ExportRow([$"{category.CategoryName} subtotal", null, null, null, t.TotalCost, t.DepreciationMonth, t.DepreciationYtd, t.AccumulatedDepreciation, t.NetBookValue], Bold: true));
+                }
+                var total = SumOf(categories);
+                table.Add(new ExportRow(["Grand total", null, null, null, total.TotalCost, total.DepreciationMonth, total.DepreciationYtd, total.AccumulatedDepreciation, total.NetBookValue], Bold: true));
+                return new ExportTable($"Depreciation — {query.Period}", subtitle,
+                    [new("Category"), new("Asset no."), new("Description"), new("SBU"), new("Total cost", Money: true), new("Charge this month", Money: true),
+                     new("Charge YTD", Money: true), new("Accumulated", Money: true), new("NBV", Money: true)], table);
+            }
+            default:
+            {
+                var monthStart = new DateTime(query.Period.Year, query.Period.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                var monthEnd = monthStart.AddMonths(1);
+                var moves = from m in db.Movements.IgnoreQueryFilters().AsNoTracking()
+                            join a in db.Assets.IgnoreQueryFilters() on m.AssetId equals a.Id
+                            where m.Timestamp >= monthStart && m.Timestamp < monthEnd
+                            select new { m, a };
+                if (Roles.IsSbuScoped(user.Role)) moves = moves.Where(x => x.a.SbuId == user.SbuId);
+                if (query.SbuId is { } sbuId) moves = moves.Where(x => x.a.SbuId == sbuId);
+                if (query.CategoryId is { } categoryId) moves = moves.Where(x => x.a.CategoryId == categoryId);
+                if (query.LocationId is { } locationId) moves = moves.Where(x => x.m.FromLocationId == locationId || x.m.ToLocationId == locationId);
+                var names = await db.Locations.AsNoTracking().ToDictionaryAsync(l => l.Id, l => l.Name, ct);
+                var sbus = await db.Sbus.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Code, ct);
+                var rows = await moves.OrderBy(x => x.m.Timestamp)
+                    .Select(x => new { x.m.Timestamp, x.a.AssetNumber, x.a.Name, x.a.SbuId, x.m.FromLocationId, x.m.ToLocationId, x.m.TriggeredBy, x.m.MovedBy })
+                    .ToListAsync(ct);
+                string Where(int? id) => id is { } i && names.TryGetValue(i, out var n) ? n : "off premises";
+                var table = rows.Select(r => new ExportRow([r.Timestamp.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture), r.AssetNumber, r.Name,
+                    r.SbuId is { } si ? sbus.GetValueOrDefault(si) : null, Where(r.FromLocationId), Where(r.ToLocationId), r.TriggeredBy, r.MovedBy])).ToList();
+                table.Add(new ExportRow(["Total", $"{rows.Count} movements", null, null, null, null, null, null], Bold: true));
+                return new ExportTable($"Movements — {query.Period}", subtitle,
+                    [new("When (UTC)"), new("Asset no."), new("Description"), new("SBU"), new("From"), new("To"), new("Trigger"), new("By")], table);
+            }
+        }
+    }
 
     private async Task<List<string>> SubtitleAsync(AuthUser user, ReportQuery query, CancellationToken ct)
     {
