@@ -22,6 +22,7 @@ import { useCurrentUser } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiErrorMessage } from "@/lib/api-error";
 import { SELECT_CLASS } from "@/lib/constants";
+import { IncidentPanel, ShiftPanel, VisitorPanel } from "@/components/gate-extras";
 
 const VERDICT = {
   clear: { cls: "bg-green-600", icon: CheckCircle2, title: "Approved to leave" },
@@ -180,6 +181,8 @@ export default function Gate() {
           </section>
         )}
 
+        <ShiftPanel />
+
         <section className="space-y-2">
           <h2 className="font-semibold">Alerts {alerts?.length ? `(${alerts.length})` : ""}</h2>
           {alerts?.length === 0 && <p className="text-sm text-muted-foreground">No open alerts.</p>}
@@ -201,6 +204,8 @@ export default function Gate() {
             ))}
           </ul>
         </section>
+        <VisitorPanel gateId={gateId} />
+        <IncidentPanel gateId={gateId} code={code} />
       </div>
     </Layout>
   );

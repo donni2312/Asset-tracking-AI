@@ -25,6 +25,9 @@ public sealed class ApprovalWorker(IServiceScopeFactory scopes, ILogger<Approval
                 // Phase 5a (SF-09): CAPEX budget thresholds.
                 var capex = await scope.ServiceProvider.GetRequiredService<FinancePlanningService>().CapexAlertsAsync(stoppingToken);
                 if (capex > 0) logger.LogInformation("CAPEX alerts sent: {Count}", capex);
+                // Phase 5b (LM-04): the HODs' daily digest.
+                var digests = await scope.ServiceProvider.GetRequiredService<GateSecurityService>().SendHodDigestsAsync(stoppingToken);
+                if (digests > 0) logger.LogInformation("HOD digests sent: {Count}", digests);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

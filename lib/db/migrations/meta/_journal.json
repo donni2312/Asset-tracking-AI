@@ -92,6 +92,13 @@
       "when": 1793344832362,
       "tag": "0012_finance_phase5",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793351304055,
+      "tag": "0013_gate_security",
+      "breakpoints": true
     }
   ]
 }

@@ -15,4 +15,9 @@ export interface GateScan {
   /** @nullable */
   assetId?: number | null;
   gatePass?: GatePass | null;
+  /**
+     * SG-05 - the scan matched a visitor's checked-in item
+     * @nullable
+     */
+  visitorItemId?: number | null;
 }

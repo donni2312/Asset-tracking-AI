@@ -69,6 +69,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
     public DbSet<ServiceLog> ServiceLogs => Set<ServiceLog>();
     public DbSet<AssetRevaluation> AssetRevaluations => Set<AssetRevaluation>();
     public DbSet<CapexBudget> CapexBudgets => Set<CapexBudget>();
+    public DbSet<SecurityAction> SecurityActions => Set<SecurityAction>();
+    public DbSet<VisitorItem> VisitorItems => Set<VisitorItem>();
+    public DbSet<GateIncident> GateIncidents => Set<GateIncident>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -357,6 +360,9 @@ public sealed class AssetIqDbContext(DbContextOptions<AssetIqDbContext> options,
         modelBuilder.Entity<ServiceLog>(e => e.ToTable("service_logs"));
         modelBuilder.Entity<AssetRevaluation>(e => e.ToTable("asset_revaluations"));
         modelBuilder.Entity<CapexBudget>(e => e.ToTable("capex_budgets"));
+        modelBuilder.Entity<SecurityAction>(e => e.ToTable("security_actions"));
+        modelBuilder.Entity<VisitorItem>(e => e.ToTable("visitor_items"));
+        modelBuilder.Entity<GateIncident>(e => e.ToTable("gate_incidents"));
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

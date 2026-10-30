@@ -315,6 +315,10 @@ public static class Roles
     public const string ItReaders = GroupIt + "," + SbuIt + "," + Auditor;
     /// <summary>SF-10 bulk import: Finance, and the SBU Admin Manager for non-IT rows (product owner, 30 Oct 2026).</summary>
     public const string Importers = GroupFinance + "," + SbuFinance + "," + SbuAdmin;
+    /// <summary>Phase 5b (GI-07): IT records the remote wipe and account disable; the Admin Manager the police report of a non-IT item.</summary>
+    public const string SecurityRecorders = GroupIt + "," + SbuIt + "," + SbuAdmin;
+    /// <summary>Phase 5b (SG-06): the gate roles, and SBU IT / Admin Manager as the people incidents are escalated to.</summary>
+    public const string IncidentReaders = GateOfficers + "," + Auditor;
     /// <summary>Everyone who may scan a tag (SI-03, SG-01): every role except the System Administrator.</summary>
     public const string Scanners = AssetReaders + "," + GateOfficer;
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RevaluationsPanel } from "@/components/revaluations";
+import { SecurityChecklist } from "@/components/security-checklist";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -146,6 +147,8 @@ export default function AssetCardPage() {
             {card.attributes.length === 0 && <p className="col-span-full text-sm text-muted-foreground">No template values recorded yet.</p>}
           </div>
         </section>
+
+        {a.status === "lost_stolen" && <SecurityChecklist assetId={a.id} />}
 
         <AttachmentsPanel assetId={a.id} canAttach={card.can.attach} />
 

@@ -24,6 +24,8 @@ public sealed record GateScanDto
     public required string Message { get; init; }
     public int? AssetId { get; init; }
     public GatePassDto? GatePass { get; init; }
+    /// <summary>SG-05: the scan matched a visitor's checked-in item.</summary>
+    public int? VisitorItemId { get; init; }
 }
 
 public sealed record GateActionDto

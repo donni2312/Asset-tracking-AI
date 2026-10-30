@@ -24,6 +24,7 @@ import {
   bcMockNumberSeriesTable,
   bcNumberRequestsTable,
   capexBudgetsTable,
+  gateIncidentsTable,
   categoryTemplateFieldsTable,
   departmentsTable,
   employeesTable,
@@ -38,10 +39,12 @@ import {
   movementsTable,
   rfidReadersTable,
   sbusTable,
+  securityActionsTable,
   serviceLogsTable,
   serviceSchedulesTable,
   usersTable,
   vehicleDocumentsTable,
+  visitorItemsTable,
   verificationResultsTable,
   verificationScansTable,
   verificationSessionsTable,
@@ -135,7 +138,7 @@ async function main() {
         sql`TRUNCATE ai_insights, asset_lifecycle_events, movements, gate_passes, asset_attribute_values, asset_upgrades,
             depreciation_entries, depreciation_locks, bc_number_requests, bc_mock_number_series, audit_log, access_log,
             approval_steps, approval_requests, delegations, notifications, outbound_emails, asset_repairs, asset_disposals,
-            capex_budgets, asset_revaluations, service_logs, service_schedules, vehicle_documents, fleet_details,
+            security_actions, visitor_items, gate_incidents, capex_budgets, asset_revaluations, service_logs, service_schedules, vehicle_documents, fleet_details,
             gate_pass_items, gate_actions, verification_results, verification_scans, verification_sessions,
             exit_clearance_items, exit_clearances, asset_acknowledgements, equipment_requests, goods_receipt_lines, goods_receipts,
             purchase_order_lines, purchase_orders,
@@ -694,6 +697,24 @@ async function main() {
       { sbuId: sbuId("BAK"), financialYear: fyEnd, categoryId: categoryOf("COMP").id, amount: "2500.00", updatedBy: "Rumbidzai Dube" },
       { sbuId: sbuId("BAK"), financialYear: fyEnd, categoryId: categoryOf("MV").id, amount: "45000.00", updatedBy: "Rumbidzai Dube" },
     ]);
+
+    // SG-04 shows the holder's phone.
+    await tx.update(employeesTable).set({ phone: "+263 77 412 0956" }).where(eq(employeesTable.employeeNo, "TSAS-0002"));
+    await tx.update(employeesTable).set({ phone: "+263 71 220 4418" }).where(eq(employeesTable.employeeNo, "TSAS-0001"));
+
+    // Phase 5b: a contractor's laptop on site at the TSAS gate (SG-05), an escalated incident (SG-06), and the police
+    // report of the lost BenQ projector (GI-07).
+    await tx.insert(visitorItemsTable).values({
+      sbuId: sbuId("TSAS"), gateLocationId: loc("tsas-gate").id, ownerName: "Peter Banda", ownerCompany: "Axis Solutions (Pvt) Ltd",
+      item: "Lenovo ThinkPad E14 (contractor's own)", serialNumber: "PF3XK21Q", checkedInBy: "Gift Mahachi", checkedInAt: minutesAgo(140),
+    });
+    await tx.insert(gateIncidentsTable).values({
+      sbuId: sbuId("TSAS"), gateLocationId: loc("tsas-gate").id, kind: "unknown_tag", code: "RFID-UNKNOWN-7731",
+      notes: "Tag read on a box leaving with a courier; not in the register. Courier waited while IT checked.", officer: "Gift Mahachi", createdAt: minutesAgo(400),
+    });
+    await tx.insert(securityActionsTable).values({
+      assetId: asset("benq").id, action: "police_report", reference: "CR 0457/09/26 Harare Central", notes: "Reported after the grower meeting", doneBy: "Tatenda Mhlanga", doneAt: at(9, 11, 0),
+    });
 
     console.log("Seeded AssetIQ demo data:");
     console.log(`  ${sbuRows.length} SBUs, ${locRows.length} locations, ${readerRows.length} RFID readers, ${assetRows.length} assets`);

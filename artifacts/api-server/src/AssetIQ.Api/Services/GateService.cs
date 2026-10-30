@@ -47,7 +47,17 @@ public sealed class GateService(
         {
             scanned = await db.Assets.IgnoreQueryFilters().AsNoTracking()
                 .Where(a => a.AssetNumber!.ToUpper() == text || a.RfidTag!.ToUpper() == text || a.PreviousAssetNumber!.ToUpper() == text || a.SerialNumber == text)
-                .FirstOrDefaultAsync(ct) ?? throw new ApiException(StatusCodes.Status404NotFound, $"No asset has the number, tag or serial {code!.Trim()}");
+                .FirstOrDefaultAsync(ct);
+            if (scanned is null)
+            {
+                // SG-05 (Phase 5b): a visitor's or contractor's own equipment logged on entry may leave without a gate pass.
+                var visitor = await db.VisitorItems.AsNoTracking()
+                    .Where(v => v.SerialNumber == text && v.CheckedOutAt == null && (!Roles.IsSbuScoped(user.Role) || v.SbuId == user.SbuId))
+                    .OrderByDescending(v => v.CheckedInAt).FirstOrDefaultAsync(ct);
+                if (visitor is not null)
+                    return new GateScanDto { Verdict = GateVerdicts.Clear, Message = $"Visitor's own equipment: {visitor.Item}, {visitor.OwnerName}{(visitor.OwnerCompany is null ? "" : $" ({visitor.OwnerCompany})")} — check it out", VisitorItemId = visitor.Id };
+                throw new ApiException(StatusCodes.Status404NotFound, $"No asset has the number, tag or serial {code!.Trim()}");
+            }
             var assetId = scanned.Id;
             // The pass the item is out on, else a valid approved one, else the latest.
             var passIds = db.GatePassItems.Where(i => i.AssetId == assetId).Select(i => i.GatePassId);

@@ -24,6 +24,7 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("employee"),   // one of USER_ROLES
   sbuId: integer("sbu_id").references(() => sbusTable.id),   // SBU roles act on this SBU only
   employeeId: integer("employee_id").references(() => employeesTable.id).unique(), // HOD / SBU HR / Employee: who the account belongs to
+  lastDigestOn: text("last_digest_on"),                 // LM-04 (Phase 5b): the local day of the last daily digest (YYYY-MM-DD)
   accessExpiresAt: timestamp("access_expires_at"),           // auditors: set by Group Finance; refused afterwards
   passwordHash: text("password_hash").notNull(),      // scrypt, never the password itself
   active: boolean("active").notNull().default(true),  // disabled accounts cannot sign in

@@ -4330,7 +4330,8 @@ export const GateScanResponse = zod.object({
   "returnCondition": zod.string().nullish(),
   "returnNotes": zod.string().nullish()
 })).optional().describe('Phase 4c - the items of the pass and each one\'s exit \/ return')
-}),zod.null()]).optional()
+}),zod.null()]).optional(),
+  "visitorItemId": zod.number().nullish().describe('SG-05 - the scan matched a visitor\'s checked-in item')
 })
 
 
@@ -5671,5 +5672,230 @@ export const RecordExitRecoveryResponse = zod.object({
   "netBookValue": zod.number().nullish().describe('HR-05 - the item\'s NBV (USD), for the Finance roles only')
 }))
 })
+
+
+/**
+ * @summary GI-07: the security checklist of a lost or stolen asset
+ */
+export const GetSecurityChecklistParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSecurityChecklistResponse = zod.object({
+  "assetId": zod.number(),
+  "status": zod.string(),
+  "lostDate": zod.string().nullish(),
+  "reportedBy": zod.string().nullish(),
+  "incidentNotes": zod.string().nullish(),
+  "actions": zod.array(zod.object({
+  "action": zod.enum(['remote_wipe', 'account_disable', 'police_report']),
+  "done": zod.boolean(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "doneBy": zod.string().nullish(),
+  "doneAt": zod.coerce.date().nullish()
+})),
+  "canRecord": zod.boolean()
+})
+
+
+/**
+ * @summary GI-07: record a remote wipe, account disable or police report
+ */
+export const RecordSecurityActionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordSecurityActionBody = zod.object({
+  "action": zod.enum(['remote_wipe', 'account_disable', 'police_report']),
+  "reference": zod.string().optional().describe('The police case number (required for a police report)'),
+  "notes": zod.string().optional()
+})
+
+export const RecordSecurityActionResponse = zod.object({
+  "assetId": zod.number(),
+  "status": zod.string(),
+  "lostDate": zod.string().nullish(),
+  "reportedBy": zod.string().nullish(),
+  "incidentNotes": zod.string().nullish(),
+  "actions": zod.array(zod.object({
+  "action": zod.enum(['remote_wipe', 'account_disable', 'police_report']),
+  "done": zod.boolean(),
+  "reference": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "doneBy": zod.string().nullish(),
+  "doneAt": zod.coerce.date().nullish()
+})),
+  "canRecord": zod.boolean()
+})
+
+
+/**
+ * @summary SG-04: passes due out today and overdue items with holder and phone
+ */
+export const GetGateShiftResponse = zod.object({
+  "date": zod.string(),
+  "dueOut": zod.array(zod.object({
+  "gatePassId": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "holder": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.string().nullish()
+})),
+  "overdue": zod.array(zod.object({
+  "gatePassId": zod.number(),
+  "assetId": zod.number(),
+  "assetName": zod.string(),
+  "holder": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "returnDate": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary SG-05: visitor and contractor equipment on site (all=true for every entry)
+ */
+export const ListVisitorItemsQueryParams = zod.object({
+  "all": zod.coerce.string().optional()
+})
+
+export const ListVisitorItemsResponseItem = zod.object({
+  "id": zod.number(),
+  "gateName": zod.string().nullish(),
+  "ownerName": zod.string(),
+  "ownerCompany": zod.string().nullish(),
+  "item": zod.string(),
+  "serialNumber": zod.string().nullish(),
+  "hasPhoto": zod.boolean(),
+  "checkedInBy": zod.string(),
+  "checkedInAt": zod.coerce.date(),
+  "checkedOutBy": zod.string().nullish(),
+  "checkedOutAt": zod.coerce.date().nullish()
+})
+export const ListVisitorItemsResponse = zod.array(ListVisitorItemsResponseItem)
+
+
+/**
+ * @summary SG-05: log a visitor's own item on entry
+ */
+export const CheckInVisitorItemBody = zod.object({
+  "gateLocationId": zod.string(),
+  "ownerName": zod.string(),
+  "ownerCompany": zod.string().optional(),
+  "item": zod.string(),
+  "serialNumber": zod.string().optional(),
+  "photo": zod.string().optional()
+}).describe('multipart\/form-data; the photo part is a JPEG or PNG (up to 5 MB), described as a string so the generated libraries need no browser types.')
+
+export const CheckInVisitorItemResponse = zod.object({
+  "id": zod.number(),
+  "gateName": zod.string().nullish(),
+  "ownerName": zod.string(),
+  "ownerCompany": zod.string().nullish(),
+  "item": zod.string(),
+  "serialNumber": zod.string().nullish(),
+  "hasPhoto": zod.boolean(),
+  "checkedInBy": zod.string(),
+  "checkedInAt": zod.coerce.date(),
+  "checkedOutBy": zod.string().nullish(),
+  "checkedOutAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary SG-05: the item leaves without a gate pass
+ */
+export const CheckOutVisitorItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CheckOutVisitorItemBody = zod.object({
+  "gateLocationId": zod.number()
+})
+
+export const CheckOutVisitorItemResponseItem = zod.object({
+  "id": zod.number(),
+  "gateName": zod.string().nullish(),
+  "ownerName": zod.string(),
+  "ownerCompany": zod.string().nullish(),
+  "item": zod.string(),
+  "serialNumber": zod.string().nullish(),
+  "hasPhoto": zod.boolean(),
+  "checkedInBy": zod.string(),
+  "checkedInAt": zod.coerce.date(),
+  "checkedOutBy": zod.string().nullish(),
+  "checkedOutAt": zod.coerce.date().nullish()
+})
+export const CheckOutVisitorItemResponse = zod.array(CheckOutVisitorItemResponseItem)
+
+
+/**
+ * @summary The photo of a visitor's item
+ */
+export const GetVisitorItemPhotoParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetVisitorItemPhotoResponse = zod.unknown()
+
+
+/**
+ * @summary SG-06: incidents escalated from the gate
+ */
+export const ListGateIncidentsResponseItem = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['forged_pass', 'unknown_tag', 'refused_search', 'other']),
+  "gateName": zod.string().nullish(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
+  "code": zod.string().nullish(),
+  "notes": zod.string(),
+  "hasPhoto": zod.boolean(),
+  "officer": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListGateIncidentsResponse = zod.array(ListGateIncidentsResponseItem)
+
+
+/**
+ * @summary SG-06: escalate an incident with notes and a photo
+ */
+export const EscalateGateIncidentBody = zod.object({
+  "kind": zod.enum(['forged_pass', 'unknown_tag', 'refused_search', 'other']),
+  "gateLocationId": zod.string().optional(),
+  "code": zod.string().optional(),
+  "gatePassId": zod.string().optional(),
+  "notes": zod.string(),
+  "photo": zod.string().optional()
+}).describe('multipart\/form-data; the photo part is a JPEG or PNG (up to 5 MB).')
+
+export const EscalateGateIncidentResponse = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['forged_pass', 'unknown_tag', 'refused_search', 'other']),
+  "gateName": zod.string().nullish(),
+  "assetId": zod.number().nullish(),
+  "assetName": zod.string().nullish(),
+  "gatePassId": zod.number().nullish(),
+  "code": zod.string().nullish(),
+  "notes": zod.string(),
+  "hasPhoto": zod.boolean(),
+  "officer": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary The photo of an incident
+ */
+export const GetGateIncidentPhotoParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetGateIncidentPhotoResponse = zod.unknown()
 
 

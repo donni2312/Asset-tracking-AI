@@ -237,6 +237,8 @@ public sealed class UserAccount
     /// <summary>Disabled accounts cannot sign in.</summary>
     public bool Active { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
+    /// <summary>LM-04: the local day (YYYY-MM-DD) the last daily digest went out.</summary>
+    public string? LastDigestOn { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -881,5 +883,54 @@ public sealed class CapexBudget
     public int? AlertedPercent { get; set; }
     public string UpdatedBy { get; set; } = "";
     public DateTime UpdatedAt { get; set; }
+}
+
+// ── Phase 5b: security actions, visitor equipment, gate incidents ──────────────
+
+public sealed class SecurityAction
+{
+    public int Id { get; set; }
+    public int AssetId { get; set; }
+    /// <summary>remote_wipe | account_disable | police_report</summary>
+    public string Action { get; set; } = "";
+    public string? Reference { get; set; }
+    public string? Notes { get; set; }
+    public string DoneBy { get; set; } = "";
+    public DateTime DoneAt { get; set; }
+}
+
+public sealed class VisitorItem
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public int GateLocationId { get; set; }
+    public string OwnerName { get; set; } = "";
+    public string? OwnerCompany { get; set; }
+    public string Item { get; set; } = "";
+    public string? SerialNumber { get; set; }
+    public byte[]? Photo { get; set; }
+    public string? PhotoContentType { get; set; }
+    public string CheckedInBy { get; set; } = "";
+    public DateTime CheckedInAt { get; set; }
+    public string? CheckedOutBy { get; set; }
+    public DateTime? CheckedOutAt { get; set; }
+    public int? CheckedOutGateId { get; set; }
+}
+
+public sealed class GateIncident
+{
+    public int Id { get; set; }
+    public int SbuId { get; set; }
+    public int? GateLocationId { get; set; }
+    /// <summary>forged_pass | unknown_tag | refused_search | other</summary>
+    public string Kind { get; set; } = "";
+    public int? AssetId { get; set; }
+    public int? GatePassId { get; set; }
+    public string? Code { get; set; }
+    public string Notes { get; set; } = "";
+    public byte[]? Photo { get; set; }
+    public string? PhotoContentType { get; set; }
+    public string Officer { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
 }
 

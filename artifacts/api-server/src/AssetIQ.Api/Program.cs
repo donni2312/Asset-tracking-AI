@@ -86,6 +86,7 @@ builder.Services.AddScoped<VerificationService>();
 builder.Services.AddScoped<FleetService>();
 builder.Services.AddScoped<ItReportService>();
 builder.Services.AddScoped<FinancePlanningService>();
+builder.Services.AddScoped<GateSecurityService>();
 builder.Services.AddScoped<RfidScanService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IntentExecutor>();

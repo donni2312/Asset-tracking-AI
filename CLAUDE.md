@@ -689,3 +689,6 @@ uses it.
   and financial year with 80 / 100 % alerts (worker), verification outcomes per SBU; HR-05 recovery outcomes in
   `ToolboxService.RecordRecoveryAsync`.
 
+- **5b gate and security**: `Services/GateSecurityService.cs` / `GateSecurityController` — lost / stolen security
+  checklist (`security_actions`), shift view, visitor equipment (`visitor_items`, matched by the gate scan), gate
+  incidents with photo (`gate_incidents`), the HODs' daily digest (worker, `users.last_digest_on`).

@@ -3961,6 +3961,221 @@ paths:
               schema:
                 $ref: "#/components/schemas/ExitClearance"
 
+  /assets/{id}/security-actions:
+    get:
+      operationId: getSecurityChecklist
+      tags: [gate]
+      summary: "GI-07: the security checklist of a lost or stolen asset"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityChecklist"
+    post:
+      operationId: recordSecurityAction
+      tags: [gate]
+      summary: "GI-07: record a remote wipe, account disable or police report"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecurityActionInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "409":
+          description: Not allowed in the current state
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityChecklist"
+
+  /gate/shift:
+    get:
+      operationId: getGateShift
+      tags: [gate]
+      summary: "SG-04: passes due out today and overdue items with holder and phone"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateShift"
+
+  /gate/visitor-items:
+    get:
+      operationId: listVisitorItems
+      tags: [gate]
+      summary: "SG-05: visitor and contractor equipment on site (all=true for every entry)"
+      parameters:
+        - name: all
+          in: query
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitorItem"
+    post:
+      operationId: checkInVisitorItem
+      tags: [gate]
+      summary: "SG-05: log a visitor's own item on entry"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/VisitorItemUpload"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitorItem"
+
+  /gate/visitor-items/{id}/check-out:
+    post:
+      operationId: checkOutVisitorItem
+      tags: [gate]
+      summary: "SG-05: the item leaves without a gate pass"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GateLocationInput"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "409":
+          description: Not allowed in the current state
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisitorItem"
+
+  /gate/visitor-items/{id}/photo:
+    get:
+      operationId: getVisitorItemPhoto
+      tags: [gate]
+      summary: "The photo of a visitor's item"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  /gate/incidents:
+    get:
+      operationId: listGateIncidents
+      tags: [gate]
+      summary: "SG-06: incidents escalated from the gate"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GateIncident"
+    post:
+      operationId: escalateGateIncident
+      tags: [gate]
+      summary: "SG-06: escalate an incident with notes and a photo"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/GateIncidentUpload"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateIncident"
+
+  /gate/incidents/{id}/photo:
+    get:
+      operationId: getGateIncidentPhoto
+      tags: [gate]
+      summary: "The photo of an incident"
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "401":
+          description: Not signed in
+        "403":
+          description: Signed in, but the role (or its SBU / IT scope) may not do this
+        "200":
+          description: OK
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+
 components:
   parameters:
     IdPath:
@@ -7041,6 +7256,9 @@ components:
           oneOf:
             - $ref: "#/components/schemas/GatePass"
             - type: "null"
+        visitorItemId:
+          type: ["integer", "null"]
+          description: SG-05 - the scan matched a visitor's checked-in item
 
     GateExitInput:
       type: object
@@ -7801,5 +8019,195 @@ components:
         approvedBy:
           type: string
         note:
+          type: string
+
+    # ── Phase 5b: security checklist, shift view, visitor equipment, incidents ─
+    SecurityAction:
+      type: object
+      required: [action, done]
+      properties:
+        action:
+          type: string
+          enum: [remote_wipe, account_disable, police_report]
+        done:
+          type: boolean
+        reference:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        doneBy:
+          type: ["string", "null"]
+        doneAt:
+          type: ["string", "null"]
+          format: date-time
+
+    SecurityChecklist:
+      type: object
+      required: [assetId, status, actions, canRecord]
+      properties:
+        assetId:
+          type: integer
+        status:
+          type: string
+        lostDate:
+          type: ["string", "null"]
+        reportedBy:
+          type: ["string", "null"]
+        incidentNotes:
+          type: ["string", "null"]
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityAction"
+        canRecord:
+          type: boolean
+
+    SecurityActionInput:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [remote_wipe, account_disable, police_report]
+        reference:
+          type: string
+          description: The police case number (required for a police report)
+        notes:
+          type: string
+
+    ShiftPass:
+      type: object
+      required: [gatePassId, assetId, assetName]
+      properties:
+        gatePassId:
+          type: integer
+        assetId:
+          type: integer
+        assetName:
+          type: string
+        holder:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        destination:
+          type: ["string", "null"]
+        returnDate:
+          type: ["string", "null"]
+
+    GateShift:
+      type: object
+      required: [date, dueOut, overdue]
+      properties:
+        date:
+          type: string
+        dueOut:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShiftPass"
+        overdue:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShiftPass"
+
+    VisitorItem:
+      type: object
+      required: [id, ownerName, item, hasPhoto, checkedInBy, checkedInAt]
+      properties:
+        id:
+          type: integer
+        gateName:
+          type: ["string", "null"]
+        ownerName:
+          type: string
+        ownerCompany:
+          type: ["string", "null"]
+        item:
+          type: string
+        serialNumber:
+          type: ["string", "null"]
+        hasPhoto:
+          type: boolean
+        checkedInBy:
+          type: string
+        checkedInAt:
+          type: string
+          format: date-time
+        checkedOutBy:
+          type: ["string", "null"]
+        checkedOutAt:
+          type: ["string", "null"]
+          format: date-time
+
+    VisitorItemUpload:
+      type: object
+      required: [gateLocationId, ownerName, item]
+      description: multipart/form-data; the photo part is a JPEG or PNG (up to 5 MB), described as a string so the generated libraries need no browser types.
+      properties:
+        gateLocationId:
+          type: string
+        ownerName:
+          type: string
+        ownerCompany:
+          type: string
+        item:
+          type: string
+        serialNumber:
+          type: string
+        photo:
+          type: string
+
+    GateLocationInput:
+      type: object
+      required: [gateLocationId]
+      properties:
+        gateLocationId:
+          type: integer
+
+    GateIncident:
+      type: object
+      required: [id, kind, notes, hasPhoto, officer, createdAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [forged_pass, unknown_tag, refused_search, other]
+        gateName:
+          type: ["string", "null"]
+        assetId:
+          type: ["integer", "null"]
+        assetName:
+          type: ["string", "null"]
+        gatePassId:
+          type: ["integer", "null"]
+        code:
+          type: ["string", "null"]
+        notes:
+          type: string
+        hasPhoto:
+          type: boolean
+        officer:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    GateIncidentUpload:
+      type: object
+      required: [kind, notes]
+      description: multipart/form-data; the photo part is a JPEG or PNG (up to 5 MB).
+      properties:
+        kind:
+          type: string
+          enum: [forged_pass, unknown_tag, refused_search, other]
+        gateLocationId:
+          type: string
+        code:
+          type: string
+        gatePassId:
+          type: string
+        notes:
+          type: string
+        photo:
           type: string
 

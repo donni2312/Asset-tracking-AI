@@ -2535,6 +2535,11 @@ export interface GateScan {
   /** @nullable */
   assetId?: number | null;
   gatePass?: GatePass | null;
+  /**
+     * SG-05 - the scan matched a visitor's checked-in item
+     * @nullable
+     */
+  visitorItemId?: number | null;
 }
 
 export interface GateExitInput {
@@ -3156,6 +3161,163 @@ export interface RecoveryInput {
   note?: string;
 }
 
+export type SecurityActionAction = typeof SecurityActionAction[keyof typeof SecurityActionAction];
+
+
+export const SecurityActionAction = {
+  remote_wipe: 'remote_wipe',
+  account_disable: 'account_disable',
+  police_report: 'police_report',
+} as const;
+
+export interface SecurityAction {
+  action: SecurityActionAction;
+  done: boolean;
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  doneBy?: string | null;
+  /** @nullable */
+  doneAt?: string | null;
+}
+
+export interface SecurityChecklist {
+  assetId: number;
+  status: string;
+  /** @nullable */
+  lostDate?: string | null;
+  /** @nullable */
+  reportedBy?: string | null;
+  /** @nullable */
+  incidentNotes?: string | null;
+  actions: SecurityAction[];
+  canRecord: boolean;
+}
+
+export type SecurityActionInputAction = typeof SecurityActionInputAction[keyof typeof SecurityActionInputAction];
+
+
+export const SecurityActionInputAction = {
+  remote_wipe: 'remote_wipe',
+  account_disable: 'account_disable',
+  police_report: 'police_report',
+} as const;
+
+export interface SecurityActionInput {
+  action: SecurityActionInputAction;
+  /** The police case number (required for a police report) */
+  reference?: string;
+  notes?: string;
+}
+
+export interface ShiftPass {
+  gatePassId: number;
+  assetId: number;
+  assetName: string;
+  /** @nullable */
+  holder?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  destination?: string | null;
+  /** @nullable */
+  returnDate?: string | null;
+}
+
+export interface GateShift {
+  date: string;
+  dueOut: ShiftPass[];
+  overdue: ShiftPass[];
+}
+
+export interface VisitorItem {
+  id: number;
+  /** @nullable */
+  gateName?: string | null;
+  ownerName: string;
+  /** @nullable */
+  ownerCompany?: string | null;
+  item: string;
+  /** @nullable */
+  serialNumber?: string | null;
+  hasPhoto: boolean;
+  checkedInBy: string;
+  checkedInAt: string;
+  /** @nullable */
+  checkedOutBy?: string | null;
+  /** @nullable */
+  checkedOutAt?: string | null;
+}
+
+/**
+ * multipart/form-data; the photo part is a JPEG or PNG (up to 5 MB), described as a string so the generated libraries need no browser types.
+ */
+export interface VisitorItemUpload {
+  gateLocationId: string;
+  ownerName: string;
+  ownerCompany?: string;
+  item: string;
+  serialNumber?: string;
+  photo?: string;
+}
+
+export interface GateLocationInput {
+  gateLocationId: number;
+}
+
+export type GateIncidentKind = typeof GateIncidentKind[keyof typeof GateIncidentKind];
+
+
+export const GateIncidentKind = {
+  forged_pass: 'forged_pass',
+  unknown_tag: 'unknown_tag',
+  refused_search: 'refused_search',
+  other: 'other',
+} as const;
+
+export interface GateIncident {
+  id: number;
+  kind: GateIncidentKind;
+  /** @nullable */
+  gateName?: string | null;
+  /** @nullable */
+  assetId?: number | null;
+  /** @nullable */
+  assetName?: string | null;
+  /** @nullable */
+  gatePassId?: number | null;
+  /** @nullable */
+  code?: string | null;
+  notes: string;
+  hasPhoto: boolean;
+  officer: string;
+  createdAt: string;
+}
+
+export type GateIncidentUploadKind = typeof GateIncidentUploadKind[keyof typeof GateIncidentUploadKind];
+
+
+export const GateIncidentUploadKind = {
+  forged_pass: 'forged_pass',
+  unknown_tag: 'unknown_tag',
+  refused_search: 'refused_search',
+  other: 'other',
+} as const;
+
+/**
+ * multipart/form-data; the photo part is a JPEG or PNG (up to 5 MB).
+ */
+export interface GateIncidentUpload {
+  kind: GateIncidentUploadKind;
+  gateLocationId?: string;
+  code?: string;
+  gatePassId?: string;
+  notes: string;
+  photo?: string;
+}
+
 /**
  * Month (YYYY-MM); default the current month
  */
@@ -3652,5 +3814,9 @@ sbuId?: number;
 
 export type ListVerificationOutcomesParams = {
 sbuId?: number;
+};
+
+export type ListVisitorItemsParams = {
+all?: string;
 };
 

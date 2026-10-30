@@ -17,3 +17,4 @@ export * from "./stores";
 export * from "./gate_and_verification";
 export * from "./fleet";
 export * from "./finance_phase5";
+export * from "./gate_security";

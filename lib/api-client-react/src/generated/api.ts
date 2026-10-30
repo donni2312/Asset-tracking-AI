@@ -99,6 +99,9 @@ import type {
   GateActivityItem,
   GateAlert,
   GateExitInput,
+  GateIncident,
+  GateIncidentUpload,
+  GateLocationInput,
   GateOverdue,
   GatePass,
   GatePassDecision,
@@ -106,6 +109,7 @@ import type {
   GateReturnBody,
   GateScan,
   GateScanParams,
+  GateShift,
   GetAssetRegisterParams,
   GetCapexParams,
   GetCategoryReportParams,
@@ -143,6 +147,7 @@ import type {
   ListRfidReadersParams,
   ListUsersParams,
   ListVerificationOutcomesParams,
+  ListVisitorItemsParams,
   Location,
   LocationBreakdown,
   LocationInput,
@@ -178,6 +183,8 @@ import type {
   Sbu,
   ScanCodeParams,
   ScanResult,
+  SecurityActionInput,
+  SecurityChecklist,
   ServiceCostInput,
   ServiceLogInput,
   ServiceScheduleInput,
@@ -201,7 +208,9 @@ import type {
   VerificationResolveInput,
   VerificationScanInput,
   VerificationSession,
-  VerificationStartInput
+  VerificationStartInput,
+  VisitorItem,
+  VisitorItemUpload
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -13266,4 +13275,787 @@ export const useRecordExitRecovery = <TError = ErrorType<void>,
       > => {
       return useMutation(getRecordExitRecoveryMutationOptions(options));
     }
+
+export const getGetSecurityChecklistUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/security-actions`
+}
+
+/**
+ * @summary GI-07: the security checklist of a lost or stolen asset
+ */
+export const getSecurityChecklist = async (id: number, options?: RequestInit): Promise<SecurityChecklist> => {
+
+  return customFetch<SecurityChecklist>(getGetSecurityChecklistUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSecurityChecklistQueryKey = (id: number,) => {
+    return [
+    `/api/assets/${id}/security-actions`
+    ] as const;
+    }
+
+
+export const getGetSecurityChecklistQueryOptions = <TData = Awaited<ReturnType<typeof getSecurityChecklist>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityChecklist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSecurityChecklistQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSecurityChecklist>>> = ({ signal }) => getSecurityChecklist(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSecurityChecklist>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSecurityChecklistQueryResult = NonNullable<Awaited<ReturnType<typeof getSecurityChecklist>>>
+export type GetSecurityChecklistQueryError = ErrorType<void>
+
+
+/**
+ * @summary GI-07: the security checklist of a lost or stolen asset
+ */
+
+export function useGetSecurityChecklist<TData = Awaited<ReturnType<typeof getSecurityChecklist>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityChecklist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSecurityChecklistQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordSecurityActionUrl = (id: number,) => {
+
+
+
+
+  return `/api/assets/${id}/security-actions`
+}
+
+/**
+ * @summary GI-07: record a remote wipe, account disable or police report
+ */
+export const recordSecurityAction = async (id: number,
+    securityActionInput: SecurityActionInput, options?: RequestInit): Promise<SecurityChecklist> => {
+
+  return customFetch<SecurityChecklist>(getRecordSecurityActionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(securityActionInput)
+  }
+);}
+
+
+
+
+
+export const getRecordSecurityActionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordSecurityAction>>, TError,{id: number;data: BodyType<SecurityActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordSecurityAction>>, TError,{id: number;data: BodyType<SecurityActionInput>}, TContext> => {
+
+const mutationKey = ['recordSecurityAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordSecurityAction>>, {id: number;data: BodyType<SecurityActionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  recordSecurityAction(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordSecurityActionMutationResult = NonNullable<Awaited<ReturnType<typeof recordSecurityAction>>>
+    export type RecordSecurityActionMutationBody = BodyType<SecurityActionInput>
+    export type RecordSecurityActionMutationError = ErrorType<void>
+
+    /**
+ * @summary GI-07: record a remote wipe, account disable or police report
+ */
+export const useRecordSecurityAction = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordSecurityAction>>, TError,{id: number;data: BodyType<SecurityActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordSecurityAction>>,
+        TError,
+        {id: number;data: BodyType<SecurityActionInput>},
+        TContext
+      > => {
+      return useMutation(getRecordSecurityActionMutationOptions(options));
+    }
+
+export const getGetGateShiftUrl = () => {
+
+
+
+
+  return `/api/gate/shift`
+}
+
+/**
+ * @summary SG-04: passes due out today and overdue items with holder and phone
+ */
+export const getGateShift = async ( options?: RequestInit): Promise<GateShift> => {
+
+  return customFetch<GateShift>(getGetGateShiftUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGateShiftQueryKey = () => {
+    return [
+    `/api/gate/shift`
+    ] as const;
+    }
+
+
+export const getGetGateShiftQueryOptions = <TData = Awaited<ReturnType<typeof getGateShift>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGateShift>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGateShiftQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGateShift>>> = ({ signal }) => getGateShift({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGateShift>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGateShiftQueryResult = NonNullable<Awaited<ReturnType<typeof getGateShift>>>
+export type GetGateShiftQueryError = ErrorType<void>
+
+
+/**
+ * @summary SG-04: passes due out today and overdue items with holder and phone
+ */
+
+export function useGetGateShift<TData = Awaited<ReturnType<typeof getGateShift>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGateShift>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGateShiftQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListVisitorItemsUrl = (params?: ListVisitorItemsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/gate/visitor-items?${stringifiedParams}` : `/api/gate/visitor-items`
+}
+
+/**
+ * @summary SG-05: visitor and contractor equipment on site (all=true for every entry)
+ */
+export const listVisitorItems = async (params?: ListVisitorItemsParams, options?: RequestInit): Promise<VisitorItem[]> => {
+
+  return customFetch<VisitorItem[]>(getListVisitorItemsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListVisitorItemsQueryKey = (params?: ListVisitorItemsParams,) => {
+    return [
+    `/api/gate/visitor-items`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListVisitorItemsQueryOptions = <TData = Awaited<ReturnType<typeof listVisitorItems>>, TError = ErrorType<void>>(params?: ListVisitorItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVisitorItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVisitorItemsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVisitorItems>>> = ({ signal }) => listVisitorItems(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVisitorItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListVisitorItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listVisitorItems>>>
+export type ListVisitorItemsQueryError = ErrorType<void>
+
+
+/**
+ * @summary SG-05: visitor and contractor equipment on site (all=true for every entry)
+ */
+
+export function useListVisitorItems<TData = Awaited<ReturnType<typeof listVisitorItems>>, TError = ErrorType<void>>(
+ params?: ListVisitorItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listVisitorItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListVisitorItemsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckInVisitorItemUrl = () => {
+
+
+
+
+  return `/api/gate/visitor-items`
+}
+
+/**
+ * @summary SG-05: log a visitor's own item on entry
+ */
+export const checkInVisitorItem = async (visitorItemUpload: VisitorItemUpload, options?: RequestInit): Promise<VisitorItem> => {
+    const formData = new FormData();
+formData.append(`gateLocationId`, visitorItemUpload.gateLocationId);
+formData.append(`ownerName`, visitorItemUpload.ownerName);
+if(visitorItemUpload.ownerCompany !== undefined) {
+ formData.append(`ownerCompany`, visitorItemUpload.ownerCompany);
+ }
+formData.append(`item`, visitorItemUpload.item);
+if(visitorItemUpload.serialNumber !== undefined) {
+ formData.append(`serialNumber`, visitorItemUpload.serialNumber);
+ }
+if(visitorItemUpload.photo !== undefined) {
+ formData.append(`photo`, visitorItemUpload.photo);
+ }
+
+  return customFetch<VisitorItem>(getCheckInVisitorItemUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getCheckInVisitorItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInVisitorItem>>, TError,{data: BodyType<VisitorItemUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkInVisitorItem>>, TError,{data: BodyType<VisitorItemUpload>}, TContext> => {
+
+const mutationKey = ['checkInVisitorItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkInVisitorItem>>, {data: BodyType<VisitorItemUpload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkInVisitorItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckInVisitorItemMutationResult = NonNullable<Awaited<ReturnType<typeof checkInVisitorItem>>>
+    export type CheckInVisitorItemMutationBody = BodyType<VisitorItemUpload>
+    export type CheckInVisitorItemMutationError = ErrorType<void>
+
+    /**
+ * @summary SG-05: log a visitor's own item on entry
+ */
+export const useCheckInVisitorItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInVisitorItem>>, TError,{data: BodyType<VisitorItemUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkInVisitorItem>>,
+        TError,
+        {data: BodyType<VisitorItemUpload>},
+        TContext
+      > => {
+      return useMutation(getCheckInVisitorItemMutationOptions(options));
+    }
+
+export const getCheckOutVisitorItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/gate/visitor-items/${id}/check-out`
+}
+
+/**
+ * @summary SG-05: the item leaves without a gate pass
+ */
+export const checkOutVisitorItem = async (id: number,
+    gateLocationInput: GateLocationInput, options?: RequestInit): Promise<VisitorItem[]> => {
+
+  return customFetch<VisitorItem[]>(getCheckOutVisitorItemUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(gateLocationInput)
+  }
+);}
+
+
+
+
+
+export const getCheckOutVisitorItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkOutVisitorItem>>, TError,{id: number;data: BodyType<GateLocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkOutVisitorItem>>, TError,{id: number;data: BodyType<GateLocationInput>}, TContext> => {
+
+const mutationKey = ['checkOutVisitorItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkOutVisitorItem>>, {id: number;data: BodyType<GateLocationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  checkOutVisitorItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckOutVisitorItemMutationResult = NonNullable<Awaited<ReturnType<typeof checkOutVisitorItem>>>
+    export type CheckOutVisitorItemMutationBody = BodyType<GateLocationInput>
+    export type CheckOutVisitorItemMutationError = ErrorType<void>
+
+    /**
+ * @summary SG-05: the item leaves without a gate pass
+ */
+export const useCheckOutVisitorItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkOutVisitorItem>>, TError,{id: number;data: BodyType<GateLocationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkOutVisitorItem>>,
+        TError,
+        {id: number;data: BodyType<GateLocationInput>},
+        TContext
+      > => {
+      return useMutation(getCheckOutVisitorItemMutationOptions(options));
+    }
+
+export const getGetVisitorItemPhotoUrl = (id: number,) => {
+
+
+
+
+  return `/api/gate/visitor-items/${id}/photo`
+}
+
+/**
+ * @summary The photo of a visitor's item
+ */
+export const getVisitorItemPhoto = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetVisitorItemPhotoUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVisitorItemPhotoQueryKey = (id: number,) => {
+    return [
+    `/api/gate/visitor-items/${id}/photo`
+    ] as const;
+    }
+
+
+export const getGetVisitorItemPhotoQueryOptions = <TData = Awaited<ReturnType<typeof getVisitorItemPhoto>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVisitorItemPhoto>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVisitorItemPhotoQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVisitorItemPhoto>>> = ({ signal }) => getVisitorItemPhoto(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVisitorItemPhoto>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVisitorItemPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof getVisitorItemPhoto>>>
+export type GetVisitorItemPhotoQueryError = ErrorType<void>
+
+
+/**
+ * @summary The photo of a visitor's item
+ */
+
+export function useGetVisitorItemPhoto<TData = Awaited<ReturnType<typeof getVisitorItemPhoto>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVisitorItemPhoto>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVisitorItemPhotoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListGateIncidentsUrl = () => {
+
+
+
+
+  return `/api/gate/incidents`
+}
+
+/**
+ * @summary SG-06: incidents escalated from the gate
+ */
+export const listGateIncidents = async ( options?: RequestInit): Promise<GateIncident[]> => {
+
+  return customFetch<GateIncident[]>(getListGateIncidentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGateIncidentsQueryKey = () => {
+    return [
+    `/api/gate/incidents`
+    ] as const;
+    }
+
+
+export const getListGateIncidentsQueryOptions = <TData = Awaited<ReturnType<typeof listGateIncidents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGateIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGateIncidentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGateIncidents>>> = ({ signal }) => listGateIncidents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGateIncidents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGateIncidentsQueryResult = NonNullable<Awaited<ReturnType<typeof listGateIncidents>>>
+export type ListGateIncidentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary SG-06: incidents escalated from the gate
+ */
+
+export function useListGateIncidents<TData = Awaited<ReturnType<typeof listGateIncidents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGateIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGateIncidentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getEscalateGateIncidentUrl = () => {
+
+
+
+
+  return `/api/gate/incidents`
+}
+
+/**
+ * @summary SG-06: escalate an incident with notes and a photo
+ */
+export const escalateGateIncident = async (gateIncidentUpload: GateIncidentUpload, options?: RequestInit): Promise<GateIncident> => {
+    const formData = new FormData();
+formData.append(`kind`, gateIncidentUpload.kind);
+if(gateIncidentUpload.gateLocationId !== undefined) {
+ formData.append(`gateLocationId`, gateIncidentUpload.gateLocationId);
+ }
+if(gateIncidentUpload.code !== undefined) {
+ formData.append(`code`, gateIncidentUpload.code);
+ }
+if(gateIncidentUpload.gatePassId !== undefined) {
+ formData.append(`gatePassId`, gateIncidentUpload.gatePassId);
+ }
+formData.append(`notes`, gateIncidentUpload.notes);
+if(gateIncidentUpload.photo !== undefined) {
+ formData.append(`photo`, gateIncidentUpload.photo);
+ }
+
+  return customFetch<GateIncident>(getEscalateGateIncidentUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getEscalateGateIncidentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof escalateGateIncident>>, TError,{data: BodyType<GateIncidentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof escalateGateIncident>>, TError,{data: BodyType<GateIncidentUpload>}, TContext> => {
+
+const mutationKey = ['escalateGateIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof escalateGateIncident>>, {data: BodyType<GateIncidentUpload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  escalateGateIncident(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EscalateGateIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof escalateGateIncident>>>
+    export type EscalateGateIncidentMutationBody = BodyType<GateIncidentUpload>
+    export type EscalateGateIncidentMutationError = ErrorType<void>
+
+    /**
+ * @summary SG-06: escalate an incident with notes and a photo
+ */
+export const useEscalateGateIncident = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof escalateGateIncident>>, TError,{data: BodyType<GateIncidentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof escalateGateIncident>>,
+        TError,
+        {data: BodyType<GateIncidentUpload>},
+        TContext
+      > => {
+      return useMutation(getEscalateGateIncidentMutationOptions(options));
+    }
+
+export const getGetGateIncidentPhotoUrl = (id: number,) => {
+
+
+
+
+  return `/api/gate/incidents/${id}/photo`
+}
+
+/**
+ * @summary The photo of an incident
+ */
+export const getGateIncidentPhoto = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetGateIncidentPhotoUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGateIncidentPhotoQueryKey = (id: number,) => {
+    return [
+    `/api/gate/incidents/${id}/photo`
+    ] as const;
+    }
+
+
+export const getGetGateIncidentPhotoQueryOptions = <TData = Awaited<ReturnType<typeof getGateIncidentPhoto>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGateIncidentPhoto>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGateIncidentPhotoQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGateIncidentPhoto>>> = ({ signal }) => getGateIncidentPhoto(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGateIncidentPhoto>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGateIncidentPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof getGateIncidentPhoto>>>
+export type GetGateIncidentPhotoQueryError = ErrorType<void>
+
+
+/**
+ * @summary The photo of an incident
+ */
+
+export function useGetGateIncidentPhoto<TData = Awaited<ReturnType<typeof getGateIncidentPhoto>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGateIncidentPhoto>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGateIncidentPhotoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

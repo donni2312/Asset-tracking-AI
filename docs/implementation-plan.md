@@ -784,3 +784,31 @@ Demo: **tsas.finance** → CAPEX budget → add a Computers budget for this year
 attach a valuation report → Revaluations → record an impairment. **tsas.hr** → People → an employee → exit clearance →
 mark an item missing → choose the recovery outcome.
 
+
+### 13.2 Slice 5b: gate and security
+
+| Story | Built | Tests (`GateSecurityTests`) |
+|---|---|---|
+| GI-07 lost / stolen | (Status with date, reporter and incident notes, and exclusion from active counts were done in Phase 3.) Security checklist on the asset card: remote wipe and accounts disabled (IT devices; Group IT / SBU IT), police report with its case number (every item; the Admin Manager for non-IT); each action in the history and audit trail | `GI_07_…` |
+| SG-04 shift view | `GET /gate/shift`: approved passes still to go out today and every overdue item, with the holder and their phone (tap to call) | `SG_04_…` |
+| SG-05 visitor equipment | Log on entry: owner, company, item, serial, photo; the gate scan of its serial is green ("visitor's own equipment") and it is checked out without a gate pass | `SG_05_…` |
+| SG-06 incidents | One-tap escalation from the gate screen (forged pass, unknown tag, refused search, other) with notes and photo; the SBU Admin Manager (as security supervisor) and the asset owner SBU's IT and Admin Manager are told; stored against the asset | `SG_06_…` |
+| LM-04 HOD alerts | Daily from 07:00: an in-app alert per new problem in the HOD's department (overdue gate return, lost / stolen, faulty), each linked to the asset, and one digest email | `LM_04_…` |
+
+Migration `0013_gate_security` adds `security_actions`, `visitor_items`, `gate_incidents` and `users.last_digest_on`.
+Screens: the Gate page gains *This shift*, *Visitor equipment* and *Escalate an incident* (phone camera for photos);
+the asset card of a lost item shows the security checklist.
+
+Assumptions: **S1** there is no Security Supervisor role: the SBU Admin Manager receives gate escalations (Q-S1);
+**S2** the phone shown is the custodian's, else that of the employee whose name matches the requester; **S3** "faulty"
+= condition poor or damaged and not with repairs; **S4** the HOD digest goes once a day from 07:00 local time, and each
+problem is alerted in-app once.
+
+Questions: **Q-S1** should there be a Security Supervisor role (per SBU) to receive gate escalations instead of the Admin
+Manager?
+
+Demo: **tsas.gate** → Gate: *This shift* lists GP passes due out and overdue items with phones; *Visitor equipment*
+shows Peter Banda's laptop — scan `PF3XK21Q` (green) → Check out; *Escalate an incident* → choose a kind, take a photo,
+notes → Escalate (the SBU's Admin Manager and **tsas.it**, as the asset's SBU IT, get the notification; the seed has no TSAS Admin Manager sign-in). **tsas.it** → mark a laptop lost
+→ its card shows the checklist → Remote wipe → Mark done. **tsas.hod** → the bell shows the department alerts the next
+morning.

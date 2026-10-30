@@ -31,6 +31,13 @@ public sealed class NotificationService(AssetIqDbContext db, AppClock clock, IEm
         }
     }
 
+    /// <summary>In-app only (LM-04 alerts, whose email goes out once as the daily digest).</summary>
+    public void InAppOnly(UserAccount user, string kind, string title, string body, string? link) =>
+        db.Notifications.Add(new Notification { UserId = user.Id, Kind = kind, Title = title, Body = body, Link = link, CreatedAt = clock.UtcNow });
+
+    /// <summary>One email to an account (the LM-04 daily digest).</summary>
+    public void EmailTo(UserAccount user, string subject, string body) => email.Queue(db, user.Id, EmailOf(user), subject, body, clock.UtcNow);
+
     /// <summary>An email only, for someone without an account (an employee acknowledging an item, HR-03).</summary>
     public void EmailOnly(string? address, string subject, string body) => email.Queue(db, null, address, subject, body, clock.UtcNow);
 
